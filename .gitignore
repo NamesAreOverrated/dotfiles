@@ -1,0 +1,6 @@
+# Exclude lock files and caches
+nvim/nvim-pack-lock.json
+*.swp
+*.swo
+*~
+.DS_Store

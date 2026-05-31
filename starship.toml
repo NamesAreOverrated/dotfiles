@@ -1,0 +1,124 @@
+format = """
+[](#9A348E)\
+$os\
+$username\
+[](bg:#DA627D fg:#9A348E)\
+$directory\
+[](fg:#DA627D bg:#FCA17D)\
+$git_branch\
+$git_status\
+[](fg:#FCA17D bg:#86BBD8)\
+$c\
+$rust\
+$python\
+$nodejs\
+$golang\
+[](fg:#86BBD8 bg:#33658A)\
+$docker_context\
+[](fg:#33658A bg:#2F4858)\
+$time\
+[ ](fg:#2F4858)\
+$cmd_duration\
+$line_break\
+$character"""
+
+[os]
+disabled = false
+style = "bg:#9A348E fg:#FFFFFF"
+
+[os.symbols]
+Windows = " "
+Arch = " "
+AlmaLinux = " "
+Amazon = " "
+Android = " "
+CentOS = " "
+Debian = " "
+Fedora = " "
+Gentoo = " "
+Linux = " "
+Macos = " "
+NixOS = " "
+openSUSE = " "
+Pop = " "
+Redhat = " "
+RedHatEnterprise = " "
+Solus = "ﴱ "
+SUSE = " "
+Ubuntu = " "
+Raspbian = " "
+
+[username]
+show_always = true
+style_user = "bg:#9A348E fg:#FFFFFF"
+style_root = "bg:#9A348E fg:#FFFFFF"
+format = "[ $user ]($style)"
+
+[directory]
+style = "bg:#DA627D fg:#FFFFFF"
+format = "[ $path ]($style)"
+truncation_length = 3
+truncation_symbol = "…"
+
+[git_branch]
+symbol = " "
+style = "bg:#FCA17D fg:#000000"
+format = "[ $symbol$branch ]($style)"
+
+[git_status]
+style = "bg:#FCA17D fg:#000000"
+format = "[$all_status$ahead_behind ]($style)"
+conflicted = "🏳"
+up_to_date = ""
+untracked = "?"
+stashed = "📦"
+modified = "!"
+staged = "+"
+renamed = "»"
+deleted = "✘"
+
+[c]
+symbol = " "
+style = "bg:#86BBD8 fg:#000000"
+format = "[ $symbol($version) ]($style)"
+
+[rust]
+symbol = " "
+style = "bg:#86BBD8 fg:#000000"
+format = "[ $symbol($version) ]($style)"
+
+[python]
+symbol = " "
+style = "bg:#86BBD8 fg:#000000"
+format = "[ $symbol($version) ]($style)"
+
+[nodejs]
+symbol = " "
+style = "bg:#86BBD8 fg:#000000"
+format = "[ $symbol($version) ]($style)"
+
+[golang]
+symbol = " "
+style = "bg:#86BBD8 fg:#000000"
+format = "[ $symbol($version) ]($style)"
+
+[docker_context]
+symbol = " "
+style = "bg:#33658A fg:#FFFFFF"
+format = "[ $symbol$context ]($style)"
+
+[time]
+disabled = false
+time_format = "%R"
+style = "bg:#2F4858 fg:#FFFFFF"
+format = "[  $time ]($style)"
+
+[cmd_duration]
+disabled = false
+style = "fg:#CBD2D0 bg:#2F4858"
+format = "[ ⏱ $duration ]($style)"
+
+[character]
+success_symbol = "[❯](purple)"
+error_symbol = "[❯](red)"
+vimcmd_symbol = "[❮](green)"
