@@ -15,7 +15,7 @@ $nodejs\
 $golang\
 [](fg:#86BBD8 bg:#33658A)\
 $docker_context\
-$hostname\
+$custom.ip\
 [](fg:#33658A bg:#2F4858)\
 $time\
 [ ](fg:#2F4858)\
@@ -108,10 +108,11 @@ symbol = " "
 style = "bg:#33658A fg:#FFFFFF"
 format = "[ $symbol$context ]($style)"
 
-[hostname]
-ssh_only = true
+[custom.ip]
+command = "hostname -I | awk '{print $1}'"
+when = """ test -n "$SSH_CLIENT" """
 style = "bg:#33658A fg:#FFFFFF"
-format = "[ 󰒋 $hostname ]($style)"
+format = "[ 󰒋 $output ]($style)"
 
 [time]
 disabled = false
