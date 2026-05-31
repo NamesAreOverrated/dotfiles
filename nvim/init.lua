@@ -238,14 +238,18 @@ do
   vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
 
   -- Open TermFileBrowser (JSON output mode)
-  local function open_termfilebrowser(open_cmd, use_split)
+  local function open_termfilebrowser(open_cmd, use_split, dir)
     local outfile = vim.fn.tempname() .. '.tfb.json'
     local win
     if use_split then
       local buf = vim.api.nvim_create_buf(false, true)
       win = vim.api.nvim_open_win(buf, true, { split = 'right', width = 40 })
     end
-    vim.fn.termopen('termfilebrowser --output-file ' .. outfile, {
+    local cmd = 'termfilebrowser --output-file ' .. outfile
+    if dir then
+      cmd = cmd .. ' ' .. vim.fn.shellescape(dir)
+    end
+    vim.fn.termopen(cmd, {
       on_exit = function()
         local f = io.open(outfile, 'r')
         if f then
@@ -256,7 +260,12 @@ do
           if ok and result.action == 'open' then
             vim.schedule(function()
               if win then vim.api.nvim_win_close(win, true) end
-              vim.cmd[open_cmd]({ args = { result.file } })
+              local buf = vim.fn.bufadd(result.file)
+              vim.fn.bufload(buf)
+              if open_cmd == 'vsplit' then
+                vim.cmd('vsplit')
+              end
+              vim.api.nvim_set_current_buf(buf)
             end)
           end
         end
@@ -275,8 +284,14 @@ do
     end,
   })
 
-  vim.keymap.set('n', '<leader>e', function() open_termfilebrowser('edit', true) end, { desc = '[E]xplore with TermFileBrowser' })
-  vim.keymap.set('n', '<leader>E', function() open_termfilebrowser('vsplit') end, { desc = '[E]xplore in split with TermFileBrowser' })
+  local function current_file_dir()
+    local dir = vim.fn.expand('%:p:h')
+    if dir == '' then return vim.fn.getcwd() end
+    return dir
+  end
+
+  vim.keymap.set('n', '<leader>e', function() open_termfilebrowser('edit', true, current_file_dir()) end, { desc = '[E]xplore with TermFileBrowser' })
+  vim.keymap.set('n', '<leader>E', function() open_termfilebrowser('vsplit', false, current_file_dir()) end, { desc = '[E]xplore in split with TermFileBrowser' })
 
   vim.keymap.set('n', '<leader>tt', function()
     vim.cmd('split | terminal')
