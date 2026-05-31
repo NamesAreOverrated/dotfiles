@@ -159,7 +159,7 @@ style = "bg:lavender fg:crust"
 format = '[ 󰒋 $hostname ]($style)'
 
 [line_break]
-disabled = true
+disabled = false
 
 [character]
 disabled = false
