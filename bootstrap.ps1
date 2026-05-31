@@ -18,6 +18,6 @@ Remove-Item -Force "$HOME\.config\kanata\kanata.kbd" -ErrorAction SilentlyContin
 New-Item -ItemType HardLink -Path "$HOME\.config\kanata\kanata.kbd" -Target "$DOTFILES\kanata\kanata.kbd"
 
 Write-Host "Creating kanata scheduled task..."
-schtasks /create /tn "Kanata" /tr "kanata_windows_winIOv2_gui_x64.exe --cfg `"%USERPROFILE%\.config\kanata\kanata.kbd`"" /sc onlogon /delay 0000:30 /rl highest /f
+schtasks /create /tn "Kanata" /tr "kanata_windows_gui_winIOv2_x64.exe --cfg `"%USERPROFILE%\.config\kanata\kanata.kbd`"" /sc onlogon /delay 0000:30 /rl highest /f
 
 Write-Host "Done! Open Neovim to install plugins."
