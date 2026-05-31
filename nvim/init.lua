@@ -274,11 +274,43 @@ do
     vim.cmd('startinsert')
   end
 
-  -- Open TermFileBrowser when Neovim starts with a directory (takes over current buffer)
+  -- Session management (built-in :mksession)
+
+  local function session_dir()
+    local ok, result = pcall(vim.fn.system, 'git rev-parse --show-toplevel 2>/dev/null')
+    if ok and vim.v.shell_error == 0 then
+      return vim.trim(result) .. '/.nvim'
+    end
+    return vim.fn.getcwd() .. '/.nvim'
+  end
+
+  local function save_session()
+    local dir = session_dir()
+    if vim.fn.isdirectory(dir) ~= 1 then return end
+    local tmp = dir .. '/session.vim.tmp'
+    local target = dir .. '/session.vim'
+    pcall(vim.cmd, 'mksession! ' .. tmp)
+    if vim.fn.filereadable(tmp) == 1 then
+      os.remove(target)
+      os.rename(tmp, target)
+    end
+  end
+
+  vim.api.nvim_create_autocmd('VimLeavePre', {
+    callback = function() save_session() end,
+  })
+
+  vim.api.nvim_create_autocmd('FocusLost', {
+    callback = function() save_session() end,
+  })
+
   vim.api.nvim_create_autocmd('VimEnter', {
     once = true,
     callback = function()
-      if vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
+      local sf = session_dir() .. '/session.vim'
+      if vim.fn.filereadable(sf) == 1 then
+        vim.cmd('source ' .. sf)
+      elseif vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
         vim.schedule(function() open_termfilebrowser('edit', false) end)
       end
     end,
@@ -292,6 +324,18 @@ do
 
   vim.keymap.set('n', '<leader>e', function() open_termfilebrowser('edit', true, current_file_dir()) end, { desc = '[E]xplore with TermFileBrowser' })
   vim.keymap.set('n', '<leader>E', function() open_termfilebrowser('vsplit', false, current_file_dir()) end, { desc = '[E]xplore in split with TermFileBrowser' })
+
+  vim.keymap.set('n', '<leader>ts', function()
+    local dir = session_dir()
+    if vim.fn.isdirectory(dir) == 1 then
+      vim.fn.delete(dir, 'rf')
+      print('Session: OFF')
+    else
+      vim.fn.mkdir(dir, 'p')
+      save_session()
+      print('Session: ON')
+    end
+  end, { desc = '[T]oggle [S]ession' })
 
   vim.keymap.set('n', '<leader>tt', function()
     vim.cmd('split | terminal')
