@@ -276,8 +276,6 @@ do
 
   -- Session management (built-in :mksession)
 
-  vim.opt.sessionoptions = 'buffers,winsize,tabpages'
-
   local function session_dir()
     local ok, result = pcall(vim.fn.system, 'git rev-parse --show-toplevel 2>/dev/null')
     if ok and vim.v.shell_error == 0 then
@@ -311,7 +309,7 @@ do
     callback = function()
       local sf = session_dir() .. '/session.vim'
       if vim.fn.filereadable(sf) == 1 then
-        vim.cmd('source ' .. sf)
+        vim.schedule(function() vim.cmd('source ' .. sf) end)
       elseif vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
         vim.schedule(function() open_termfilebrowser('edit', false) end)
       end
