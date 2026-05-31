@@ -276,6 +276,8 @@ do
 
   -- Session management (built-in :mksession)
 
+  vim.opt.sessionoptions = 'buffers,winsize,tabpages'
+
   local function session_dir()
     local ok, result = pcall(vim.fn.system, 'git rev-parse --show-toplevel 2>/dev/null')
     if ok and vim.v.shell_error == 0 then
