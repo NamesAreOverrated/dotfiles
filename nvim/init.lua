@@ -256,7 +256,7 @@ do
           if ok and result.action == 'open' then
             vim.schedule(function()
               if win then vim.api.nvim_win_close(win, true) end
-              vim.cmd(open_cmd .. ' ' .. vim.fn.fnameescape(result.file))
+              vim.cmd[open_cmd]({ args = { result.file } })
             end)
           end
         end
