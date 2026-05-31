@@ -22,7 +22,7 @@ if ($kanata) {
   Write-Host "Creating kanata scheduled task..."
   schtasks /create /tn "Kanata" /tr "`"$($kanata.Source)`" --cfg `"%USERPROFILE%\.config\kanata\kanata.kbd`"" /sc onlogon /delay 0000:30 /rl highest /f
 } else {
-  Write-Host "kanata not found in PATH — skipping"
+  Write-Host "kanata not in PATH — no setup done for it"
 }
 
 Write-Host "Done! Open Neovim to install plugins."
