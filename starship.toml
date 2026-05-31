@@ -21,10 +21,11 @@ $kotlin\
 $haskell\
 $python\
 [](fg:green bg:sapphire)\
+$docker_context\
+$hostname\
 $conda\
 [](fg:sapphire bg:lavender)\
 $time\
-$hostname\
 [ ](fg:lavender)\
 $cmd_duration\
 $line_break\
@@ -155,7 +156,7 @@ format = '[[  $time ](fg:crust bg:lavender)]($style)'
 
 [hostname]
 ssh_only = true
-style = "bg:lavender fg:crust"
+style = "bg:sapphire fg:crust"
 format = '[ 󰒋 $hostname ]($style)'
 
 [line_break]
