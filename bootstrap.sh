@@ -3,9 +3,10 @@
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
+KANATA_VERSION="1.11.0"
 
 missing=()
-for cmd in starship nvim kanata rofi foot pactl sway swaylock waybar swayidle; do
+for cmd in starship nvim rofi foot pactl curl sway swaylock waybar swayidle; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -69,7 +70,27 @@ if [ -f "$DOTFILES/fonts/IosevkaCustom.zip" ]; then
     echo "  Font installed"
 fi
 
+KANATA_BIN=""
 if has kanata; then
+    KANATA_BIN="$(command -v kanata)"
+elif [ -x "$HOME/.local/bin/kanata" ]; then
+    KANATA_BIN="$HOME/.local/bin/kanata"
+elif has curl && has unzip; then
+    echo "  Downloading kanata v$KANATA_VERSION ..."
+    TMP="$(mktemp -d)"
+    curl -fsSL "https://github.com/jtroo/kanata/releases/download/v${KANATA_VERSION}/linux-binaries-x64.zip" -o "$TMP/kanata.zip"
+    unzip -j "$TMP/kanata.zip" "kanata_linux_x64" -d "$TMP" >/dev/null
+    mkdir -p "$HOME/.local/bin"
+    mv "$TMP/kanata_linux_x64" "$HOME/.local/bin/kanata"
+    chmod +x "$HOME/.local/bin/kanata"
+    rm -rf "$TMP"
+    KANATA_BIN="$HOME/.local/bin/kanata"
+    echo "  Downloaded kanata v$KANATA_VERSION"
+else
+    echo "  Skipping kanata — not found and cannot download"
+fi
+
+if [ -n "$KANATA_BIN" ]; then
     echo "Linking kanata config..."
     link "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
 

@@ -2,8 +2,9 @@
 # Run as Administrator
 
 $DOTFILES = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$KANATA_VERSION = "1.11.0"
 
-$tools = @('starship', 'nvim', 'kanata_windows_gui_winIOv2_x64.exe')
+$tools = @('starship', 'nvim')
 $missing = @()
 foreach ($cmd in $tools) {
     if (!(Get-Command $cmd -ErrorAction SilentlyContinue)) {
@@ -44,13 +45,37 @@ if (Get-Command nvim -ErrorAction SilentlyContinue) {
     }
 }
 
-$kanata = Get-Command kanata_windows_gui_winIOv2_x64.exe -ErrorAction SilentlyContinue
-if ($kanata) {
-  Write-Host "Linking kanata config..."
-  Link-Hard -Src "$DOTFILES\kanata\kanata.kbd" -Dst "$HOME\.config\kanata\kanata.kbd"
+$kanataExe = "kanata_windows_gui_winIOv2_x64.exe"
+$kanataBin = Get-Command $kanataExe -ErrorAction SilentlyContinue
 
-  Write-Host "Creating kanata scheduled task..."
-  schtasks /create /tn "Kanata" /tr "`"$($kanata.Source)`" --cfg `"%USERPROFILE%\.config\kanata\kanata.kbd`"" /sc onlogon /delay 0000:30 /rl highest /f
+if (-not $kanataBin) {
+    $localBin = "$HOME\.local\bin"
+    $localKanata = "$localBin\$kanataExe"
+    if (Test-Path $localKanata) {
+        $kanataBin = Get-Command $localKanata
+    } else {
+        $url = "https://github.com/jtroo/kanata/releases/download/v$KANATA_VERSION/windows-binaries-x64.zip"
+        $zipPath = "$env:TEMP\kanata.zip"
+        $extractPath = "$env:TEMP\kanata_extract"
+        Write-Host "  Downloading kanata v$KANATA_VERSION ..."
+        Invoke-WebRequest -Uri $url -OutFile $zipPath
+        Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+        $null = New-Item -Force -ItemType Directory -Path $localBin
+        Copy-Item "$extractPath\$kanataExe" $localKanata -Force
+        Remove-Item -Recurse -Force $extractPath
+        Remove-Item $zipPath -Force
+        $kanataBin = Get-Command $localKanata
+        Write-Host "  Downloaded kanata v$KANATA_VERSION"
+    }
+}
+
+if ($kanataBin) {
+    Write-Host "Linking kanata config..."
+    Link-Hard -Src "$DOTFILES\kanata\kanata.kbd" -Dst "$HOME\.config\kanata\kanata.kbd"
+
+    Write-Host "Creating kanata scheduled task..."
+    schtasks /create /tn "Kanata" /tr "`"$($kanataBin.Source)`" --cfg `"%USERPROFILE%\.config\kanata\kanata.kbd`"" /sc onlogon /delay 0000:30 /rl highest /f
 }
 
 $fontZip = "$DOTFILES\fonts\IosevkaCustom.zip"
