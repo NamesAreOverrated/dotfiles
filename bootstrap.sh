@@ -69,21 +69,23 @@ if has rofi; then
     link "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
 fi
 
-echo "Installing openwith script and config..."
-link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
-link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+if has rofi; then
+    echo "Installing openwith script and config..."
+    link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
+    link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
 
-echo "Installing openwith desktop entry..."
-link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
+    echo "Installing openwith desktop entry..."
+    link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
 
-echo "Registering openwith as default for all MIME types..."
-count=0
-while IFS='' read -r mime; do
-    current=$(xdg-mime query default "$mime" 2>/dev/null || true)
-    if [[ "$current" != "openwith.desktop" ]]; then
-        xdg-mime default openwith.desktop "$mime" && ((count++))
-    fi
-done < <(grep "^MimeType=" "$DOTFILES/local/share/applications/openwith.desktop" | cut -d= -f2- | tr ';' '\n' | grep -v '^$')
-echo "  Registered $count MIME types (skipped already-set)"
+    echo "Registering openwith as default for all MIME types..."
+    count=0
+    while IFS='' read -r mime; do
+        current=$(xdg-mime query default "$mime" 2>/dev/null || true)
+        if [[ "$current" != "openwith.desktop" ]]; then
+            xdg-mime default openwith.desktop "$mime" && ((count++))
+        fi
+    done < <(grep "^MimeType=" "$DOTFILES/local/share/applications/openwith.desktop" | cut -d= -f2- | tr ';' '\n' | grep -v '^$')
+    echo "  Registered $count MIME types (skipped already-set)"
+fi
 
 echo "Done! Open Neovim to install plugins."
