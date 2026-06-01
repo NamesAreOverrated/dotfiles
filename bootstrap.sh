@@ -4,11 +4,25 @@ set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
+missing=()
+for cmd in starship nvim kanata rofi foot; do
+    command -v "$cmd" &>/dev/null || missing+=("$cmd")
+done
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Not found: ${missing[*]}"
+    echo "Configs for missing tools will be skipped."
+    read -rp "Continue? [y/N] " ans
+    [[ "$ans" =~ ^[yY] ]] || exit 1
+fi
+
+has() { command -v "$1" &>/dev/null; }
+
 link() {
     local src="$1" dst="$2"
     [[ ! -e "$src" ]] && { echo "  Skipping (src missing): $src"; return; }
     if [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
-        echo "  OK: $dst"
+        echo "  OK"
         return
     fi
     rm -rf "$dst"
@@ -17,37 +31,43 @@ link() {
     echo "  Linked: $dst → $src"
 }
 
-echo "Linking starship.toml..."
-link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
+if has starship; then
+    echo "Linking starship.toml..."
+    link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
+fi
 
-echo "Linking nvim config..."
-link "$DOTFILES/nvim" "$HOME/.config/nvim"
+if has nvim; then
+    echo "Linking nvim config..."
+    link "$DOTFILES/nvim" "$HOME/.config/nvim"
+fi
 
-if [ -d "$DOTFILES/foot" ]; then
+if has foot && [ -d "$DOTFILES/foot" ]; then
     echo "Linking foot config..."
     link "$DOTFILES/foot/foot.ini" "$HOME/.config/foot/foot.ini"
 fi
 
-echo "Linking kanata config..."
-link "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
+if has kanata; then
+    echo "Linking kanata config..."
+    link "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
 
-if command -v systemctl &>/dev/null; then
-    echo "Linking kanata systemd service..."
-    link "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
-    systemctl --user daemon-reload
-    if ! systemctl --user is-enabled kanata.service &>/dev/null; then
-        systemctl --user enable --now kanata.service
-        echo "  kanata service enabled and started"
-    else
-        echo "  kanata service already enabled"
+    if has systemctl; then
+        echo "Linking kanata systemd service..."
+        link "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
+        systemctl --user daemon-reload
+        if ! systemctl --user is-enabled kanata.service &>/dev/null; then
+            systemctl --user enable --now kanata.service
+            echo "  kanata service enabled and started"
+        else
+            echo "  kanata service already enabled"
+        fi
     fi
-else
-    echo "systemd not detected — skipping kanata service installation"
 fi
 
-echo "Linking rofi config..."
-link "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
-link "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
+if has rofi; then
+    echo "Linking rofi config..."
+    link "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
+    link "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
+fi
 
 echo "Installing openwith script and config..."
 link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
