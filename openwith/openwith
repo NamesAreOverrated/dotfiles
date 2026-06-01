@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+file="$1"
+[[ -z "$file" || ! -e "$file" ]] && { echo "Usage: openwith <file>"; exit 1; }
+
+file="$(realpath "$file")"
+dir="$(dirname "$file")"
+ext="${file##*.}"
+
+declare -a names=() desktop_files=() icons=()
+
+find_desktop() {
+    local base="$1"
+    for d in /usr/share/applications "$HOME/.local/share/applications"; do
+        local f="$d/$base.desktop"
+        [[ -f "$f" ]] && { echo "$f"; return; }
+    done
+}
+
+add_apps() {
+    local base="$1"
+    local f name icon
+    f=$(find_desktop "$base")
+    [[ -z "$f" ]] && return
+    name=$(grep "^Name=" "$f" | head -1 | cut -d= -f2-)
+    [[ -z "$name" ]] && return
+    icon=$(grep "^Icon=" "$f" | head -1 | cut -d= -f2-)
+    names+=("$name")
+    desktop_files+=("$f")
+    icons+=("${icon:-}")
+}
+
+read_config() {
+    local config="$HOME/.config/openwith/config"
+    [[ ! -f "$config" ]] && return
+    while IFS='=' read -r key val; do
+        key="${key##*#}"
+        key="${key%%#*}"
+        key="$(echo "$key" | xargs)"
+        [[ -z "$key" ]] && continue
+        [[ "$key" == "$ext" ]] || continue
+        IFS=',' read -ra apps <<< "$val"
+        for app in "${apps[@]}"; do
+            app="$(echo "$app" | xargs)"
+            [[ -n "$app" ]] && add_apps "$app"
+        done
+        return
+    done < "$config"
+}
+
+read_config
+
+names+=("Open terminal here" "Open in Neovim")
+desktop_files+=("__builtin_term__" "__builtin_nvim__")
+icons+=("utilities-terminal" "nvim")
+
+build_input() {
+    local i
+    for i in "${!names[@]}"; do
+        if [[ -n "${icons[$i]-}" ]]; then
+            printf '%s\0icon\x1f%s\n' "${names[$i]}" "${icons[$i]}"
+        else
+            printf '%s\n' "${names[$i]}"
+        fi
+    done
+}
+
+selected=$(build_input | rofi -dmenu -show-icons -p "Open: $(basename "$file")" -i -format i)
+[[ -z "$selected" ]] && exit 0
+
+desktop="${desktop_files[$selected]}"
+
+case "$desktop" in
+    __builtin_nvim__)
+        foot -e nvim "$file" ;;
+    __builtin_term__)
+        foot --working-directory "$dir" ;;
+    *)
+        exec_cmd=$(grep "^Exec=" "$desktop" | head -1 | cut -d= -f2-)
+        file_q="$(printf '%q' "$file")"
+        dir_q="$(printf '%q' "$dir")"
+        exec_cmd="${exec_cmd//%f/$file_q}"
+        exec_cmd="${exec_cmd//%F/$file_q}"
+        exec_cmd="${exec_cmd//%u/$file_q}"
+        exec_cmd="${exec_cmd//%U/$file_q}"
+        exec_cmd="$(printf '%s' "$exec_cmd" | sed 's/%[kKdDnNvm]//g')"
+        if grep -q "^Terminal=true" "$desktop" 2>/dev/null; then
+            foot -e bash -c "cd $dir_q && exec $exec_cmd"
+        else
+            bash -c "cd $dir_q && nohup $exec_cmd >/dev/null 2>&1 &"
+        fi
+        ;;
+esac

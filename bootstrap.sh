@@ -32,4 +32,24 @@ else
   echo "systemd not detected — skipping kanata service installation"
 fi
 
+echo "Linking rofi config..."
+mkdir -p "$HOME/.config/rofi/themes"
+ln -sf "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
+ln -sf "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
+
+echo "Installing openwith script and config..."
+mkdir -p "$HOME/.local/bin"
+ln -sf "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
+mkdir -p "$HOME/.config/openwith"
+ln -sf "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+
+echo "Installing openwith desktop entry..."
+mkdir -p "$HOME/.local/share/applications"
+ln -sf "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
+
+echo "Registering openwith as default for all MIME types..."
+while IFS='' read -r mime; do
+    xdg-mime default openwith.desktop "$mime"
+done < <(grep "^MimeType=" "$DOTFILES/local/share/applications/openwith.desktop" | cut -d= -f2- | tr ';' '\n' | grep -v '^$')
+
 echo "Done! Open Neovim to install plugins."

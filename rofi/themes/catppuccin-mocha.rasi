@@ -1,0 +1,80 @@
+* {
+    bg: #1e1e2e;
+    bg-alt: #181825;
+    fg: #cdd6f4;
+    fg-alt: #a6adc8;
+    accent: #89b4fa;
+    urgent: #f38ba8;
+    border: #45475a;
+
+    font: "JetBrainsMono Nerd Font 11";
+    background-color: transparent;
+    text-color: @fg;
+    border-color: @border;
+    spacing: 4;
+}
+
+window {
+    background-color: @bg;
+    border: 2px;
+    border-color: @border;
+    border-radius: 8;
+    padding: 12;
+    width: 600;
+}
+
+mainbox {
+    background-color: transparent;
+    children: [inputbar, listview];
+}
+
+inputbar {
+    background-color: @bg-alt;
+    border-radius: 6;
+    padding: 8;
+    spacing: 8;
+    children: [prompt, entry];
+}
+
+prompt {
+    text-color: @accent;
+    font: "JetBrainsMono Nerd Font 11";
+}
+
+entry {
+    text-color: @fg;
+    font: "JetBrainsMono Nerd Font 11";
+    placeholder: "Search...";
+    placeholder-color: @fg-alt;
+}
+
+listview {
+    background-color: transparent;
+    padding: 4 0 0 0;
+    lines: 8;
+    spacing: 2;
+}
+
+element {
+    background-color: transparent;
+    padding: 8 12;
+    border-radius: 4;
+    text-color: @fg;
+}
+
+element selected {
+    background-color: @accent;
+    text-color: @bg;
+}
+
+element urgent {
+    background-color: @urgent;
+    text-color: @bg;
+}
+
+scrollbar {
+    background-color: @bg-alt;
+    handle-color: @accent;
+    border-radius: 4;
+    width: 4;
+}
