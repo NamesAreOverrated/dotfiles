@@ -26,7 +26,7 @@
     mantle: #181825;
     crust: #11111b;
 
-    font: "JetBrainsMono Nerd Font 11";
+    font: "Iosevka Custom 11";
     background-color: transparent;
     text-color: @text;
 }
@@ -60,12 +60,12 @@ inputbar {
 
 prompt {
     text-color: @blue;
-    font: "JetBrainsMono Nerd Font 11";
+    font: "Iosevka Custom 11";
 }
 
 entry {
     text-color: @text;
-    font: "JetBrainsMono Nerd Font 11";
+    font: "Iosevka Custom 11";
     placeholder: "Search...";
     placeholder-color: @overlay0;
     cursor-color: @blue;
@@ -74,7 +74,7 @@ entry {
 
 case-indicator {
     text-color: @surface2;
-    font: "JetBrainsMono Nerd Font 10";
+    font: "Iosevka Custom 10";
 }
 
 listview {

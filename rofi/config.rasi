@@ -1,6 +1,6 @@
 configuration {
     modes: "drun";
-    font: "JetBrainsMono Nerd Font 11";
+    font: "Iosevka Custom 11";
     show-icons: true;
     terminal: "foot";
     drun-display-format: "{name}";

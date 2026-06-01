@@ -8,6 +8,9 @@ missing=()
 for cmd in starship nvim kanata rofi foot; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
+if ! command -v unzip &>/dev/null; then
+    missing+=("unzip")
+fi
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Not found: ${missing[*]}"
@@ -44,6 +47,16 @@ fi
 if has foot && [ -d "$DOTFILES/foot" ]; then
     echo "Linking foot config..."
     link "$DOTFILES/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+fi
+
+if [ -f "$DOTFILES/fonts/IosevkaCustom.zip" ]; then
+    echo "Installing Iosevka Custom font..."
+    FONT_DIR="$HOME/.local/share/fonts/iosevka-custom"
+    mkdir -p "$FONT_DIR"
+    unzip -jo "$DOTFILES/fonts/IosevkaCustom.zip" -d "$FONT_DIR"
+    cp "$DOTFILES/fonts/LICENSE.md" "$FONT_DIR/"
+    fc-cache -fv "$FONT_DIR" &>/dev/null
+    echo "  Font installed"
 fi
 
 if has kanata; then
