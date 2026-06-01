@@ -5,7 +5,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 missing=()
-for cmd in starship nvim kanata rofi foot; do
+for cmd in starship nvim kanata rofi foot pactl wpctl; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -86,6 +86,10 @@ if has rofi; then
     echo "Installing openwith script and config..."
     link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
     link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+
+    if has pactl && has wpctl; then
+        link "$DOTFILES/openwith/volmixer" "$HOME/.local/bin/volmixer"
+    fi
 
     echo "Installing openwith desktop entry..."
     link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
