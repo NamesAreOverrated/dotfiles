@@ -103,6 +103,7 @@ if [ -d "$DOTFILES/wallpapers" ]; then
         ln -sf "$DOTFILES/wallpapers" "$HOME/Pictures/wallpapers"
         echo "  Copied and symlinked"
     else
+        mkdir -p "$HOME/Pictures"
         ln -sf "$DOTFILES/wallpapers" "$HOME/Pictures/wallpapers"
         echo "  Linked: ~/Pictures/wallpapers → dotfiles/wallpapers"
     fi
