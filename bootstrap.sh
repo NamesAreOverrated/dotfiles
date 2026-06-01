@@ -4,52 +4,77 @@ set -euo pipefail
 
 DOTFILES="$HOME/.dotfiles"
 
+# If running from the repo directly, create the ~/.dotfiles symlink
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$SCRIPT_DIR" != "$DOTFILES" ]]; then
+    [[ -L "$DOTFILES" && "$(readlink "$DOTFILES")" == "$SCRIPT_DIR" ]] || {
+        echo "Setting up $DOTFILES → $SCRIPT_DIR"
+        ln -sf "$SCRIPT_DIR" "$DOTFILES"
+    }
+fi
+
+[[ -d "$DOTFILES" ]] || { echo "Error: $DOTFILES not found"; exit 1; }
+
+link() {
+    local src="$1" dst="$2"
+    [[ ! -e "$src" ]] && { echo "  Skipping (src missing): $src"; return; }
+    if [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
+        echo "  OK: $dst"
+        return
+    fi
+    rm -rf "$dst"
+    mkdir -p "$(dirname "$dst")"
+    ln -sf "$src" "$dst"
+    echo "  Linked: $dst → $src"
+}
+
 echo "Linking starship.toml..."
-mkdir -p "$HOME/.config"
-ln -sf "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
+link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
 
 echo "Linking nvim config..."
-rm -rf "$HOME/.config/nvim"
-ln -sf "$DOTFILES/nvim" "$HOME/.config/nvim"
+link "$DOTFILES/nvim" "$HOME/.config/nvim"
 
 if [ -d "$DOTFILES/foot" ]; then
-  echo "Linking foot config..."
-  mkdir -p "$HOME/.config/foot"
-  ln -sf "$DOTFILES/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+    echo "Linking foot config..."
+    link "$DOTFILES/foot/foot.ini" "$HOME/.config/foot/foot.ini"
 fi
 
 echo "Linking kanata config..."
-mkdir -p "$HOME/.config/kanata"
-ln -sf "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
+link "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
 
 if command -v systemctl &>/dev/null; then
-  echo "Linking kanata systemd service..."
-  mkdir -p "$HOME/.config/systemd/user"
-  ln -sf "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
-  systemctl --user daemon-reload
-  systemctl --user enable --now kanata.service
+    echo "Linking kanata systemd service..."
+    link "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
+    systemctl --user daemon-reload
+    if ! systemctl --user is-enabled kanata.service &>/dev/null; then
+        systemctl --user enable --now kanata.service
+        echo "  kanata service enabled and started"
+    else
+        echo "  kanata service already enabled"
+    fi
 else
-  echo "systemd not detected — skipping kanata service installation"
+    echo "systemd not detected — skipping kanata service installation"
 fi
 
 echo "Linking rofi config..."
-mkdir -p "$HOME/.config/rofi/themes"
-ln -sf "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
-ln -sf "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
+link "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
+link "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
 
 echo "Installing openwith script and config..."
-mkdir -p "$HOME/.local/bin"
-ln -sf "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
-mkdir -p "$HOME/.config/openwith"
-ln -sf "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
+link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
 
 echo "Installing openwith desktop entry..."
-mkdir -p "$HOME/.local/share/applications"
-ln -sf "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
+link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
 
 echo "Registering openwith as default for all MIME types..."
+count=0
 while IFS='' read -r mime; do
-    xdg-mime default openwith.desktop "$mime"
+    current=$(xdg-mime query default "$mime" 2>/dev/null || true)
+    if [[ "$current" != "openwith.desktop" ]]; then
+        xdg-mime default openwith.desktop "$mime" && ((count++))
+    fi
 done < <(grep "^MimeType=" "$DOTFILES/local/share/applications/openwith.desktop" | cut -d= -f2- | tr ';' '\n' | grep -v '^$')
+echo "  Registered $count MIME types (skipped already-set)"
 
 echo "Done! Open Neovim to install plugins."
