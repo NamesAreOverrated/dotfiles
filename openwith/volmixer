@@ -221,14 +221,14 @@ stream_id="${ids[$selected]}"
 # Handle Switch Output
 if [[ "$stream_id" == "__switch_out__" ]]; then
   sink_id=$(pick_sink "Switch output")
-  wpctl set-default "$sink_id"
+  pactl set-default-sink "$sink_id"
   exit 0
 fi
 
 # Handle Switch Mic
 if [[ "$stream_id" == "__switch_mic__" ]]; then
   src_id=$(pick_source "Switch mic")
-  wpctl set-default "$src_id"
+  pactl set-default-source "$src_id"
   exit 0
 fi
 

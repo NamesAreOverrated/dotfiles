@@ -5,7 +5,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 missing=()
-for cmd in starship nvim kanata rofi foot pactl wpctl sway swaylock waybar swayidle; do
+for cmd in starship nvim kanata rofi foot pactl sway swaylock waybar swayidle; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -153,9 +153,7 @@ if has sway; then
             echo "bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
             echo "bindsym \$mod+m exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
 
-            if has wpctl; then
-                echo "bindsym \$mod+Shift+m exec ~/.local/bin/volmixer"
-            fi
+            echo "bindsym \$mod+Shift+m exec ~/.local/bin/volmixer"
         fi
     } > "$HOME/.config/sway/local/utilities.g"
     echo "  Generated ~/.config/sway/local/utilities.g"
@@ -196,7 +194,7 @@ if has rofi; then
     link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
     link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
 
-    if has pactl && has wpctl; then
+    if has pactl; then
         link "$DOTFILES/openwith/volmixer" "$HOME/.local/bin/volmixer"
     fi
 
