@@ -125,8 +125,6 @@ mode "resize" {
 bindsym $mod+r exec swaymsg 'client.focused #f38ba8 #313244 #cdd6f4 #f38ba8 #f38ba8' \; mode "resize"
 
 
-seat seat0 xcursor_theme Adwaita 24
-
 # Machine-specific includes
 include ~/.config/sway/local/outputs
 include ~/.config/sway/local/wallpaper
