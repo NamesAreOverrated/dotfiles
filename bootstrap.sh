@@ -53,7 +53,7 @@ if has kanata; then
     if has systemctl; then
         echo "Linking kanata systemd service..."
         link "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
-        systemctl --user daemon-reload
+        systemctl --user daemon-reload || true
         if ! systemctl --user is-enabled kanata.service &>/dev/null; then
             systemctl --user enable --now kanata.service
             echo "  kanata service enabled and started"

@@ -1,7 +1,7 @@
 # Dotfiles bootstrap — Windows
 # Run as Administrator
 
-$DOTFILES = $PSScriptRoot
+$DOTFILES = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 
 $tools = @('starship', 'nvim', 'kanata_windows_gui_winIOv2_x64.exe')
 $missing = @()
@@ -18,6 +18,11 @@ if ($missing.Count -gt 0) {
 
 function Link-Hard {
     param($Src, $Dst)
+    if (!(Test-Path $Src)) { Write-Host "  Skipping (src missing): $Src"; return }
+    if ((Test-Path $Dst) -and ((Get-Item $Dst).LinkType -eq 'HardLink') -and ((Get-Item $Dst).Target -eq $Src)) {
+        Write-Host "  OK"
+        return
+    }
     Remove-Item -Force $Dst -ErrorAction SilentlyContinue
     New-Item -Force -ItemType Directory -Path (Split-Path $Dst -Parent) | Out-Null
     New-Item -ItemType HardLink -Path $Dst -Target $Src
@@ -30,8 +35,13 @@ if (Get-Command starship -ErrorAction SilentlyContinue) {
 
 if (Get-Command nvim -ErrorAction SilentlyContinue) {
     Write-Host "Linking nvim config..."
-    Remove-Item -Recurse -Force "$env:LOCALAPPDATA\nvim" -ErrorAction SilentlyContinue
-    New-Item -ItemType Junction -Path "$env:LOCALAPPDATA\nvim" -Target "$DOTFILES\nvim"
+    $nvimDst = "$env:LOCALAPPDATA\nvim"
+    if ((Test-Path $nvimDst) -and ((Get-Item $nvimDst).LinkType -eq 'Junction') -and ((Get-Item $nvimDst).Target -eq "$DOTFILES\nvim")) {
+        Write-Host "  OK"
+    } else {
+        Remove-Item -Recurse -Force $nvimDst -ErrorAction SilentlyContinue
+        New-Item -ItemType Junction -Path $nvimDst -Target "$DOTFILES\nvim"
+    }
 }
 
 $kanata = Get-Command kanata_windows_gui_winIOv2_x64.exe -ErrorAction SilentlyContinue
