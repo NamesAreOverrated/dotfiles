@@ -76,16 +76,22 @@ if has kanata; then
 elif [ -x "$HOME/.local/bin/kanata" ]; then
     KANATA_BIN="$HOME/.local/bin/kanata"
 elif has curl && has unzip; then
-    echo "  Downloading kanata v$KANATA_VERSION ..."
-    TMP="$(mktemp -d)"
-    curl -fsSL "https://github.com/jtroo/kanata/releases/download/v${KANATA_VERSION}/linux-binaries-x64.zip" -o "$TMP/kanata.zip"
-    unzip -j "$TMP/kanata.zip" "kanata_linux_x64" -d "$TMP" >/dev/null
-    mkdir -p "$HOME/.local/bin"
-    mv "$TMP/kanata_linux_x64" "$HOME/.local/bin/kanata"
-    chmod +x "$HOME/.local/bin/kanata"
-    rm -rf "$TMP"
-    KANATA_BIN="$HOME/.local/bin/kanata"
-    echo "  Downloaded kanata v$KANATA_VERSION"
+    printf "  Install kanata v%s? [y/N] " "$KANATA_VERSION"
+    read -r ans
+    if [[ "$ans" =~ ^[yY] ]]; then
+        echo "  Downloading kanata v$KANATA_VERSION ..."
+        TMP="$(mktemp -d)"
+        curl -fsSL "https://github.com/jtroo/kanata/releases/download/v${KANATA_VERSION}/linux-binaries-x64.zip" -o "$TMP/kanata.zip"
+        unzip -j "$TMP/kanata.zip" "kanata_linux_x64" -d "$TMP" >/dev/null
+        mkdir -p "$HOME/.local/bin"
+        mv "$TMP/kanata_linux_x64" "$HOME/.local/bin/kanata"
+        chmod +x "$HOME/.local/bin/kanata"
+        rm -rf "$TMP"
+        KANATA_BIN="$HOME/.local/bin/kanata"
+        echo "  Downloaded kanata v$KANATA_VERSION"
+    else
+        echo "  Skipped"
+    fi
 else
     echo "  Skipping kanata — not found and cannot download"
 fi

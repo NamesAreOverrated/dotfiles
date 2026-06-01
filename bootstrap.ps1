@@ -54,19 +54,24 @@ if (-not $kanataBin) {
     if (Test-Path $localKanata) {
         $kanataBin = Get-Command $localKanata
     } else {
-        $url = "https://github.com/jtroo/kanata/releases/download/v$KANATA_VERSION/windows-binaries-x64.zip"
-        $zipPath = "$env:TEMP\kanata.zip"
-        $extractPath = "$env:TEMP\kanata_extract"
-        Write-Host "  Downloading kanata v$KANATA_VERSION ..."
-        Invoke-WebRequest -Uri $url -OutFile $zipPath
-        Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
-        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-        $null = New-Item -Force -ItemType Directory -Path $localBin
-        Copy-Item "$extractPath\$kanataExe" $localKanata -Force
-        Remove-Item -Recurse -Force $extractPath
-        Remove-Item $zipPath -Force
-        $kanataBin = Get-Command $localKanata
-        Write-Host "  Downloaded kanata v$KANATA_VERSION"
+        $ans = Read-Host "  Install kanata v$KANATA_VERSION? [y/N]"
+        if ($ans -match '^[yY]') {
+            $url = "https://github.com/jtroo/kanata/releases/download/v$KANATA_VERSION/windows-binaries-x64.zip"
+            $zipPath = "$env:TEMP\kanata.zip"
+            $extractPath = "$env:TEMP\kanata_extract"
+            Write-Host "  Downloading kanata v$KANATA_VERSION ..."
+            Invoke-WebRequest -Uri $url -OutFile $zipPath
+            Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
+            Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+            $null = New-Item -Force -ItemType Directory -Path $localBin
+            Copy-Item "$extractPath\$kanataExe" $localKanata -Force
+            Remove-Item -Recurse -Force $extractPath
+            Remove-Item $zipPath -Force
+            $kanataBin = Get-Command $localKanata
+            Write-Host "  Downloaded kanata v$KANATA_VERSION"
+        } else {
+            Write-Host "  Skipped"
+        }
     }
 }
 
