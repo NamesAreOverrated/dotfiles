@@ -5,7 +5,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 missing=()
-for cmd in starship nvim kanata rofi foot pactl wpctl; do
+for cmd in starship nvim kanata rofi foot pactl wpctl sway swaylock waybar swayidle; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -17,6 +17,16 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Configs for missing tools will be skipped."
     read -rp "Continue? [y/N] " ans
     [[ "$ans" =~ ^[yY] ]] || exit 1
+fi
+
+echo ""
+echo "Sway \$mod key:"
+echo "  1) Alt (Mod1)"
+echo "  2) Win/Super (Mod4)"
+read -rp "Pick [1/2]: " mod_choice
+if [ "$mod_choice" = "2" ]; then
+    sed -i 's/set \$mod Mod1/set \$mod Mod4/' "$DOTFILES/sway/config"
+    sed -i 's/Alt+BackSpace/Super+BackSpace/' "$DOTFILES/local/bin/wallpaper-picker"
 fi
 
 has() { command -v "$1" &>/dev/null; }
@@ -80,6 +90,71 @@ if has rofi; then
     echo "Linking rofi config..."
     link "$DOTFILES/rofi/config.rasi" "$HOME/.config/rofi/config.rasi"
     link "$DOTFILES/rofi/themes/catppuccin-mocha.rasi" "$HOME/.config/rofi/themes/catppuccin-mocha.rasi"
+fi
+
+# --- wallpapers symlink (before sway so wallpaper file gets correct path) ---
+if [ -d "$DOTFILES/wallpapers" ]; then
+    if [ -L "$HOME/Pictures/wallpapers" ]; then
+        echo "  ~/Pictures/wallpapers already a symlink — skipping"
+    elif [ -d "$HOME/Pictures/wallpapers" ]; then
+        echo "  Copying existing wallpapers into submodule..."
+        cp -r "$HOME/Pictures/wallpapers/"* "$DOTFILES/wallpapers/"
+        rm -rf "$HOME/Pictures/wallpapers"
+        ln -sf "$DOTFILES/wallpapers" "$HOME/Pictures/wallpapers"
+        echo "  Copied and symlinked"
+    else
+        ln -sf "$DOTFILES/wallpapers" "$HOME/Pictures/wallpapers"
+        echo "  Linked: ~/Pictures/wallpapers → dotfiles/wallpapers"
+    fi
+fi
+
+# --- sway ---
+if has sway; then
+    echo "Linking sway config..."
+    link "$DOTFILES/sway/config" "$HOME/.config/sway/config"
+
+    mkdir -p "$HOME/.config/sway"
+
+    if ! [ -f "$HOME/.config/sway/outputs" ]; then
+        {
+            echo "# Output configuration (machine-specific)"
+            echo "# Set your display outputs here:"
+            echo "# e.g. output eDP-1 resolution 1920x1080@60Hz position 0,0"
+        } > "$HOME/.config/sway/outputs"
+        echo "  Created ~/.config/sway/outputs (edit with your display settings)"
+    fi
+
+    if ! [ -f "$HOME/.config/sway/wallpaper" ]; then
+        WALL="$HOME/Pictures/wallpapers/Catppuccin Mocha/01. Catppuccin Mocha.png"
+        if [ -f "$WALL" ]; then
+            echo "output * bg \"$WALL\" fill" > "$HOME/.config/sway/wallpaper"
+            echo "  Created ~/.config/sway/wallpaper"
+        else
+            echo "# Edit this path to set your wallpaper" > "$HOME/.config/sway/wallpaper"
+            echo "# e.g. output * bg \"$HOME/Pictures/wallpapers/...\" fill" >> "$HOME/.config/sway/wallpaper"
+            echo "  Created ~/.config/sway/wallpaper (set your wallpaper path)"
+        fi
+    fi
+fi
+
+if has swaylock; then
+    echo "Linking swaylock config..."
+    link "$DOTFILES/swaylock/config" "$HOME/.config/swaylock/config"
+fi
+
+if has waybar; then
+    echo "Linking waybar config..."
+    link "$DOTFILES/waybar/config.jsonc" "$HOME/.config/waybar/config.jsonc"
+    link "$DOTFILES/waybar/style.css" "$HOME/.config/waybar/style.css"
+fi
+
+# --- wallpaper-picker (needs both sway and rofi) ---
+if has sway && has rofi; then
+    if [ -f "$DOTFILES/local/bin/wallpaper-picker" ]; then
+        echo "Linking wallpaper-picker..."
+        link "$DOTFILES/local/bin/wallpaper-picker" "$HOME/.local/bin/wallpaper-picker"
+    fi
+    link "$DOTFILES/rofi/themes/wallpaper.rasi" "$HOME/.config/rofi/themes/wallpaper.rasi"
 fi
 
 if has rofi; then

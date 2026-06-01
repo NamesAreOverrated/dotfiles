@@ -1,0 +1,95 @@
+* {
+  font-family: "Iosevka Custom";
+  font-size: 12px;
+  font-weight: 900;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+window#waybar {
+  background: transparent;
+}
+
+#workspaces,
+#pulseaudio.output,
+#pulseaudio.input,
+#cpu,
+#memory,
+#clock,
+#custom-lock,
+#custom-reboot,
+#custom-shutdown {
+  margin: 2px 2px;
+  padding: 0 9px;
+  border: 1.5px solid #45475a;
+  border-radius: 5px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+#workspaces {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+#workspaces button {
+  all: initial;
+  padding: 0 7px;
+  margin: 0;
+  color: #585b70;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  min-width: 12px;
+}
+
+#workspaces button.active {
+  color: #1e1e2e;
+  background: #cba6f7;
+  border-radius: 4px;
+}
+
+#workspaces button.urgent {
+  color: #f38ba8;
+}
+
+#workspaces button:hover {
+  color: #cdd6f4;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+#pulseaudio.output {
+  color: #94e2d5;
+}
+
+#pulseaudio.input {
+  color: #89dceb;
+}
+
+#cpu {
+  color: #a6e3a1;
+}
+
+#memory {
+  color: #f9e2af;
+}
+
+#clock {
+  color: #b4befe;
+}
+
+#custom-lock {
+  color: #cba6f7;
+}
+
+#custom-reboot {
+  color: #f9e2af;
+}
+
+#custom-shutdown {
+  color: #f38ba8;
+}

@@ -1,0 +1,76 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 24,
+  "spacing": 4,
+  "margin-top": 2,
+  "margin-left": 5,
+  "margin-right": 5,
+  "modules-left": ["sway/workspaces", "custom/lock", "custom/reboot", "custom/shutdown"],
+  "modules-center": [],
+  "modules-right": ["pulseaudio#input", "pulseaudio#output", "memory", "cpu", "clock"],
+  "sway/workspaces": {
+    "format": "{icon}",
+    "on-click": "activate",
+    "persistent_workspaces": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": []
+    },
+    "format-icons": {
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "urgent": "!"
+    }
+  },
+  "clock": {
+    "format": "{:%H:%M}",
+    "tooltip-format": "{:%A, %B %d %Y}",
+    "interval": 60
+  },
+  "pulseaudio#output": {
+    "format": "{icon} {volume}%",
+    "format-muted": " {volume}%",
+    "format-icons": {
+      "default": ["", "", ""]
+    },
+    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "scroll-step": 5
+  },
+  "pulseaudio#input": {
+    "format": "{format_source}",
+    "format-source": "",
+    "format-source-muted": "",
+    "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+  },
+  "cpu": {
+    "format": " {usage}%",
+    "interval": 5,
+    "tooltip": false
+  },
+  "memory": {
+    "format": " {percentage}%",
+    "interval": 10,
+    "tooltip": false
+  },
+  "custom/lock": {
+    "format": "",
+    "on-click": "swaylock",
+    "tooltip": false
+  },
+  "custom/reboot": {
+    "format": "",
+    "on-click": "systemctl reboot",
+    "tooltip": false
+  },
+  "custom/shutdown": {
+    "format": "",
+    "on-click": "systemctl poweroff",
+    "tooltip": false
+  }
+}

@@ -1,0 +1,109 @@
+* {
+    font: "Iosevka Custom 11";
+    background-color: transparent;
+    text-color: #cdd6f4;
+
+    rosewater: #f5e0dc;
+    flamingo: #f2cdcd;
+    pink: #f5c2e7;
+    mauve: #cba6f7;
+    red: #f38ba8;
+    maroon: #eba0ac;
+    peach: #fab387;
+    yellow: #f9e2af;
+    green: #a6e3a1;
+    teal: #94e2d5;
+    sky: #89dceb;
+    sapphire: #74c7ec;
+    blue: #89b4fa;
+    lavender: #b4befe;
+    text: #cdd6f4;
+    subtext1: #bac2de;
+    subtext0: #a6adc8;
+    overlay2: #9399b2;
+    overlay1: #7f849c;
+    overlay0: #6c7086;
+    surface2: #585b70;
+    surface1: #45475a;
+    surface0: #313244;
+    base: #1e1e2e;
+    mantle: #181825;
+    crust: #11111b;
+}
+
+window {
+    background-color: rgba(30, 30, 46, 0.9);
+    border: 2px;
+    border-color: @surface1;
+    border-radius: 12px;
+    padding: 8px;
+    width: 600;
+    location: center;
+    anchor: center;
+}
+
+mainbox {
+    background-color: transparent;
+    padding: 0;
+    spacing: 4px;
+    children: [inputbar, listview];
+}
+
+inputbar {
+    background-color: rgba(24, 24, 37, 0.85);
+    border-radius: 8px;
+    padding: 8px 12px;
+    spacing: 8px;
+    margin: 0 0 4px 0;
+    children: [prompt, entry];
+}
+
+prompt {
+    text-color: @blue;
+}
+
+entry {
+    text-color: @text;
+    placeholder: "Search...";
+    placeholder-color: @overlay0;
+    cursor-color: @blue;
+    cursor-width: 2px;
+}
+
+listview {
+    background-color: transparent;
+    padding: 4px 0 0 0;
+    lines: 2;
+    columns: 3;
+    spacing: 6px;
+    scrollbar: false;
+    dynamic: true;
+    cycle: true;
+    layout: vertical;
+}
+
+element {
+    background-color: rgba(49, 50, 68, 0.6);
+    padding: 6px;
+    border-radius: 8px;
+    orientation: vertical;
+    text-color: @subtext0;
+}
+
+element selected.normal {
+    background-color: rgba(137, 180, 250, 0.2);
+    border: 1.5px;
+    border-color: @blue;
+    text-color: @text;
+}
+
+element-icon {
+    size: 160px;
+}
+
+element-text {
+    text-color: inherit;
+    font: "Iosevka Custom 9";
+    horizontal-align: 0.5;
+    vertical-align: 0;
+}
