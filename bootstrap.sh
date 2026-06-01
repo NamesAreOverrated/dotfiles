@@ -2,18 +2,7 @@
 # Dotfiles bootstrap — Linux
 set -euo pipefail
 
-DOTFILES="$HOME/.dotfiles"
-
-# If running from the repo directly, create the ~/.dotfiles symlink
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [[ "$SCRIPT_DIR" != "$DOTFILES" ]]; then
-    [[ -L "$DOTFILES" && "$(readlink "$DOTFILES")" == "$SCRIPT_DIR" ]] || {
-        echo "Setting up $DOTFILES → $SCRIPT_DIR"
-        ln -sf "$SCRIPT_DIR" "$DOTFILES"
-    }
-fi
-
-[[ -d "$DOTFILES" ]] || { echo "Error: $DOTFILES not found"; exit 1; }
+DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 link() {
     local src="$1" dst="$2"
