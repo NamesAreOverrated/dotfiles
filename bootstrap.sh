@@ -95,14 +95,16 @@ if has rofi; then
     link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
 
     echo "Registering openwith as default for all MIME types..."
-    count=0
-    while IFS='' read -r mime; do
-        current=$(xdg-mime query default "$mime" 2>/dev/null || true)
-        if [[ "$current" != "openwith.desktop" ]]; then
-            xdg-mime default openwith.desktop "$mime" && ((count++))
-        fi
-    done < <(grep "^MimeType=" "$DOTFILES/local/share/applications/openwith.desktop" | cut -d= -f2- | tr ';' '\n' | grep -v '^$')
-    echo "  Registered $count MIME types (skipped already-set)"
+    {
+        echo "[Default Applications]"
+        find /usr/share/mime -mindepth 2 -maxdepth 2 -name '*.xml' \
+          -not -path '*/packages/*' \
+        | sed 's|.*/mime/||; s|\.xml$||' \
+        | sort -u \
+        | awk '{printf "%s=openwith.desktop\n", $0}'
+        echo "inode/x-empty=openwith.desktop"
+    } > "$HOME/.config/mimeapps.list"
+    echo "  Registered $(wc -l < "$HOME/.config/mimeapps.list") MIME types"
 fi
 
 echo "Done! Open Neovim to install plugins."
