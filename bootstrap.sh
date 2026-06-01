@@ -5,7 +5,7 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 missing=()
-for cmd in starship nvim kanata rofi foot pactl wpctl sway swaylock waybar swayidle; do
+for cmd in starship nvim kanata rofi foot wpctl sway swaylock waybar swayidle; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -146,16 +146,13 @@ if has sway; then
             echo "bindsym \$mod+Shift+w exec ~/.local/bin/wallpaper-picker"
         fi
 
-        if has pactl; then
-            echo "bindsym --locked XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle"
-            echo "bindsym --locked XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%"
-            echo "bindsym --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%"
-            echo "bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
-            echo "bindsym \$mod+m exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
-
-            if has wpctl; then
-                echo "bindsym \$mod+Shift+m exec ~/.local/bin/volmixer"
-            fi
+        if has wpctl; then
+            echo "bindsym --locked XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+            echo "bindsym --locked XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+            echo "bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"
+            echo "bindsym --locked XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+            echo "bindsym \$mod+m exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+            echo "bindsym \$mod+Shift+m exec ~/.local/bin/volmixer"
         fi
     } > "$HOME/.config/sway/local/utilities.g"
     echo "  Generated ~/.config/sway/local/utilities.g"
@@ -196,7 +193,7 @@ if has rofi; then
     link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
     link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
 
-    if has pactl && has wpctl; then
+    if has wpctl; then
         link "$DOTFILES/openwith/volmixer" "$HOME/.local/bin/volmixer"
     fi
 

@@ -39,14 +39,14 @@
     "format-icons": {
       "default": ["", "", ""]
     },
-    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
     "scroll-step": 5
   },
   "pulseaudio#input": {
     "format": "{format_source}",
     "format-source": "",
     "format-source-muted": "",
-    "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
   },
   "cpu": {
     "format": " {usage}%",

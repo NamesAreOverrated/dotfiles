@@ -1,85 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-list_sinks() {
-  pactl list sinks 2>/dev/null | awk '
-    BEGIN { RS=""; FS="\n" }
-    /Sink #[0-9]+/ {
-      id=""; desc=""
-      for (i=1; i<=NF; i++) {
-        if ($i ~ /Sink #[0-9]+/) {
-          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
-        }
-        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
-          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
-        }
-      }
-      if (id != "" && desc != "")
-        print id " " desc
+list_nodes() {
+  local class_filter="$1"
+  pw-cli list-objects Node | awk -v cls="$class_filter" '
+    BEGIN { id=""; desc=""; name=""; class="" }
+    /^\s*id / {
+      if (desc == "") desc = name
+      cond = (class ~ cls || (cls == "Stream" && class ~ /^Stream\//))
+      if (cond && id != "" && desc !~ /Monitor/)
+        print id "|" name "|" desc
+      match($0, /id ([0-9]+)/, m); id = m[1]; desc=""; name=""; class=""
+    }
+    /node\.description = "/ { match($0, /node\.description = "(.*)"/, m); desc = m[1] }
+    /node\.name = "/         { match($0, /node\.name = "(.*)"/, m);      name = m[1] }
+    /media\.class = "/       { match($0, /media\.class = "(.*)"/, m);    class = m[1] }
+    END {
+      if (desc == "") desc = name
+      cond = (class ~ cls || (cls == "Stream" && class ~ /^Stream\//))
+      if (cond && id != "" && desc !~ /Monitor/) print id "|" name "|" desc
     }
   '
 }
 
-pick_sink() {
-  local prompt="${1:-Select output}"
-  local sinks
-  sinks=$(list_sinks)
-  [[ -z "$sinks" ]] && { rofi -e "No sinks found"; exit 1; }
-  local default_name
-  default_name=$(pactl get-default-sink 2>/dev/null)
+get_default_id() {
+  local section="$1"
+  wpctl status | awk -v sec="$section" '
+    /Audio/ { a=1 }
+    a && /├─ '"$section"'/ { s=1 }
+    a && /├─ / && !/'"$section"'/ { s=0 }
+    s && /\*/ { gsub(/\.$/, "", $3); print $3; exit }
+  '
+}
+
+get_volume_status() {
+  local id="$1"
+  wpctl get-volume "$id" | awk '{
+    pct = sprintf("%.0f", $2 * 100)
+    if ($0 ~ /\[MUTED\]/) print pct " MUTED"; else print pct
+  }'
+}
+
+pick_node() {
+  local prompt="$1" class="$2" default_id="$3"
+  local nodes
+  nodes=$(list_nodes "$class")
+  [[ -z "$nodes" ]] && { rofi -e "No $class found"; exit 1; }
   local marked
-  marked=$(echo "$sinks" | while IFS='' read -r line; do
-    local id desc
-    id=$(echo "$line" | awk '{print $1}')
-    desc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
-    if pactl list sinks 2>/dev/null | grep -A20 "^Sink #$id" | grep -q "Name: $default_name"; then
+  marked=$(echo "$nodes" | while IFS='|' read -r id name desc; do
+    if [[ "$id" == "$default_id" ]]; then
       echo "* $id $desc"
     else
       echo "  $id $desc"
     fi
   done)
-  selected=$(echo "$marked" | rofi -dmenu -p "$prompt" -i -format i)
-  [[ -z "$selected" ]] && exit 0
-  echo "$marked" | sed -n "$((selected+1))p" | sed 's/^..//' | awk '{print $1}'
-}
-
-list_sources() {
-  pactl list sources 2>/dev/null | awk '
-    BEGIN { RS=""; FS="\n" }
-    /Source #[0-9]+/ {
-      id=""; desc=""
-      for (i=1; i<=NF; i++) {
-        if ($i ~ /Source #[0-9]+/) {
-          gsub(/.*#/, "", $i); gsub(/[^0-9].*,/, "", $i); id=$i
-        }
-        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
-          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
-        }
-      }
-      if (id != "" && desc != "" && desc !~ /Monitor/)
-        print id " " desc
-    }
-  '
-}
-
-pick_source() {
-  local prompt="${1:-Select mic}"
-  local sources
-  sources=$(list_sources)
-  [[ -z "$sources" ]] && { rofi -e "No mics found"; exit 1; }
-  local default_name
-  default_name=$(pactl get-default-source 2>/dev/null)
-  local marked
-  marked=$(echo "$sources" | while IFS='' read -r line; do
-    local id desc
-    id=$(echo "$line" | awk '{print $1}')
-    desc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
-    if pactl list sources 2>/dev/null | grep -A20 "^Source #$id" | grep -q "Name: $default_name"; then
-      echo "* $id $desc"
-    else
-      echo "  $id $desc"
-    fi
-  done)
+  local selected
   selected=$(echo "$marked" | rofi -dmenu -p "$prompt" -i -format i)
   [[ -z "$selected" ]] && exit 0
   echo "$marked" | sed -n "$((selected+1))p" | sed 's/^..//' | awk '{print $1}'
@@ -93,122 +68,96 @@ shorten_name() {
   echo "$short" | sed 's/^ *//;s/ *$//'
 }
 
-# --- Build main menu ---
+declare -A sink_map
+while IFS='|' read -r id name desc; do
+  sink_map[$id]=$(shorten_name "$desc")
+done < <(list_nodes "Audio/Sink")
+
+default_sink_id=$(get_default_id "Sinks")
+default_src_id=$(get_default_id "Sources")
+
 declare -a ids=() labels=()
 
-# Switch Output
-default_name=$(pactl get-default-sink 2>/dev/null)
-default_info=$(pactl list sinks 2>/dev/null | awk -v name="$default_name" '
-  BEGIN { RS=""; FS="\n" }
-  $0 ~ "Name: " name {
-    desc=""; vol=""; mute="no"
-    for (i=1; i<=NF; i++) {
-      if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
-        gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
-      }
-      if ($i ~ /^[[:space:]]*Volume:/) {
-        match($i, /[0-9]+%/); vol = substr($i, RSTART, RLENGTH - 1)
-      }
-      if ($i ~ /^[[:space:]]*Mute:/) {
-        gsub(/^[[:space:]]*Mute:[[:space:]]*/, "", $i); mute=$i
-      }
-    }
-    status = (mute ~ /^yes$/) ? "MUTED" : vol "%"
-    print desc " [" status "]"
-  }
-')
-label="Switch Output"
-[[ -n "$default_info" ]] && label="${default_info}"
+#--- Switch Output ---
+default_sink_desc=$(list_nodes "Audio/Sink" | awk -F'|' -v id="$default_sink_id" '$1 == id {print $3; exit}')
+status=$(get_volume_status "$default_sink_id")
+vol_pct="${status% *}"
+muted="${status##* }"
+if [[ "$muted" == "MUTED" ]]; then
+  label="$default_sink_desc [MUTED]"
+else
+  label="$default_sink_desc [$vol_pct%]"
+fi
 label=$(shorten_name "$label")
 ids+=("__switch_out__"); labels+=(" ${label}  ▶")
 
-# Switch Mic
-default_src_name=$(pactl get-default-source 2>/dev/null)
-default_src_info=$(pactl list sources 2>/dev/null | awk -v name="$default_src_name" '
-  BEGIN { RS=""; FS="\n" }
-  $0 ~ "Name: " name {
-    desc=""; vol=""; mute="no"
-    for (i=1; i<=NF; i++) {
-      if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
-        gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
-      }
-      if ($i ~ /^[[:space:]]*Volume:/) {
-        match($i, /[0-9]+%/); vol = substr($i, RSTART, RLENGTH - 1)
-      }
-      if ($i ~ /^[[:space:]]*Mute:/) {
-        gsub(/^[[:space:]]*Mute:[[:space:]]*/, "", $i); mute=$i
-      }
-    }
-    status = (mute ~ /^yes$/) ? "MUTED" : vol "%"
-    if (desc !~ /Monitor/) print desc " [" status "]"
-  }
-')
-label="Switch Mic"
-[[ -n "$default_src_info" ]] && label="${default_src_info}"
+#--- Switch Mic ---
+default_src_desc=$(list_nodes "Audio/Source" | awk -F'|' -v id="$default_src_id" '$1 == id {print $3; exit}')
+status=$(get_volume_status "$default_src_id")
+vol_pct="${status% *}"
+muted="${status##* }"
+if [[ "$muted" == "MUTED" ]]; then
+  label="$default_src_desc [MUTED]"
+else
+  label="$default_src_desc [$vol_pct%]"
+fi
 label=$(shorten_name "$label")
 ids+=("__switch_mic__"); labels+=(" ${label}  ▶")
 
-# Master Volume
-master_vol=$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | grep -oP '\d+(?=%)' | head -1)
-master_mute=$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | grep -oP '(yes|no)')
-master_status="MUTED"
-[[ "$master_mute" != "yes" && -n "$master_vol" ]] && master_status="${master_vol}%"
-ids+=("__master__"); labels+=("󰕾 Master Volume [${master_status}]")
-
-# Master Mic
-mic_vol=$(pactl get-source-volume @DEFAULT_SOURCE@ 2>/dev/null | grep -oP '\d+(?=%)' | head -1)
-mic_mute=$(pactl get-source-mute @DEFAULT_SOURCE@ 2>/dev/null | grep -oP '(yes|no)')
-mic_status="MUTED"
-[[ "$mic_mute" != "yes" && -n "$mic_vol" ]] && mic_status="${mic_vol}%"
-ids+=("__mic__"); labels+=("󰍬 Master Mic [${mic_status}]")
-
-# Build sink id → short name map
-declare -A sink_map
-while IFS='' read -r line; do
-  sid=$(echo "$line" | awk '{print $1}')
-  sdesc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
-  sdesc=$(shorten_name "$sdesc")
-  sink_map[$sid]="$sdesc"
-done < <(list_sinks)
-
-# App streams
-app_entries=$(pactl list sink-inputs 2>/dev/null | awk '
-    BEGIN { RS=""; FS="\n" }
-    /Sink Input #[0-9]+/ {
-      id=""; sink_id=""; name=""; vol=""; mute="no"
-      for (i=1; i<=NF; i++) {
-        if ($i ~ /Sink Input #/) {
-          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
-        }
-        if ($i ~ /^[[:space:]]*Sink:[[:space:]]/) {
-          gsub(/^[[:space:]]*Sink:[[:space:]]*/, "", $i); sink_id=$i
-        }
-        if ($i ~ /application.name = "/) {
-          gsub(/.*application.name = "|".*/, "", $i); name=$i
-          gsub(/^PipeWire ALSA \[|\]$/, "", name)
-        }
-        if ($i ~ /^[[:space:]]*Volume:/) {
-          match($i, /[0-9]+%/); vol = substr($i, RSTART, RLENGTH - 1)
-        }
-        if ($i ~ /^[[:space:]]*Mute:/) {
-          gsub(/^[[:space:]]*Mute:[[:space:]]*/, "", $i); mute=$i
-        }
-      }
-      if (id != "" && name != "") {
-        status = (mute ~ /^yes$/) ? "MUTED" : vol "%"
-        print id "|" sink_id "|" name " [" status "]"
-      }
-    }
-  ')
-if [[ -n "$app_entries" ]]; then
-  while IFS='|' read -r id sink_id rest; do
-    sname="${sink_map[$sink_id]:-$sink_id}"
-    ids+=("$id")
-    labels+=("󰘔 $rest → $sname")
-  done <<< "$app_entries"
+#--- Master Volume ---
+status=$(get_volume_status "@DEFAULT_AUDIO_SINK@")
+vol_pct="${status% *}"
+muted="${status##* }"
+if [[ "$muted" == "MUTED" ]]; then
+  ids+=("__master__"); labels+=("󰕾 Master Volume [MUTED]")
+else
+  ids+=("__master__"); labels+=("󰕾 Master Volume [${vol_pct}%]")
 fi
 
-# --- Main menu ---
+#--- Master Mic ---
+status=$(get_volume_status "@DEFAULT_AUDIO_SOURCE@")
+vol_pct="${status% *}"
+muted="${status##* }"
+if [[ "$muted" == "MUTED" ]]; then
+  ids+=("__mic__"); labels+=("󰍬 Master Mic [MUTED]")
+else
+  ids+=("__mic__"); labels+=("󰍬 Master Mic [${vol_pct}%]")
+fi
+
+#--- App streams ---
+declare -A stream_sink_map
+while IFS='' read -r line; do
+  [[ -z "$line" ]] && continue
+  out_port="${line%% -> *}"
+  in_port="${line##* -> }"
+  stream_name="${out_port%%:*}"
+  sink_name="${in_port%%:*}"
+  stream_sink_map["$stream_name"]="$sink_name"
+done < <(pw-link -l 2>/dev/null)
+
+while IFS='|' read -r id name desc; do
+  sname=""
+  if [[ -n "${stream_sink_map[$name]:-}" ]]; then
+    target_name="${stream_sink_map[$name]}"
+    while IFS='|' read -r sid sn sdesc; do
+      if [[ "$sn" == "$target_name" ]]; then
+        sname="${sink_map[$sid]:-}"
+      fi
+    done < <(list_nodes "Audio/Sink")
+  fi
+  label="$desc"
+  [[ -n "$sname" ]] && label="$label → $sname"
+  status=$(get_volume_status "$id")
+  vol_pct="${status% *}"
+  muted="${status##* }"
+  if [[ "$muted" == "MUTED" ]]; then
+    ids+=("$id"); labels+=("󰘔 $label [MUTED]")
+  else
+    ids+=("$id"); labels+=("󰘔 $label [$vol_pct%]")
+  fi
+done < <(list_nodes "Stream")
+
+#--- Main menu ---
 [[ ${#ids[@]} -eq 0 ]] && { rofi -e "No audio streams"; exit 1; }
 
 selected=$(for i in "${!ids[@]}"; do
@@ -218,79 +167,51 @@ done | rofi -dmenu -p "Volume" -i -format i)
 
 stream_id="${ids[$selected]}"
 
-# Handle Switch Output
+#--- Switch Output ---
 if [[ "$stream_id" == "__switch_out__" ]]; then
-  sink_id=$(pick_sink "Switch output")
-  wpctl set-default "$sink_id"
+  sid=$(pick_node "Switch output" "Audio/Sink" "$default_sink_id")
+  wpctl set-default "$sid"
   exit 0
 fi
 
-# Handle Switch Mic
+#--- Switch Mic ---
 if [[ "$stream_id" == "__switch_mic__" ]]; then
-  src_id=$(pick_source "Switch mic")
-  wpctl set-default "$src_id"
+  sid=$(pick_node "Switch mic" "Audio/Source" "$default_src_id")
+  wpctl set-default "$sid"
   exit 0
 fi
 
-# --- Action menu ---
+#--- Action submenu ---
 if [[ "$stream_id" =~ ^[0-9]+$ ]]; then
   action=$(printf "Mute\n25%%\n50%%\n75%%\n100%%\nMove output..." | rofi -dmenu -p "Volume" -i)
 else
   action=$(printf "Mute\n25%%\n50%%\n75%%\n100%%" | rofi -dmenu -p "Volume" -i)
 fi
 
-# Handle Move output
+[[ -z "$action" ]] && exit 0
+
+#--- Move output ---
 if [[ "$action" == "Move output..." ]]; then
-  sink_id=$(pick_sink "Move to")
-  pactl move-sink-input "$stream_id" "$sink_id"
+  sink_id=$(pick_node "Move to" "Audio/Sink" "$default_sink_id")
+  pw-cli set-param "$stream_id" Props "{ node.target = $sink_id }" &>/dev/null || true
   exit 0
 fi
 
-# Handle volume/mute actions
+#--- Volume/mute actions ---
 case "$action" in
   Mute)
-    if [[ "$stream_id" == "__master__" ]]; then
-      pactl set-sink-mute @DEFAULT_SINK@ toggle
-    elif [[ "$stream_id" == "__mic__" ]]; then
-      pactl set-source-mute @DEFAULT_SOURCE@ toggle
-    else
-      pactl set-sink-input-mute "$stream_id" toggle
-    fi
+    case "$stream_id" in
+      __master__) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+      __mic__)    wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle ;;
+      *)          wpctl set-mute "$stream_id" toggle ;;
+    esac
     ;;
-  25%)
-    if [[ "$stream_id" == "__master__" ]]; then
-      pactl set-sink-volume @DEFAULT_SINK@ 25%
-    elif [[ "$stream_id" == "__mic__" ]]; then
-      pactl set-source-volume @DEFAULT_SOURCE@ 25%
-    else
-      pactl set-sink-input-volume "$stream_id" 25%
-    fi
-    ;;
-  50%)
-    if [[ "$stream_id" == "__master__" ]]; then
-      pactl set-sink-volume @DEFAULT_SINK@ 50%
-    elif [[ "$stream_id" == "__mic__" ]]; then
-      pactl set-source-volume @DEFAULT_SOURCE@ 50%
-    else
-      pactl set-sink-input-volume "$stream_id" 50%
-    fi
-    ;;
-  75%)
-    if [[ "$stream_id" == "__master__" ]]; then
-      pactl set-sink-volume @DEFAULT_SINK@ 75%
-    elif [[ "$stream_id" == "__mic__" ]]; then
-      pactl set-source-volume @DEFAULT_SOURCE@ 75%
-    else
-      pactl set-sink-input-volume "$stream_id" 75%
-    fi
-    ;;
-  100%)
-    if [[ "$stream_id" == "__master__" ]]; then
-      pactl set-sink-volume @DEFAULT_SINK@ 100%
-    elif [[ "$stream_id" == "__mic__" ]]; then
-      pactl set-source-volume @DEFAULT_SOURCE@ 100%
-    else
-      pactl set-sink-input-volume "$stream_id" 100%
-    fi
+  25%|50%|75%|100%)
+    vol="${action%\%}"
+    case "$stream_id" in
+      __master__) wpctl set-volume @DEFAULT_AUDIO_SINK@ "$vol%" ;;
+      __mic__)    wpctl set-volume @DEFAULT_AUDIO_SOURCE@ "$vol%" ;;
+      *)          wpctl set-volume "$stream_id" "$vol%" ;;
+    esac
     ;;
 esac
