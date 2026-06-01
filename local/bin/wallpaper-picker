@@ -36,7 +36,7 @@ if [ "$ret" -eq 10 ]; then
 elif [ -d "$dir/$selected" ]; then
     "$0" "$dir/$selected"
 else
-    mkdir -p "$HOME/.config/sway"
-    echo "output * bg \"$dir/$selected\" fill" > "$HOME/.config/sway/wallpaper"
+    mkdir -p "$HOME/.config/sway/local"
+    echo "output * bg \"$dir/$selected\" fill" > "$HOME/.config/sway/local/wallpaper"
     swaymsg output "*" bg "$dir/$selected" fill
 fi

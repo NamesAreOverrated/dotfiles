@@ -1,6 +1,8 @@
 # Sway config — Catppuccin Mocha
-include ~/.config/sway/outputs
-include ~/.config/sway/wallpaper
+include ~/.config/sway/local/outputs
+include ~/.config/sway/local/wallpaper
+include ~/.config/sway/local/utilities.g
+include ~/.config/sway/local/custom
 
 set $mod Mod1
 
@@ -129,14 +131,6 @@ mode "resize" {
 }
 bindsym $mod+r exec swaymsg 'client.focused #f38ba8 #313244 #cdd6f4 #f38ba8 #f38ba8' \; mode "resize"
 
-# Utilities
-bindsym --locked XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
-bindsym --locked XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
-bindsym --locked XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
-bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
-bindsym $mod+m exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
-bindsym $mod+Shift+m exec ~/.local/bin/volmixer
-bindsym $mod+Shift+w exec ~/.local/bin/wallpaper-picker
 
 seat seat0 xcursor_theme Adwaita 24
 include /etc/sway/config.d/*
