@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Open With...
-Exec=/home/ln/.local/bin/openwith %f
+Exec=openwith %f
 NoDisplay=true
 MimeType=inode/directory;
