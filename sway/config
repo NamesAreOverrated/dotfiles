@@ -1,12 +1,5 @@
 # Sway config — Catppuccin Mocha
-include ~/.config/sway/local/outputs
-include ~/.config/sway/local/wallpaper
-include ~/.config/sway/local/utilities.g
-include ~/.config/sway/local/custom
-
 set $mod Mod1
-
-
 set $left h
 set $down j
 set $up k
@@ -133,4 +126,10 @@ bindsym $mod+r exec swaymsg 'client.focused #f38ba8 #313244 #cdd6f4 #f38ba8 #f38
 
 
 seat seat0 xcursor_theme Adwaita 24
+
+# Machine-specific includes
+include ~/.config/sway/local/outputs
+include ~/.config/sway/local/wallpaper
+include ~/.config/sway/local/utilities.g
+include ~/.config/sway/local/custom
 include /etc/sway/config.d/*
