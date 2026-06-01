@@ -50,7 +50,7 @@ list_sources() {
       id=""; desc=""
       for (i=1; i<=NF; i++) {
         if ($i ~ /Source #[0-9]+/) {
-          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+          gsub(/.*#/, "", $i); gsub(/[^0-9].*,/, "", $i); id=$i
         }
         if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
           gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
@@ -85,7 +85,7 @@ pick_source() {
   echo "$marked" | sed -n "$((selected+1))p" | sed 's/^..//' | awk '{print $1}'
 }
 
-shorten_sink_name() {
+shorten_name() {
   local name="$1"
   local short
   short=$(echo "$name" | grep -oP '/ \K[^/]+?(?= \()' | head -1)
@@ -94,7 +94,9 @@ shorten_sink_name() {
 }
 
 # --- Build main menu ---
-# Default sink info for Switch Output entry
+declare -a ids=() labels=()
+
+# Switch Output
 default_name=$(pactl get-default-sink 2>/dev/null)
 default_info=$(pactl list sinks 2>/dev/null | awk -v name="$default_name" '
   BEGIN { RS=""; FS="\n" }
@@ -115,12 +117,12 @@ default_info=$(pactl list sinks 2>/dev/null | awk -v name="$default_name" '
     print desc " [" status "]"
   }
 ')
-entry_label="Switch Output"
-[[ -n "$default_info" ]] && entry_label="${default_info}"
-entry_label=$(shorten_sink_name "$entry_label")
-entries="__switch_out__  ${entry_label}  ▶"$'\n'
+label="Switch Output"
+[[ -n "$default_info" ]] && label="${default_info}"
+label=$(shorten_name "$label")
+ids+=("__switch_out__"); labels+=(" ${label}  ▶")
 
-# Default source info for Switch Mic entry
+# Switch Mic
 default_src_name=$(pactl get-default-source 2>/dev/null)
 default_src_info=$(pactl list sources 2>/dev/null | awk -v name="$default_src_name" '
   BEGIN { RS=""; FS="\n" }
@@ -141,26 +143,36 @@ default_src_info=$(pactl list sources 2>/dev/null | awk -v name="$default_src_na
     if (desc !~ /Monitor/) print desc " [" status "]"
   }
 ')
-src_label="Switch Mic"
-[[ -n "$default_src_info" ]] && src_label="${default_src_info}"
-src_label=$(shorten_sink_name "$src_label")
-entries+="__switch_mic__  ${src_label}  ▶"$'\n'
+label="Switch Mic"
+[[ -n "$default_src_info" ]] && label="${default_src_info}"
+label=$(shorten_name "$label")
+ids+=("__switch_mic__"); labels+=(" ${label}  ▶")
 
+# Master Volume
 master_vol=$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | grep -oP '\d+(?=%)' | head -1)
 master_mute=$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | grep -oP '(yes|no)')
 master_status="MUTED"
 [[ "$master_mute" != "yes" && -n "$master_vol" ]] && master_status="${master_vol}%"
-entries+="__master__ Master Volume [${master_status}]"$'\n'
+ids+=("__master__"); labels+=("󰕾 Master Volume [${master_status}]")
 
+# Master Mic
 mic_vol=$(pactl get-source-volume @DEFAULT_SOURCE@ 2>/dev/null | grep -oP '\d+(?=%)' | head -1)
 mic_mute=$(pactl get-source-mute @DEFAULT_SOURCE@ 2>/dev/null | grep -oP '(yes|no)')
 mic_status="MUTED"
 [[ "$mic_mute" != "yes" && -n "$mic_vol" ]] && mic_status="${mic_vol}%"
-entries+="__mic__ Master Mic [${mic_status}]"$'\n'
+ids+=("__mic__"); labels+=("󰍬 Master Mic [${mic_status}]")
 
-streams=$(pactl list sink-inputs 2>/dev/null)
-if [[ -n "$streams" ]]; then
-  app_entries=$(echo "$streams" | awk '
+# Build sink id → short name map
+declare -A sink_map
+while IFS='' read -r line; do
+  sid=$(echo "$line" | awk '{print $1}')
+  sdesc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+  sdesc=$(shorten_name "$sdesc")
+  sink_map[$sid]="$sdesc"
+done < <(list_sinks)
+
+# App streams
+app_entries=$(pactl list sink-inputs 2>/dev/null | awk '
     BEGIN { RS=""; FS="\n" }
     /Sink Input #[0-9]+/ {
       id=""; sink_id=""; name=""; vol=""; mute="no"
@@ -188,31 +200,23 @@ if [[ -n "$streams" ]]; then
       }
     }
   ')
-
-  # Build sink id → description map
-  declare -A sink_map
-  while IFS='' read -r line; do
-    sid=$(echo "$line" | awk '{print $1}')
-    sdesc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
-    sink_map[$sid]="$sdesc"
-  done < <(list_sinks)
-
-  # Post-process app entries to show sink name
+if [[ -n "$app_entries" ]]; then
   while IFS='|' read -r id sink_id rest; do
     sname="${sink_map[$sink_id]:-$sink_id}"
-    sname=$(shorten_sink_name "$sname")
-    entries+="$id $rest → $sname"$'\n'
+    ids+=("$id")
+    labels+=("󰘔 $rest → $sname")
   done <<< "$app_entries"
 fi
 
-entries="$(echo "$entries" | sed '/^$/d')"
-[[ -z "$entries" ]] && { rofi -e "No audio streams"; exit 1; }
-
 # --- Main menu ---
-selected=$(echo "$entries" | rofi -dmenu -p "Volume" -i -format i)
+[[ ${#ids[@]} -eq 0 ]] && { rofi -e "No audio streams"; exit 1; }
+
+selected=$(for i in "${!ids[@]}"; do
+  printf '%s\n' "${labels[$i]}"
+done | rofi -dmenu -p "Volume" -i -format i)
 [[ -z "$selected" ]] && exit 0
 
-stream_id=$(echo "$entries" | sed -n "$((selected+1))p" | awk '{print $1}')
+stream_id="${ids[$selected]}"
 
 # Handle Switch Output
 if [[ "$stream_id" == "__switch_out__" ]]; then
