@@ -1,80 +1,142 @@
 * {
-    bg: #1e1e2e;
-    bg-alt: #181825;
-    fg: #cdd6f4;
-    fg-alt: #a6adc8;
-    accent: #89b4fa;
-    urgent: #f38ba8;
-    border: #45475a;
+    rosewater: #f5e0dc;
+    flamingo: #f2cdcd;
+    pink: #f5c2e7;
+    mauve: #cba6f7;
+    red: #f38ba8;
+    maroon: #eba0ac;
+    peach: #fab387;
+    yellow: #f9e2af;
+    green: #a6e3a1;
+    teal: #94e2d5;
+    sky: #89dceb;
+    sapphire: #74c7ec;
+    blue: #89b4fa;
+    lavender: #b4befe;
+    text: #cdd6f4;
+    subtext1: #bac2de;
+    subtext0: #a6adc8;
+    overlay2: #9399b2;
+    overlay1: #7f849c;
+    overlay0: #6c7086;
+    surface2: #585b70;
+    surface1: #45475a;
+    surface0: #313244;
+    base: #1e1e2e;
+    mantle: #181825;
+    crust: #11111b;
 
     font: "JetBrainsMono Nerd Font 11";
     background-color: transparent;
-    text-color: @fg;
-    border-color: @border;
-    spacing: 4;
+    text-color: @text;
 }
 
 window {
-    background-color: @bg;
+    background-color: rgba(30, 30, 46, 0.9);
     border: 2px;
-    border-color: @border;
-    border-radius: 8;
-    padding: 12;
+    border-color: @surface1;
+    border-radius: 12px;
+    padding: 8px;
     width: 600;
+    location: center;
+    anchor: center;
 }
 
 mainbox {
     background-color: transparent;
+    padding: 0;
+    spacing: 0;
     children: [inputbar, listview];
 }
 
 inputbar {
-    background-color: @bg-alt;
-    border-radius: 6;
-    padding: 8;
-    spacing: 8;
-    children: [prompt, entry];
+    background-color: rgba(24, 24, 37, 0.85);
+    border-radius: 8px;
+    padding: 12px 16px;
+    spacing: 8px;
+    margin: 0 0 4px 0;
+    children: [prompt, entry, case-indicator];
 }
 
 prompt {
-    text-color: @accent;
+    text-color: @blue;
     font: "JetBrainsMono Nerd Font 11";
 }
 
 entry {
-    text-color: @fg;
+    text-color: @text;
     font: "JetBrainsMono Nerd Font 11";
     placeholder: "Search...";
-    placeholder-color: @fg-alt;
+    placeholder-color: @overlay0;
+    cursor-color: @blue;
+    cursor-width: 2px;
+}
+
+case-indicator {
+    text-color: @surface2;
+    font: "JetBrainsMono Nerd Font 10";
 }
 
 listview {
     background-color: transparent;
-    padding: 4 0 0 0;
-    lines: 8;
-    spacing: 2;
+    padding: 4px 0 0 0;
+    lines: 10;
+    spacing: 2px;
+    scrollbar: false;
+    dynamic: true;
+    cycle: true;
 }
 
 element {
     background-color: transparent;
-    padding: 8 12;
-    border-radius: 4;
-    text-color: @fg;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-color: @text;
 }
 
-element selected {
-    background-color: @accent;
-    text-color: @bg;
+element normal.normal {
+    background-color: transparent;
 }
 
-element urgent {
-    background-color: @urgent;
-    text-color: @bg;
+element normal.urgent {
+    background-color: @red;
+    text-color: @crust;
 }
 
-scrollbar {
-    background-color: @bg-alt;
-    handle-color: @accent;
-    border-radius: 4;
-    width: 4;
+element normal.active {
+    background-color: @blue;
+    text-color: @crust;
 }
+
+element selected.normal {
+    background-color: @surface0;
+    text-color: @text;
+}
+
+element selected.urgent {
+    background-color: @red;
+    text-color: @crust;
+}
+
+element selected.active {
+    background-color: @blue;
+    text-color: @crust;
+}
+
+element alternate.normal {
+    background-color: transparent;
+}
+
+element-icon {
+    size: 1.2em;
+    vertical-align: 0.5;
+}
+
+element-text {
+    background-color: inherit;
+    text-color: inherit;
+    vertical-align: 0.5;
+    highlight: bold;
+}
+
+

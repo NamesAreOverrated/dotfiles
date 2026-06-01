@@ -1,5 +1,5 @@
 configuration {
-    modes: "drun,run,window";
+    modes: "drun";
     font: "JetBrainsMono Nerd Font 11";
     show-icons: true;
     terminal: "foot";
