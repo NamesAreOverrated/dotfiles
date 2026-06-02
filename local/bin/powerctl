@@ -1,0 +1,12 @@
+#!/bin/sh
+case "$1" in
+    lock)
+        command -v swaylock &>/dev/null && swaylock
+        ;;
+    reboot)
+        systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || openrc-shutdown -r now
+        ;;
+    poweroff)
+        systemctl poweroff 2>/dev/null || loginctl poweroff 2>/dev/null || openrc-shutdown -p now
+        ;;
+esac

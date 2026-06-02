@@ -60,17 +60,17 @@
   },
   "custom/lock": {
     "format": "",
-    "on-click": "swaylock",
+    "on-click": "powerctl lock",
     "tooltip": false
   },
   "custom/reboot": {
     "format": "",
-    "on-click": "systemctl reboot",
+    "on-click": "powerctl reboot",
     "tooltip": false
   },
   "custom/shutdown": {
     "format": "",
-    "on-click": "systemctl poweroff",
+    "on-click": "powerctl poweroff",
     "tooltip": false
   }
 }

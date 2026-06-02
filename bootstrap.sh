@@ -230,6 +230,12 @@ if has waybar; then
     link "$DOTFILES/waybar/style.css" "$HOME/.config/waybar/style.css"
 fi
 
+# --- utility scripts ---
+if [ -f "$DOTFILES/local/bin/powerctl" ]; then
+    echo "Linking powerctl..."
+    link "$DOTFILES/local/bin/powerctl" "$HOME/.local/bin/powerctl"
+fi
+
 # --- wallpaper-picker (needs both sway and rofi) ---
 if has sway && has rofi; then
     if [ -f "$DOTFILES/local/bin/wallpaper-picker" ]; then
