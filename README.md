@@ -11,14 +11,14 @@ Catppuccin Mocha throughout.
 | [sway](https://swaywm.org) | `sway/config` |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
 | [swaylock](https://github.com/swaywm/swaylock) | `swaylock/config` |
-| [rofi](https://github.com/davatorium/rofi) | `rofi/config.rasi` + Catppuccin theme + wallpaper picker theme |
+| [rofi](https://github.com/davatorium/rofi) | `rofi/config.rasi` + Catppuccin theme + rofi-wallpaper theme |
 | [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
 | [starship](https://starship.rs) | `starship.toml` |
 | [termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) | `local/bin/termfilebrowser` — TUI file browser with Neovim integration |
 | [openwith](https://github.com/NamesAreOverrated/openwith) | `openwith/` — universal file opener |
-| volmixer | `openwith/volmixer` — pactl-based audio volume mixer |
+| rofi-volmixer | `local/bin/rofi-volmixer` — pactl-based audio volume mixer |
 | wallpapers | `wallz` submodule — symlinked to `~/Pictures/wallpapers` |
 
 ## Quick start
@@ -53,7 +53,7 @@ The Linux bootstrap script (`bootstrap.sh`) does the following:
 - Generates a systemd user service for kanata using the detected binary path
 - Creates machine-specific sway config in `~/.config/sway/local/`
 - Symlinks wallpapers to `~/Pictures/wallpapers`
-- If rofi is installed, offers to set up file management (termfilebrowser, openwith, volmixer)
+- If rofi is installed, offers to set up file management (termfilebrowser, openwith)
 
 The Windows bootstrap (`bootstrap.ps1`) mirrors this — links configs,
 installs kanata, sets up a scheduled task, installs the font, and adds
@@ -67,7 +67,7 @@ Sway includes `~/.config/sway/local/` which holds anything machine-specific:
 |------|----------|
 | `mod.g` | **Always regenerated.** Contains `set $mod Mod1` or `set $mod Mod4`. |
 | `outputs` | Created once. Add your monitor layout here. |
-| `wallpaper` | Updated by the wallpaper picker. Never hand-edit. |
+| `wallpaper` | Updated by rofi-wallpaper. Never hand-edit. |
 | `utilities.g` | **Always regenerated.** Auto-generated keybinds based on installed tools. |
 | `custom` | Created once. Add your own binds here (brightness, media keys, etc.). |
 
@@ -149,7 +149,7 @@ If rofi is installed, bootstrap offers to set up:
   `<leader>E`). Binary committed to the repo.
 - **openwith** — universal file opener via rofi. Registers as the default
   handler for all MIME types.
-- **volmixer** — pactl-based audio volume mixer (rofi-driven).
+- **rofi-volmixer** — pactl-based audio volume mixer (rofi-driven).
 
 On Windows, termfilebrowser is silently copied to `~\.local\bin\` and the
 directory is added to the user PATH.
@@ -158,4 +158,4 @@ directory is added to the user PATH.
 
 [Catppuccin Mocha](https://github.com/catppuccin/catppuccin) — all configs
 use it. Rofi has a dedicated Catppuccin theme with an additional grid-based
-theme for the wallpaper picker. Waybar and swaylock are styled to match.
+theme for rofi-wallpaper. Waybar and swaylock are styled to match.

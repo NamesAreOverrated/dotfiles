@@ -12,23 +12,33 @@ signal_bars() {
 }
 
 proxy_host() {
-  local a; a=$(cat ~/.config/proxy/config 2>/dev/null)
+  local a; a=$(sed -n '1p' "$HOME/.config/rofi-network" 2>/dev/null)
   echo "${a%:*}" ; }
 proxy_port() {
-  local a; a=$(cat ~/.config/proxy/config 2>/dev/null)
+  local a; a=$(sed -n '1p' "$HOME/.config/rofi-network" 2>/dev/null)
   local p="${a#*:}"
   [[ "$p" != "$a" ]] && echo "$p" || echo "10808"
 }
 proxy_addr() { echo "$(proxy_host):$(proxy_port)"; }
-proxy_on()   { [[ -f ~/.config/proxy/state ]] && grep -qx 1 ~/.config/proxy/state; }
-proxy_write() { echo "$1:$2" > ~/.config/proxy/config; }
-
+proxy_on()   { [[ $(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null) == "1" ]]; }
+proxy_write() {
+  local host="$1" port="$2"
+  local state
+  mkdir -p "$HOME/.config"
+  state=$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)
+  [[ -z "$state" ]] && state="0"
+  printf '%s\n%s\n' "$host:$port" "$state" > "$HOME/.config/rofi-network"
+}
 proxy_toggle() {
-  mkdir -p ~/.config/proxy
-  if proxy_on; then
-    echo 0 > ~/.config/proxy/state
+  mkdir -p "$HOME/.config"
+  local addr state
+  addr=$(sed -n '1p' "$HOME/.config/rofi-network" 2>/dev/null)
+  state=$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)
+  [[ -z "$addr" ]] && addr="localhost:10808"
+  if [[ "$state" == "1" ]]; then
+    printf '%s\n0\n' "$addr" > "$HOME/.config/rofi-network"
   else
-    echo 1 > ~/.config/proxy/state
+    printf '%s\n1\n' "$addr" > "$HOME/.config/rofi-network"
   fi
 }
 

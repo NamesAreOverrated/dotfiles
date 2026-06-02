@@ -73,7 +73,7 @@
       "default": ["󰕿", "󰖀", "󰕾"]
     },
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-    "on-click-right": "pavucontrol",
+    "on-click-right": "~/.local/bin/rofi-volmixer",
     "scroll-step": 5
   },
   "pulseaudio#input": {

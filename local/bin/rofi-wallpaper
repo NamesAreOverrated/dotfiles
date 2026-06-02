@@ -25,7 +25,7 @@ result=$( {
     done
 } | rofi -dmenu -p "${relpath:-Wallpapers}" \
     -show-icons -kb-custom-1 "${MOD_LABEL}+BackSpace" \
-    -theme ~/.config/rofi/themes/wallpaper.rasi)
+    -theme ~/.config/rofi/themes/rofi-wallpaper.rasi)
 
 ret=$?
 selected="$result"
