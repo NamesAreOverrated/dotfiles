@@ -84,18 +84,16 @@ if ($kanataBin) {
 }
 
 $fontZip = "$DOTFILES\fonts\IosevkaCustom.zip"
-if (Test-Path $fontZip) {
+$fontDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+if ((Test-Path $fontZip) -and -not (Test-Path "$fontDir\IosevkaCustom-*.ttf")) {
     Write-Host "Installing Iosevka Custom font..."
-    $fontDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
     $null = New-Item -Force -ItemType Directory -Path $fontDir
     Expand-Archive -Path $fontZip -DestinationPath $fontDir -Force
     Copy-Item "$DOTFILES\fonts\LICENSE.md" "$fontDir\" -Force
 
-    # Flatten: move TTFs up from any subdirectories
     Get-ChildItem "$fontDir" -Recurse -Filter "*.ttf" | Move-Item -Destination $fontDir -Force
     Get-ChildItem "$fontDir" -Directory | Remove-Item -Recurse -Force
 
-    # Register each TTF in registry for per-user install
     Get-ChildItem "$fontDir\IosevkaCustom-*.ttf" | ForEach-Object {
         $regKey = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts"
         $name = "{0} (TrueType)" -f $_.BaseName
