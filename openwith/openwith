@@ -73,9 +73,9 @@ desktop="${desktop_files[$selected]}"
 
 case "$desktop" in
     __builtin_nvim__)
-        foot -e nvim "$file" ;;
+        ${TERMINAL:-foot} -e nvim "$file" ;;	
     __builtin_term__)
-        foot --working-directory "$dir" ;;
+        ${TERMINAL:-foot} --working-directory "$dir" ;;
     *)
         exec_cmd=$(grep "^Exec=" "$desktop" | head -1 | cut -d= -f2-)
         file_q="$(printf '%q' "$file")"
@@ -86,7 +86,7 @@ case "$desktop" in
         exec_cmd="${exec_cmd//%U/$file_q}"
         exec_cmd="$(printf '%s' "$exec_cmd" | sed 's/%[kKdDnNvm]//g')"
         if grep -q "^Terminal=true" "$desktop" 2>/dev/null; then
-            foot -e bash -c "cd $dir_q && exec $exec_cmd"
+            ${TERMINAL:-foot} -e bash -c "cd $dir_q && exec $exec_cmd"
         else
             bash -c "cd $dir_q && nohup $exec_cmd >/dev/null 2>&1 &"
         fi

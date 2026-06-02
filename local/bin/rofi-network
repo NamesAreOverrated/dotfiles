@@ -186,11 +186,11 @@ case "$action" in
     sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep ":${ssid}:" | head -1 | cut -d: -f4-)
     sec="${sec#:}"
     if [[ -z "$sec" || "$sec" == "--" ]]; then
-      nmcli device wifi connect "$ssid" 2>/dev/null && notify-send "Connected to ${ssid}" || rofi -e "Failed to connect"
+      nmcli device wifi connect "$ssid" 2>/dev/null || rofi -e "Failed to connect"
     else
       pw=$(rofi -dmenu -p "Password for ${ssid}" -password)
       [[ -z "$pw" ]] && exit 0
-      nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null && notify-send "Connected to ${ssid}" || rofi -e "Wrong password or connection failed"
+      nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || rofi -e "Wrong password or connection failed"
     fi
     ;;
 esac
