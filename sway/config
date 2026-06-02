@@ -1,5 +1,6 @@
 # Sway config — Catppuccin Mocha
 set $mod Mod1
+include ~/.config/sway/local/mod.g
 set $left h
 set $down j
 set $up k

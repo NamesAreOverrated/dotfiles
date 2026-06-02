@@ -1,4 +1,5 @@
 #!/bin/sh
+MOD_LABEL="${MOD_LABEL:-Alt}"
 dir="${1:-$HOME/Pictures/wallpapers}"
 relpath=$(echo "$dir" | sed "s|$HOME/Pictures/wallpapers/||")
 
@@ -23,7 +24,7 @@ result=$( {
         esac
     done
 } | rofi -dmenu -p "${relpath:-Wallpapers}" \
-    -show-icons -kb-custom-1 "Alt+BackSpace" \
+    -show-icons -kb-custom-1 "${MOD_LABEL}+BackSpace" \
     -theme ~/.config/rofi/themes/wallpaper.rasi)
 
 ret=$?

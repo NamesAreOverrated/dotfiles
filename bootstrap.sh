@@ -26,8 +26,9 @@ echo "  1) Alt (Mod1)"
 echo "  2) Win/Super (Mod4)"
 read -rp "Pick [1/2]: " mod_choice
 if [ "$mod_choice" = "2" ]; then
-    sed -i 's/set \$mod Mod1/set \$mod Mod4/' "$DOTFILES/sway/config"
-    sed -i 's/Alt+BackSpace/Super+BackSpace/' "$DOTFILES/local/bin/wallpaper-picker"
+    echo "set \$mod Mod4" > "$HOME/.config/sway/local/mod.g"
+else
+    echo "set \$mod Mod1" > "$HOME/.config/sway/local/mod.g"
 fi
 
 has() { command -v "$1" &>/dev/null; }
@@ -171,7 +172,11 @@ if has sway; then
         echo ""
 
         if has rofi; then
-            echo "bindsym \$mod+Shift+w exec ~/.local/bin/wallpaper-picker"
+            if [ "$mod_choice" = "2" ]; then
+                echo "bindsym \$mod+Shift+w exec env MOD_LABEL=Super ~/.local/bin/wallpaper-picker"
+            else
+                echo "bindsym \$mod+Shift+w exec ~/.local/bin/wallpaper-picker"
+            fi
         fi
 
         if has pactl; then
