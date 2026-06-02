@@ -1,5 +1,5 @@
 * {
-    font: "Iosevka Custom 11";
+    font: "afio 11";
     background-color: transparent;
     text-color: #cdd6f4;
 
@@ -103,7 +103,7 @@ element-icon {
 
 element-text {
     text-color: inherit;
-    font: "Iosevka Custom 9";
+    font: "afio 9";
     horizontal-align: 0.5;
     vertical-align: 0;
 }

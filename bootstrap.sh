@@ -53,12 +53,12 @@ if has foot && [ -d "$DOTFILES/foot" ]; then
     link "$DOTFILES/foot/foot.ini" "$HOME/.config/foot/foot.ini"
 fi
 
-if [ -f "$DOTFILES/fonts/IosevkaCustom.zip" ]; then
-    echo "Installing Iosevka Custom font..."
-    FONT_DIR="$HOME/.local/share/fonts/iosevka-custom"
+if [ -f "$DOTFILES/fonts/afio.zip" ]; then
+    echo "Installing afio font..."
+    FONT_DIR="$HOME/.local/share/fonts/afio"
     mkdir -p "$FONT_DIR"
-    unzip -jo "$DOTFILES/fonts/IosevkaCustom.zip" -d "$FONT_DIR"
-    cp "$DOTFILES/fonts/LICENSE.md" "$FONT_DIR/"
+    unzip -jo "$DOTFILES/fonts/afio.zip" -d "$FONT_DIR"
+    cp "$DOTFILES/fonts/LICENSE-MIT" "$DOTFILES/fonts/LICENSE-APACHE" "$FONT_DIR/"
     fc-cache -fv "$FONT_DIR" &>/dev/null
     echo "  Font installed"
 fi

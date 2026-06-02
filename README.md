@@ -48,7 +48,7 @@ The Linux bootstrap script (`bootstrap.sh`) does the following:
 - Checks which tools are installed and skips configs for missing ones
 - Prompts for Alt/Super mod key and writes to `~/.config/sway/local/mod.g`
 - Symlinks all config files (starship, nvim, foot, rofi, sway, swaylock, waybar)
-- Installs the Iosevka Custom font from `fonts/`
+- Installs the afio font from `fonts/`
 - Offers to download kanata v1.11.0 from GitHub releases if missing
 - Generates a systemd user service for kanata using the detected binary path
 - Creates machine-specific sway config in `~/.config/sway/local/`
