@@ -517,83 +517,74 @@ do
 
   vim.cmd.colorscheme 'catppuccin'
 
-  -- Official Catppuccin Mocha token colors for all languages
-  vim.api.nvim_set_hl(0, '@comment', { fg = '#6c7086' })
-  vim.api.nvim_set_hl(0, '@keyword', { fg = '#cba6f7' })
-  vim.api.nvim_set_hl(0, '@conditional', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@repeat', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@include', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@exception', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@keyword.storage', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@keyword.modifier', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@keyword.control', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@lsp.type.keyword', { link = '@keyword' })
-  vim.api.nvim_set_hl(0, '@operator', { fg = '#cdd6f4' })
-  vim.api.nvim_set_hl(0, '@function', { fg = '#a6e3a1' })
-  vim.api.nvim_set_hl(0, '@function.builtin', { fg = '#89b4fa' })
-  vim.api.nvim_set_hl(0, '@lsp.type.function', { link = '@function' })
-  vim.api.nvim_set_hl(0, '@lsp.type.method', { link = '@function' })
-  vim.api.nvim_set_hl(0, '@lsp.type.property', { link = '@property' })
+  -- General token overrides (all languages)
+  -- blue: builtin func
+  vim.api.nvim_set_hl(0, '@function.builtin', { fg = '#7dcfff' })
+  -- green family: functions
+  vim.api.nvim_set_hl(0, '@function', { fg = '#98c379' })
   vim.api.nvim_set_hl(0, '@method', { link = '@function' })
   vim.api.nvim_set_hl(0, '@constructor', { link = '@function' })
-  vim.api.nvim_set_hl(0, '@type', { fg = '#89b4fa' })
-  vim.api.nvim_set_hl(0, '@type.builtin', { link = '@type' })
-  vim.api.nvim_set_hl(0, '@type.definition', { link = '@type' })
+  -- yellow: strings
   vim.api.nvim_set_hl(0, '@string', { fg = '#f9e2af' })
   vim.api.nvim_set_hl(0, '@string.regexp', { link = '@string' })
-  vim.api.nvim_set_hl(0, '@string.escape', { fg = '#cba6f7' })
-  vim.api.nvim_set_hl(0, '@constant', { fg = '#cba6f7' })
+  -- pink: string escapes
+  vim.api.nvim_set_hl(0, '@string.escape', { fg = '#f7768e' })
+  -- peach: constants
+  vim.api.nvim_set_hl(0, '@constant', { fg = '#fab387' })
   vim.api.nvim_set_hl(0, '@number', { link = '@constant' })
   vim.api.nvim_set_hl(0, '@boolean', { link = '@constant' })
   vim.api.nvim_set_hl(0, '@character', { link = '@constant' })
-  vim.api.nvim_set_hl(0, '@lsp.type.constant', { link = '@constant' })
-  vim.api.nvim_set_hl(0, '@lsp.type.constantName', { link = '@constant' })
-  vim.api.nvim_set_hl(0, '@lsp.type.namespace', { fg = '#cba6f7' })
-  vim.api.nvim_set_hl(0, '@lsp.type.typeParameter', { fg = '#fab387' })
-  vim.api.nvim_set_hl(0, '@lsp.type.delegateName', { link = '@type' })
-  vim.api.nvim_set_hl(0, '@lsp.type.fieldName', { link = '@property' })
-  vim.api.nvim_set_hl(0, '@lsp.type.variable', { link = '@variable' })
-  vim.api.nvim_set_hl(0, '@lsp.type.parameter', { link = '@variable.parameter' })
-  vim.api.nvim_set_hl(0, '@variable', { fg = '#cdd6f4' })
-  vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#fab387' })
-  vim.api.nvim_set_hl(0, '@property', { fg = '#cdd6f4' })
-  vim.api.nvim_set_hl(0, '@variable.member', { link = '@property' })
-  vim.api.nvim_set_hl(0, '@variable.global', { link = '@property' })
-  vim.api.nvim_set_hl(0, '@tag', { fg = '#cba6f7' })
-  vim.api.nvim_set_hl(0, '@tag.attribute', { fg = '#a6e3a1' })
-  vim.api.nvim_set_hl(0, '@tag.delimiter', { fg = '#cdd6f4' })
-  vim.api.nvim_set_hl(0, '@error', { fg = '#f38ba8' })
-  vim.api.nvim_set_hl(0, '@markup.heading', { fg = '#cba6f7' })
-  vim.api.nvim_set_hl(0, '@markup.bold', { fg = '#fab387' })
-  vim.api.nvim_set_hl(0, '@markup.italic', { fg = '#f9e2af' })
-  vim.api.nvim_set_hl(0, '@diff.plus', { fg = '#a6e3a1' })
-  vim.api.nvim_set_hl(0, '@diff.minus', { fg = '#f38ba8' })
+  -- red: properties
+  vim.api.nvim_set_hl(0, '@property', { fg = '#f38ba8' })
+  -- lavender: parameters
+  vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#b4befe' })
 
   -- LSP reference highlights (background block like VSCode)
   vim.api.nvim_set_hl(0, 'LspReferenceText', { bg = '#313244' })
   vim.api.nvim_set_hl(0, 'LspReferenceRead', { bg = '#313244' })
   vim.api.nvim_set_hl(0, 'LspReferenceWrite', { bg = '#313244' })
 
-  -- C# semantic token colors (matching Catppuccin Mocha theme)
+  -- C# semantic token colors
   vim.api.nvim_create_autocmd('LspAttach', {
     group = vim.api.nvim_create_augroup('csharp-colors', { clear = true }),
     callback = function(ev)
       if vim.bo[ev.buf].filetype ~= 'cs' then return end
-      vim.api.nvim_set_hl(0, '@lsp.type.class', { fg = '#b4befe' })
+      -- steel blue: class
+      vim.api.nvim_set_hl(0, '@lsp.type.class', { fg = '#6aa0d0' })
+      -- sky: struct
       vim.api.nvim_set_hl(0, '@lsp.type.struct', { fg = '#89dceb' })
-      vim.api.nvim_set_hl(0, '@lsp.type.interface', { fg = '#a6e3a1' })
-      vim.api.nvim_set_hl(0, '@lsp.type.enum', { fg = '#f9e2af' })
-      vim.api.nvim_set_hl(0, '@lsp.type.enumMember', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@lsp.type.event', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@lsp.type.field', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@lsp.type.fieldName', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@lsp.type.namespace', { fg = '#6c7086' })
-      vim.api.nvim_set_hl(0, '@lsp.type.delegateName', { fg = '#a6e3a1' })
+      -- medium green: delegate
+      vim.api.nvim_set_hl(0, '@lsp.type.delegateName', { fg = '#7ecb8e' })
+      -- yellow-green: event
+      vim.api.nvim_set_hl(0, '@lsp.type.event', { fg = '#9ece6a' })
+      -- mint: methods
+      vim.api.nvim_set_hl(0, '@lsp.type.method', { fg = '#a6e3a1' })
+      -- green-teal: interface
+      vim.api.nvim_set_hl(0, '@lsp.type.interface', { fg = '#8edbaa' })
+      -- maroon: fields
+      vim.api.nvim_set_hl(0, '@lsp.type.field', { fg = '#eba0ac' })
+      vim.api.nvim_set_hl(0, '@lsp.type.fieldName', { fg = '#eba0ac' })
+      vim.api.nvim_set_hl(0, '@variable.member', { fg = '#eba0ac' })
+      -- red: properties / globals
+      vim.api.nvim_set_hl(0, '@property', { fg = '#f38ba8' })
+      vim.api.nvim_set_hl(0, '@variable.global', { fg = '#f38ba8' })
+      -- peach: constants
+      vim.api.nvim_set_hl(0, '@lsp.type.constant', { fg = '#fab387' })
+      vim.api.nvim_set_hl(0, '@lsp.type.constantName', { fg = '#fab387' })
+      -- lavender: parameters
+      vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#b4befe' })
+      vim.api.nvim_set_hl(0, '@lsp.type.parameter', { fg = '#b4befe' })
+      -- light gray-blue: namespace
+      vim.api.nvim_set_hl(0, '@lsp.type.namespace', { fg = '#a9b1d6' })
+      -- pale rose: enums
+      vim.api.nvim_set_hl(0, '@lsp.type.enum', { fg = '#f5e0dc' })
+      vim.api.nvim_set_hl(0, '@lsp.type.enumMember', { fg = '#f2cdcd' })
+      -- light gray: identifier (shows in `using` directives)
+      vim.api.nvim_set_hl(0, '@lsp.type.identifier', { fg = '#cdd6f4' })
+      -- yellow: type parameter (follows string color)
+      vim.api.nvim_set_hl(0, '@lsp.type.typeParameter', { fg = '#f9e2af' })
+      -- light gray: variable text
       vim.api.nvim_set_hl(0, '@variable', { fg = '#cdd6f4' })
-      vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#a6e3a1' })
-      vim.api.nvim_set_hl(0, '@variable.member', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@property', { fg = '#fab387' })
-      vim.api.nvim_set_hl(0, '@variable.global', { fg = '#fab387' })
     end,
   })
 
