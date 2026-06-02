@@ -236,6 +236,12 @@ if [ -f "$DOTFILES/local/bin/powerctl" ]; then
     link "$DOTFILES/local/bin/powerctl" "$HOME/.local/bin/powerctl"
 fi
 
+# --- rofi-network (NetworkManager WiFi picker) ---
+if has nmcli && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
+    echo "Linking rofi-network..."
+    link "$DOTFILES/local/bin/rofi-network" "$HOME/.local/bin/rofi-network"
+fi
+
 # --- wallpaper-picker (needs both sway and rofi) ---
 if has sway && has rofi; then
     if [ -f "$DOTFILES/local/bin/wallpaper-picker" ]; then

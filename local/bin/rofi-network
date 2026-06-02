@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# ── Helpers ───────────────────────────────────────────────
+signal_bars() {
+  local s=$1
+  if   (( s >= 80 )); then echo "󰤨"
+  elif (( s >= 60 )); then echo "󰤥"
+  elif (( s >= 40 )); then echo "󰤢"
+  elif (( s >= 20 )); then echo "󰤟"
+  else                     echo "󰤯"
+  fi
+}
+
+proxy_host() {
+  local a; a=$(cat ~/.config/proxy/config 2>/dev/null)
+  echo "${a%:*}" ; }
+proxy_port() {
+  local a; a=$(cat ~/.config/proxy/config 2>/dev/null)
+  local p="${a#*:}"
+  [[ "$p" != "$a" ]] && echo "$p" || echo "10808"
+}
+proxy_addr() { echo "$(proxy_host):$(proxy_port)"; }
+proxy_on()   { [[ -f ~/.config/proxy/state ]] && grep -qx 1 ~/.config/proxy/state; }
+proxy_write() { echo "$1:$2" > ~/.config/proxy/config; }
+
+proxy_toggle() {
+  mkdir -p ~/.config/proxy
+  if proxy_on; then
+    echo 0 > ~/.config/proxy/state
+  else
+    echo 1 > ~/.config/proxy/state
+  fi
+}
+
+# ── Networking info ───────────────────────────────────────
+wifi_device=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -1)
+
+connected_ssid=""
+if [[ -n "$wifi_device" ]]; then
+  connected_ssid=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null | grep '^\*' | cut -d: -f2 | head -1)
+fi
+
+net_on=$(nmcli networking 2>/dev/null)
+
+declare -a ids=() labels=()
+
+# ── Connection info ───────────────────────────────────────
+current_line=$(nmcli -t -f DEVICE,STATE,CONNECTION device status 2>/dev/null | grep ':connected:' | head -1)
+current_device=$(echo "$current_line" | cut -d: -f1)
+current_conn=$(echo "$current_line" | cut -d: -f3)
+ip_addr=$(ip -4 -br addr show 2>/dev/null | grep -v '^lo ' | awk '{print $3}' | cut -d/ -f1 | head -1)
+[[ -z "$ip_addr" ]] && ip_addr="—"
+device_icon="󰈀"; [[ "$current_device" =~ wl ]] && device_icon="󰖩"
+ids+=("__info__"); labels+=("${device_icon}  ${current_conn:-Not connected}  —  ${ip_addr}")
+
+# ── Airplane mode ─────────────────────────────────────────
+ids+=("__airplane__"); labels+=("$([[ "$net_on" == "enabled" ]] && echo "󰀞  Airplane mode" || echo "󰖩  Turn networking on")")
+
+# ── WiFi ──────────────────────────────────────────────────
+if [[ -n "$wifi_device" ]]; then
+  ids+=("__sep1__"); labels+=("")
+  ids+=("__wifi_header__"); labels+=("󰖩  WiFi Networks")
+  while IFS=$'\n' read -r line; do
+    [[ -z "$line" || "$line" == *"SSID"* ]] && continue
+    inuse=$(echo "$line" | cut -d: -f1)
+    ssid=$(echo "$line" | cut -d: -f2)
+    signal=$(echo "$line" | cut -d: -f3)
+    sec=$(echo "$line" | cut -d: -f4-)
+    [[ -z "$ssid" ]] && continue
+    bars=$(signal_bars "$signal")
+    mark="  "; [[ "$inuse" == "*" ]] && mark="󰐅 "
+    lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
+    ids+=("net:$ssid"); labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
+  done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
+  ids+=("__rescan__"); labels+=("󰑐  Rescan")
+fi
+
+# ── Proxy ──────────────────────────────────────────────────
+ids+=("__sep2__"); labels+=("")
+ph=$(proxy_host); pp=$(proxy_port)
+ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰒄  Proxy ON' || echo '󰒄  Proxy OFF')")
+ids+=("__proxy_edit_host__"); labels+=("󰇥  Edit address (${ph})")
+ids+=("__proxy_edit_port__"); labels+=("󰇥  Edit port     (${pp})")
+
+# ── Menu ──────────────────────────────────────────────────
+selected=$(for i in "${!ids[@]}"; do printf '%s\n' "${labels[$i]}"; done | rofi -dmenu -p "Network" -i -format i)
+[[ -z "$selected" ]] && exit 0
+action="${ids[$selected]}"
+
+case "$action" in
+  __info__|__wifi_header__)  exit 0 ;;
+
+  __airplane__)
+    if [[ "$net_on" == "enabled" ]]; then nmcli networking off; else nmcli networking on; fi
+    exec "$0"
+    ;;
+
+  __rescan__)
+    nmcli device wifi rescan 2>/dev/null || true
+    sleep 2; exec "$0"
+    ;;
+
+  __proxy_edit_host__)
+    new=$(echo "$ph" | rofi -dmenu -p "Proxy address")
+    [[ -z "$new" ]] && exit 0
+    proxy_write "$new" "$pp"
+    exec "$0"
+    ;;
+
+  __proxy_edit_port__)
+    new=$(echo "$pp" | rofi -dmenu -p "Proxy port")
+    [[ -z "$new" ]] && exit 0
+    proxy_write "$ph" "$new"
+    exec "$0"
+    ;;
+
+  __proxy_toggle__)
+    proxy_toggle; exec "$0"
+    ;;
+
+  net:*)
+    ssid="${action#net:}"
+    [[ "$ssid" == "$connected_ssid" ]] && exit 0
+    sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep ":${ssid}:" | head -1 | cut -d: -f4-)
+    sec="${sec#:}"
+    if [[ -z "$sec" || "$sec" == "--" ]]; then
+      nmcli device wifi connect "$ssid" 2>/dev/null && notify-send "Connected to ${ssid}" || rofi -e "Failed to connect"
+    else
+      pw=$(rofi -dmenu -p "Password for ${ssid}" -password)
+      [[ -z "$pw" ]] && exit 0
+      nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null && notify-send "Connected to ${ssid}" || rofi -e "Wrong password or connection failed"
+    fi
+    ;;
+esac

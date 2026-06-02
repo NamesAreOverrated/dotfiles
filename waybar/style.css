@@ -1,6 +1,6 @@
 * {
   font-family: "afio";
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   min-height: 0;
   margin: 0;
@@ -12,6 +12,9 @@ window#waybar {
 }
 
 #workspaces,
+#tray,
+#network,
+#disk,
 #pulseaudio.output,
 #pulseaudio.input,
 #cpu,
@@ -22,6 +25,7 @@ window#waybar {
 #custom-shutdown {
   margin: 2px 2px;
   padding: 0 9px;
+  min-height: 24px;
   border: 1.5px solid #45475a;
   border-radius: 5px;
   background: #1e1e2e;
@@ -35,7 +39,6 @@ window#waybar {
 }
 
 #workspaces button {
-  all: initial;
   padding: 0 7px;
   margin: 0;
   color: #585b70;
@@ -43,12 +46,21 @@ window#waybar {
   border-radius: 0;
   background: transparent;
   min-width: 12px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+#workspaces button.visible {
+  color: #cdd6f4;
 }
 
 #workspaces button.active {
-  color: #1e1e2e;
-  background: #cba6f7;
-  border-radius: 4px;
+  color: #f38ba8;
+  font-weight: 900;
+  min-width: 16px;
 }
 
 #workspaces button.urgent {
@@ -62,34 +74,34 @@ window#waybar {
   text-shadow: none;
 }
 
-#pulseaudio.output {
-  color: #94e2d5;
+#tray {
+  color: #cdd6f4;
 }
 
-#pulseaudio.input {
-  color: #89dceb;
+#tray > .needs-attention {
+  -gtk-icon-effect: highlight;
+  background: #f38ba8;
 }
 
-#cpu {
-  color: #a6e3a1;
-}
+#network                 { color: #89b4fa; }
+#network.disconnected    { color: #585b70; }
+#disk                    { color: #f5c2e7; }
+#pulseaudio.output       { color: #94e2d5; }
+#pulseaudio.input        { color: #89dceb; }
+#cpu                     { color: #a6e3a1; }
+#memory                  { color: #f9e2af; }
+#clock                   { color: #b4befe; }
 
-#memory {
-  color: #f9e2af;
-}
+#custom-lock     { color: #cba6f7; }
+#custom-reboot   { color: #f9e2af; }
+#custom-shutdown { color: #f38ba8; }
 
-#clock {
-  color: #b4befe;
+tooltip {
+  background: #1e1e2e;
+  border: 1.5px solid #cba6f7;
+  border-radius: 6px;
 }
-
-#custom-lock {
-  color: #cba6f7;
-}
-
-#custom-reboot {
-  color: #f9e2af;
-}
-
-#custom-shutdown {
-  color: #f38ba8;
+tooltip label {
+  color: #cdd6f4;
+  padding: 4px 6px;
 }
