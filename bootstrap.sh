@@ -217,29 +217,39 @@ if has sway && has rofi; then
     link "$DOTFILES/rofi/themes/wallpaper.rasi" "$HOME/.config/rofi/themes/wallpaper.rasi"
 fi
 
+# --- file management (termfilebrowser + openwith) ---
 if has rofi; then
-    echo "Installing openwith script and config..."
-    link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
-    link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+    printf "  Set up file management (termfilebrowser + openwith)? [y/N] "
+    read -r ans
+    if [[ "$ans" =~ ^[yY] ]]; then
+        if [ -f "$DOTFILES/local/bin/termfilebrowser" ]; then
+            echo "Linking termfilebrowser..."
+            link "$DOTFILES/local/bin/termfilebrowser" "$HOME/.local/bin/termfilebrowser"
+        fi
 
-    if has pactl; then
-        link "$DOTFILES/openwith/volmixer" "$HOME/.local/bin/volmixer"
+        echo "Installing openwith script and config..."
+        link "$DOTFILES/openwith/openwith" "$HOME/.local/bin/openwith"
+        link "$DOTFILES/openwith/config" "$HOME/.config/openwith/config"
+
+        if has pactl; then
+            link "$DOTFILES/openwith/volmixer" "$HOME/.local/bin/volmixer"
+        fi
+
+        echo "Installing openwith desktop entry..."
+        link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
+
+        echo "Registering openwith as default for all MIME types..."
+        {
+            echo "[Default Applications]"
+            find /usr/share/mime -mindepth 2 -maxdepth 2 -name '*.xml' \
+              -not -path '*/packages/*' \
+            | sed 's|.*/mime/||; s|\.xml$||' \
+            | sort -u \
+            | awk '{printf "%s=openwith.desktop\n", $0}'
+            echo "inode/x-empty=openwith.desktop"
+        } > "$HOME/.config/mimeapps.list"
+        echo "  Registered $(wc -l < "$HOME/.config/mimeapps.list") MIME types"
     fi
-
-    echo "Installing openwith desktop entry..."
-    link "$DOTFILES/local/share/applications/openwith.desktop" "$HOME/.local/share/applications/openwith.desktop"
-
-    echo "Registering openwith as default for all MIME types..."
-    {
-        echo "[Default Applications]"
-        find /usr/share/mime -mindepth 2 -maxdepth 2 -name '*.xml' \
-          -not -path '*/packages/*' \
-        | sed 's|.*/mime/||; s|\.xml$||' \
-        | sort -u \
-        | awk '{printf "%s=openwith.desktop\n", $0}'
-        echo "inode/x-empty=openwith.desktop"
-    } > "$HOME/.config/mimeapps.list"
-    echo "  Registered $(wc -l < "$HOME/.config/mimeapps.list") MIME types"
 fi
 
 echo "Done! Open Neovim to install plugins."

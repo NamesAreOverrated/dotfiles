@@ -16,7 +16,9 @@ Catppuccin Mocha throughout.
 | [nvim](https://neovim.io) | `nvim/` |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
 | [starship](https://starship.rs) | `starship.toml` |
-| [openwith](https://github.com/NamesAreOverrated/openwith) | `openwith/` — universal file opener + volmixer |
+| [termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) | `local/bin/termfilebrowser` — TUI file browser with Neovim integration |
+| [openwith](https://github.com/NamesAreOverrated/openwith) | `openwith/` — universal file opener |
+| [volmixer](https://github.com/NamesAreOverrated/openwith) | `openwith/volmixer` — pulse audio volume mixer |
 | wallpapers | `wallz` submodule — symlinked to `~/Pictures/wallpapers` |
 
 ## Quick start
@@ -34,6 +36,7 @@ The bootstrap script will:
 - Check which tools you have installed and only link configs for those
 - Ask whether you want Alt or Super as the sway mod key
 - Offer to download and install [kanata](https://github.com/jtroo/kanata) if it's not found
+- Offer to set up file management ([termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) + [openwith](https://github.com/NamesAreOverrated/openwith)) if rofi is installed
 - Generate machine-specific sway config in `~/.config/sway/local/`
 - Symlink wallpapers to `~/Pictures/wallpapers`
 
@@ -67,6 +70,16 @@ This keeps everything machine-specific out of the repo and lets you share the sa
 [Kanata](https://github.com/jtroo/kanata) is a keyboard remapper. The config (`kanata.kbd`) is linked and a systemd user service (Linux) or scheduled task (Windows) is set up.
 
 If kanata isn't installed, the bootstrap will ask before downloading v1.11.0 from GitHub releases to `~/.local/bin/`. The version is pinned to avoid breakage — bump `KANATA_VERSION` in the bootstrap script when you want to update.
+
+## File management
+
+If rofi is installed, the bootstrap will ask if you want to set up file management tools:
+
+- **termfilebrowser** — a TUI file browser that integrates with Neovim (`<leader>e`, `<leader>E` to browse files). The binary is committed to the repo and copied to `~/.local/bin/`.
+- **openwith** — a universal file opener using rofi. Registers as the default handler for all MIME types.
+- **volmixer** — quick audio volume mixer (requires pactl).
+
+On Windows, termfilebrowser is silently installed to `~\.local\bin\` and the directory is added to your user PATH automatically.
 
 ## Mod key
 

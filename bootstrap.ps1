@@ -104,4 +104,22 @@ if (Test-Path $fontZip) {
     Write-Host "  Font installed ($( (Get-ChildItem "$fontDir\IosevkaCustom-*.ttf").Count ) variants)"
 }
 
+# --- termfilebrowser ---
+$tfb = "$DOTFILES\local\bin\termfilebrowser.exe"
+$localTfb = "$HOME\.local\bin\termfilebrowser.exe"
+if ((Test-Path $tfb) -and -not (Test-Path $localTfb)) {
+    $null = New-Item -Force -ItemType Directory -Path "$HOME\.local\bin"
+    Copy-Item $tfb $localTfb -Force
+    Write-Host "  Installed termfilebrowser.exe"
+}
+
+# --- add ~\.local\bin to user PATH ---
+$localBin = "$HOME\.local\bin"
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notmatch [regex]::Escape($localBin)) {
+    $newPath = if ($userPath) { "$userPath;$localBin" } else { $localBin }
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Host "  Added ~\.local\bin to user PATH"
+}
+
 Write-Host "Done! Open Neovim to install plugins."
