@@ -81,6 +81,7 @@
     "format-source": "󰍬",
     "format-source-muted": "󰍭",
     "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+    "on-click-right": "~/.local/bin/rofi-volmixer",
   },
   "cpu": {
     "format": "󰻠  {usage}%",
