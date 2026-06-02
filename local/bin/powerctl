@@ -1,7 +1,10 @@
 #!/bin/sh
 case "$1" in
     lock)
-        command -v gtklock &>/dev/null && gtklock
+        shift
+        w=$(awk -F'"' '/^output/{print $2}' "$HOME/.config/sway/local/wallpaper" 2>/dev/null)
+        [ -n "$w" ] && set -- --background="$w" "$@"
+        cd "$HOME/.config/gtklock" && command -v gtklock &>/dev/null && exec gtklock "$@"
         ;;
     reboot)
         systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || openrc-shutdown -r now

@@ -54,7 +54,7 @@ proxy_noproxy_menu() {
   sub_ids+=("__noproxy_add__"); sub_labels+=("󰐚  Add entry")
   IFS=',' read -ra entries <<< "$np"
   if [[ ${#entries[@]} -gt 0 ]]; then
-    sub_ids+=("__sep__"); sub_labels+=("")
+    sub_ids+=("__sep__"); sub_labels+=("──────────────")
     for entry in "${entries[@]}"; do
       sub_ids+=("__noproxy_del__:${entry}"); sub_labels+=("󰅖  ${entry}")
     done
@@ -114,7 +114,7 @@ ids+=("__airplane__"); labels+=("$([[ "$net_on" == "enabled" ]] && echo "󰀝  A
 
 # ── WiFi ──────────────────────────────────────────────────
 if [[ -n "$wifi_device" ]]; then
-  ids+=("__sep1__"); labels+=("")
+  ids+=("__sep1__"); labels+=("──────────────")
   ids+=("__wifi_header__"); labels+=("󰖩  WiFi Networks")
   while IFS=$'\n' read -r line; do
     [[ -z "$line" || "$line" == *"SSID"* ]] && continue
@@ -132,7 +132,7 @@ if [[ -n "$wifi_device" ]]; then
 fi
 
 # ── Proxy ──────────────────────────────────────────────────
-ids+=("__sep2__"); labels+=("")
+ids+=("__sep2__"); labels+=("──────────────")
 ph=$(proxy_host); pp=$(proxy_port); np=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
 ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰔡  Proxy ON' || echo '󰔢  Proxy OFF')")
 ids+=("__proxy_edit_host__"); labels+=("󰏫  Edit address   (${ph})")
