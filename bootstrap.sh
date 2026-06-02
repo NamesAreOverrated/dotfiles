@@ -96,6 +96,7 @@ if [ -n "$KANATA_BIN" ]; then
     if has systemctl; then
         echo "Generating kanata systemd service..."
         mkdir -p "$HOME/.config/systemd/user"
+        rm -f "$HOME/.config/systemd/user/kanata.service"
         cat > "$HOME/.config/systemd/user/kanata.service" << EOF
 [Unit]
 Description=Kanata keyboard remapper
