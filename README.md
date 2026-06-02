@@ -83,7 +83,7 @@ On Windows, termfilebrowser is silently installed to `~\.local\bin\` and the dir
 
 ## Mod key
 
-The bootstrap prompts you to choose between **Alt (Mod1)** and **Super/Win (Mod4)** for the sway mod key. The choice is written directly into `sway/config` and the wallpaper picker script.
+The bootstrap prompts you to choose between **Alt (Mod1)** and **Super/Win (Mod4)** for the sway mod key. The choice is written into `~/.config/sway/local/mod.g` as `set $mod Mod1` or `set $mod Mod4`. The wallpaper picker reads the `MOD_LABEL` env var (set by `utilities.g`) to show the correct key in its help text.
 
 ## Wallpapers
 

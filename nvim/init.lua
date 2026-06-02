@@ -546,6 +546,8 @@ do
   vim.api.nvim_set_hl(0, '@property', { fg = '#f38ba8' })
   -- lavender: parameters
   vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#b4befe' })
+  -- light gray: variable text
+  vim.api.nvim_set_hl(0, '@variable', { fg = '#cdd6f4' })
 
   -- LSP reference highlights (background block like VSCode)
   vim.api.nvim_set_hl(0, 'LspReferenceText', { bg = '#313244' })
@@ -573,14 +575,12 @@ do
       vim.api.nvim_set_hl(0, '@lsp.type.field', { fg = '#eba0ac' })
       vim.api.nvim_set_hl(0, '@lsp.type.fieldName', { fg = '#eba0ac' })
       vim.api.nvim_set_hl(0, '@variable.member', { fg = '#eba0ac' })
-      -- red: properties / globals
-      vim.api.nvim_set_hl(0, '@property', { fg = '#f38ba8' })
+      -- red: globals
       vim.api.nvim_set_hl(0, '@variable.global', { fg = '#f38ba8' })
       -- peach: constants
       vim.api.nvim_set_hl(0, '@lsp.type.constant', { fg = '#fab387' })
       vim.api.nvim_set_hl(0, '@lsp.type.constantName', { fg = '#fab387' })
       -- lavender: parameters
-      vim.api.nvim_set_hl(0, '@variable.parameter', { fg = '#b4befe' })
       vim.api.nvim_set_hl(0, '@lsp.type.parameter', { fg = '#b4befe' })
       -- light gray-blue: namespace
       vim.api.nvim_set_hl(0, '@lsp.type.namespace', { fg = '#a9b1d6' })
@@ -591,8 +591,6 @@ do
       vim.api.nvim_set_hl(0, '@lsp.type.identifier', { fg = '#cdd6f4' })
       -- yellow: type parameter (follows string color)
       vim.api.nvim_set_hl(0, '@lsp.type.typeParameter', { fg = '#f9e2af' })
-      -- light gray: variable text
-      vim.api.nvim_set_hl(0, '@variable', { fg = '#cdd6f4' })
     end,
   })
 
@@ -1111,9 +1109,7 @@ do
 
   -- Ensure basic parsers are installed
   local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
-  if vim.fn.has('unix') == 1 then
-    require('nvim-treesitter').install(parsers)
-  end
+  require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
   ---@param language string

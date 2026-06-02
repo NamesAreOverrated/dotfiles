@@ -5,6 +5,8 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 KANATA_VERSION="1.11.0"
 
+has() { command -v "$1" &>/dev/null; }
+
 missing=()
 for cmd in starship nvim rofi foot pactl curl sway swaylock waybar swayidle; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
@@ -21,17 +23,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 
 echo ""
-echo "Sway \$mod key:"
-echo "  1) Alt (Mod1)"
-echo "  2) Win/Super (Mod4)"
-read -rp "Pick [1/2]: " mod_choice
-if [ "$mod_choice" = "2" ]; then
-    echo "set \$mod Mod4" > "$HOME/.config/sway/local/mod.g"
-else
-    echo "set \$mod Mod1" > "$HOME/.config/sway/local/mod.g"
-fi
 
-has() { command -v "$1" &>/dev/null; }
 
 link() {
     local src="$1" dst="$2"
@@ -102,8 +94,23 @@ if [ -n "$KANATA_BIN" ]; then
     link "$DOTFILES/kanata/kanata.kbd" "$HOME/.config/kanata/kanata.kbd"
 
     if has systemctl; then
-        echo "Linking kanata systemd service..."
-        link "$DOTFILES/kanata/kanata.service" "$HOME/.config/systemd/user/kanata.service"
+        echo "Generating kanata systemd service..."
+        mkdir -p "$HOME/.config/systemd/user"
+        cat > "$HOME/.config/systemd/user/kanata.service" << EOF
+[Unit]
+Description=Kanata keyboard remapper
+Documentation=https://github.com/jtroo/kanata
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=$KANATA_BIN --cfg %h/.config/kanata/kanata.kbd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
         systemctl --user daemon-reload || true
         if ! systemctl --user is-enabled kanata.service &>/dev/null; then
             systemctl --user enable --now kanata.service
@@ -143,6 +150,16 @@ if has sway; then
     link "$DOTFILES/sway/config" "$HOME/.config/sway/config"
 
     mkdir -p "$HOME/.config/sway/local"
+
+    echo "Sway \$mod key:"
+    echo "  1) Alt (Mod1)"
+    echo "  2) Win/Super (Mod4)"
+    read -rp "Pick [1/2]: " mod_choice
+    if [ "$mod_choice" = "2" ]; then
+        echo "set \$mod Mod4" > "$HOME/.config/sway/local/mod.g"
+    else
+        echo "set \$mod Mod1" > "$HOME/.config/sway/local/mod.g"
+    fi
 
     if ! [ -f "$HOME/.config/sway/local/outputs" ]; then
         {
