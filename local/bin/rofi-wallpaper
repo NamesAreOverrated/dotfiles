@@ -25,17 +25,16 @@ result=$( {
         esac
     done
 } | rofi -dmenu -p "${relpath:-Wallpapers}" \
-    -show-icons -kb-custom-1 "${MOD_LABEL}+BackSpace" \
+    -show-icons \
     -theme ~/.config/rofi/themes/rofi-wallpaper.rasi)
 
-ret=$?
 selected="$result"
-[ -z "$selected" ] && [ "$ret" -ne 10 ] && exit 0
+if [ -z "$selected" ]; then
+    [ "$dir" != "$HOME/Pictures/wallpapers" ] && "$0" "$(dirname "$dir")"
+    exit 0
+fi
 
-if [ "$ret" -eq 10 ]; then
-    parent="$(dirname "$dir")"
-    [ "$parent" != "$HOME/Pictures/wallpapers" ] && "$0" "$parent" || "$0"
-elif [ -d "$dir/$selected" ]; then
+if [ -d "$dir/$selected" ]; then
     "$0" "$dir/$selected"
 else
     mkdir -p "$HOME/.config/sway/local"
