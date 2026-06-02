@@ -180,9 +180,17 @@ do
   -- [[ Basic Keymaps ]]
   --  See `:help vim.keymap.set()`
 
+  -- Disable terminal flow control so Ctrl+S can be mapped
+  vim.fn.system('stty -ixon 2>/dev/null')
+
   -- Clear highlights on search when pressing <Esc> in normal mode
   --  See `:help hlsearch`
   vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+
+  -- Ctrl+S to save, <leader>w for save all, <leader>wq for save all + quit
+  vim.keymap.set({ 'n', 'x', 'i', 's' }, '<C-s>', '<cmd>write<CR>', { desc = '[S]ave file' })
+  vim.keymap.set('n', '<leader>w', '<cmd>wall<CR>', { desc = '[W]rite all files' })
+  vim.keymap.set('n', '<leader>wq', '<cmd>wqa<CR>', { desc = 'Write all and quit' })
 
   -- Delete without yanking
   vim.keymap.set({ 'n', 'v' }, 'X', '"_d', { desc = 'Delete to black hole register' })
@@ -554,7 +562,7 @@ do
       -- sky: struct
       vim.api.nvim_set_hl(0, '@lsp.type.struct', { fg = '#89dceb' })
       -- medium green: delegate
-      vim.api.nvim_set_hl(0, '@lsp.type.delegateName', { fg = '#7ecb8e' })
+      vim.api.nvim_set_hl(0, '@lsp.type.delegate', { fg = '#7ecb8e' })
       -- yellow-green: event
       vim.api.nvim_set_hl(0, '@lsp.type.event', { fg = '#9ece6a' })
       -- mint: methods
