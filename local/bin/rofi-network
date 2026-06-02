@@ -23,23 +23,69 @@ proxy_addr() { echo "$(proxy_host):$(proxy_port)"; }
 proxy_on()   { [[ $(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null) == "1" ]]; }
 proxy_write() {
   local host="$1" port="$2"
-  local state
+  local state no_proxy_val
   mkdir -p "$HOME/.config"
   state=$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)
+  no_proxy_val=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
   [[ -z "$state" ]] && state="0"
-  printf '%s\n%s\n' "$host:$port" "$state" > "$HOME/.config/rofi-network"
+  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
+  printf '%s:%s\n%s\n%s\n' "$host:$port" "$state" "$no_proxy_val" > "$HOME/.config/rofi-network"
 }
 proxy_toggle() {
   mkdir -p "$HOME/.config"
-  local addr state
+  local addr state no_proxy_val
   addr=$(sed -n '1p' "$HOME/.config/rofi-network" 2>/dev/null)
   state=$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)
+  no_proxy_val=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
   [[ -z "$addr" ]] && addr="localhost:10808"
+  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
   if [[ "$state" == "1" ]]; then
-    printf '%s\n0\n' "$addr" > "$HOME/.config/rofi-network"
+    printf '%s\n0\n%s\n' "$addr" "$no_proxy_val" > "$HOME/.config/rofi-network"
   else
-    printf '%s\n1\n' "$addr" > "$HOME/.config/rofi-network"
+    printf '%s\n1\n%s\n' "$addr" "$no_proxy_val" > "$HOME/.config/rofi-network"
   fi
+}
+
+proxy_noproxy_menu() {
+  local np entry
+  np=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
+  [[ -z "$np" ]] && np="localhost,127.0.0.1,::1"
+  local -a sub_ids=() sub_labels=()
+  sub_ids+=("__noproxy_add__"); sub_labels+=("󰐚  Add entry")
+  IFS=',' read -ra entries <<< "$np"
+  if [[ ${#entries[@]} -gt 0 ]]; then
+    sub_ids+=("__sep__"); sub_labels+=("")
+    for entry in "${entries[@]}"; do
+      sub_ids+=("__noproxy_del__:${entry}"); sub_labels+=("󰅖  ${entry}")
+    done
+  fi
+  local sel
+  sel=$(for i in "${!sub_ids[@]}"; do printf '%s\n' "${sub_labels[$i]}"; done | rofi -dmenu -p "No proxy" -i -format i)
+  [[ -z "$sel" ]] && return
+  local act="${sub_ids[$sel]}"
+  case "$act" in
+    __noproxy_add__)
+      local new
+      new=$(rofi -dmenu -p "Add no proxy entry" -l 0)
+      [[ -z "$new" ]] && return
+      local host port state
+      host="$(proxy_host)"; port="$(proxy_port)"
+      state="$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)"
+      local new_np="${np:+"${np},"}${new}"
+      printf '%s:%s\n%s\n%s\n' "$host" "$port" "${state:-0}" "$new_np" > "$HOME/.config/rofi-network"
+      proxy_noproxy_menu
+      ;;
+    __noproxy_del__:*)
+      entry="${act#__noproxy_del__:}"
+      local host port state
+      host="$(proxy_host)"; port="$(proxy_port)"
+      state="$(sed -n '2p' "$HOME/.config/rofi-network" 2>/dev/null)"
+      local new_np
+      new_np=$(echo "$np" | tr ',' '\n' | grep -vFx "$entry" | paste -sd, -)
+      printf '%s:%s\n%s\n%s\n' "$host" "$port" "${state:-0}" "$new_np" > "$HOME/.config/rofi-network"
+      proxy_noproxy_menu
+      ;;
+  esac
 }
 
 # ── Networking info ───────────────────────────────────────
@@ -64,7 +110,7 @@ device_icon="󰈀"; [[ "$current_device" =~ wl ]] && device_icon="󰖩"
 ids+=("__info__"); labels+=("${device_icon}  ${current_conn:-Not connected}  —  ${ip_addr}")
 
 # ── Airplane mode ─────────────────────────────────────────
-ids+=("__airplane__"); labels+=("$([[ "$net_on" == "enabled" ]] && echo "󰀞  Airplane mode" || echo "󰖩  Turn networking on")")
+ids+=("__airplane__"); labels+=("$([[ "$net_on" == "enabled" ]] && echo "󰀝  Airplane mode" || echo "󰖩  Turn networking on")")
 
 # ── WiFi ──────────────────────────────────────────────────
 if [[ -n "$wifi_device" ]]; then
@@ -78,7 +124,7 @@ if [[ -n "$wifi_device" ]]; then
     sec=$(echo "$line" | cut -d: -f4-)
     [[ -z "$ssid" ]] && continue
     bars=$(signal_bars "$signal")
-    mark="  "; [[ "$inuse" == "*" ]] && mark="󰐅 "
+    mark="  "; [[ "$inuse" == "*" ]] && mark="󰗠 "
     lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
     ids+=("net:$ssid"); labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
   done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
@@ -87,10 +133,11 @@ fi
 
 # ── Proxy ──────────────────────────────────────────────────
 ids+=("__sep2__"); labels+=("")
-ph=$(proxy_host); pp=$(proxy_port)
-ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰒄  Proxy ON' || echo '󰒄  Proxy OFF')")
-ids+=("__proxy_edit_host__"); labels+=("󰇥  Edit address (${ph})")
-ids+=("__proxy_edit_port__"); labels+=("󰇥  Edit port     (${pp})")
+ph=$(proxy_host); pp=$(proxy_port); np=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
+ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰔡  Proxy ON' || echo '󰔢  Proxy OFF')")
+ids+=("__proxy_edit_host__"); labels+=("󰏫  Edit address   (${ph})")
+ids+=("__proxy_edit_port__"); labels+=("󰏫  Edit port       (${pp})")
+ids+=("__proxy_noproxy__"); labels+=("󰩠  No proxy       (${np:-localhost,127.0.0.1,::1})")
 
 # ── Menu ──────────────────────────────────────────────────
 selected=$(for i in "${!ids[@]}"; do printf '%s\n' "${labels[$i]}"; done | rofi -dmenu -p "Network" -i -format i)
@@ -111,16 +158,21 @@ case "$action" in
     ;;
 
   __proxy_edit_host__)
-    new=$(echo "$ph" | rofi -dmenu -p "Proxy address")
-    [[ -z "$new" ]] && exit 0
+    new=$(rofi -dmenu -p "Proxy address" -filter "$ph" -l 0)
+    [[ -z "$new" ]] && exec "$0"
     proxy_write "$new" "$pp"
     exec "$0"
     ;;
 
   __proxy_edit_port__)
-    new=$(echo "$pp" | rofi -dmenu -p "Proxy port")
-    [[ -z "$new" ]] && exit 0
+    new=$(rofi -dmenu -p "Proxy port" -filter "$pp" -l 0)
+    [[ -z "$new" ]] && exec "$0"
     proxy_write "$ph" "$new"
+    exec "$0"
+    ;;
+
+  __proxy_noproxy__)
+    proxy_noproxy_menu
     exec "$0"
     ;;
 

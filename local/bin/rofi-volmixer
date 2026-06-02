@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ── Icons (single source of truth) ──
-_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _P="󰏔"; _S="󰓡"; _B="󰑐"
+_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _P="󰏫"; _S="󰓡"; _B="󰑐"
 
 # ── Helpers ──
 
@@ -190,7 +190,7 @@ sink_menu() {
     "100%")           pactl set-sink-volume @DEFAULT_SINK@ 100%  ;;
     "${_P}"*)
       local v
-      v=$(echo "" | rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}") || true
+      v=$(rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}" -filter "${cur_val:-}" -l 0) || true
       [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-sink-volume @DEFAULT_SINK@ "${v}%"
       ;;
     "${_B}  Back")        ;;
@@ -233,7 +233,7 @@ source_menu() {
     "100%")           pactl set-source-volume @DEFAULT_SOURCE@ 100%  ;;
     "${_P}"*)
       local v
-      v=$(echo "" | rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}") || true
+      v=$(rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}" -filter "${cur_val:-}" -l 0) || true
       [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-source-volume @DEFAULT_SOURCE@ "${v}%"
       ;;
     "${_B}  Back")        ;;
@@ -297,7 +297,7 @@ app_menu() {
     "100%")             pactl set-sink-input-volume "$id" 100%  ;;
     "${_P}"*)
       local v
-      v=$(echo "" | rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}") || true
+      v=$(rofi -dmenu -p "Volume % (0-100)${cur_val:+ [${cur_val}]}" -filter "${cur_val:-}" -l 0) || true
       [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-sink-input-volume "$id" "${v}%"
       ;;
     "${_B}  Back")          ;;

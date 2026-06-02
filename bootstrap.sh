@@ -261,8 +261,19 @@ if has nmcli && has rofi && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
         [[ "$OLD_PORT" == "$OLD_HOST" ]] && OLD_PORT="10808"
     fi
 
+    OLD_NO_PROXY=$(grep -m1 '^export no_proxy=' "$HOME/.bashrc" 2>/dev/null | sed 's/^export no_proxy=//')
+
     # Remove old hardcoded proxy block from .bashrc
-    sed -i '/^export http_proxy=http:\/\//,/^export NO_PROXY=/d' "$HOME/.bashrc" 2>/dev/null || true
+    sed -i \
+      -e '/^export http_proxy=http:\/\//d' \
+      -e '/^export https_proxy=http:\/\//d' \
+      -e '/^export HTTP_PROXY=/d' \
+      -e '/^export HTTPS_PROXY=/d' \
+      -e '/^export all_proxy=/d' \
+      -e '/^export ALL_PROXY=/d' \
+      -e '/^export no_proxy=/d' \
+      -e '/^export NO_PROXY=/d' \
+      "$HOME/.bashrc"
 
     # Clean up old split-file proxy config
     if [ -f "$HOME/.config/proxy/config" ] || [ -f "$HOME/.config/proxy/state" ]; then
@@ -273,10 +284,10 @@ if has nmcli && has rofi && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
     # ── Pre-populate ~/.config/rofi-network ──────────
     mkdir -p "$HOME/.config"
     if [ -n "$OLD_HOST" ]; then
-        printf '%s:%s\n1\n' "$OLD_HOST" "$OLD_PORT" > "$HOME/.config/rofi-network"
+        printf '%s:%s\n1\n%s\n' "$OLD_HOST" "$OLD_PORT" "${OLD_NO_PROXY:-localhost,127.0.0.1,::1}" > "$HOME/.config/rofi-network"
         echo "  Migrated proxy: $OLD_HOST:$OLD_PORT (enabled)"
     else
-        printf '%s\n0\n' "localhost:10808" > "$HOME/.config/rofi-network"
+        printf '%s\n0\n%s\n' "localhost:10808" "localhost,127.0.0.1,::1" > "$HOME/.config/rofi-network"
         echo "  Created default proxy config (disabled)"
     fi
 
@@ -288,13 +299,14 @@ if has nmcli && has rofi && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
 ROFI_NET_CFG="$HOME/.config/rofi-network"
 if [ -f "$ROFI_NET_CFG" ] && [ "$(sed -n '2p' "$ROFI_NET_CFG")" = "1" ]; then
     PROXY="http://$(sed -n '1p' "$ROFI_NET_CFG")"
+    NO_PROXY_VAL="$(sed -n '3p' "$ROFI_NET_CFG")"
     export http_proxy="$PROXY"
     export https_proxy="$PROXY"
     export HTTP_PROXY="$PROXY"
     export HTTPS_PROXY="$PROXY"
     export all_proxy="socks5://$(sed -n '1p' "$ROFI_NET_CFG")"
     export ALL_PROXY="$all_proxy"
-    export no_proxy="localhost,127.0.0.1,::1"
+    export no_proxy="${NO_PROXY_VAL:-localhost,127.0.0.1,::1}"
     export NO_PROXY="$no_proxy"
 fi
 EOF
@@ -311,6 +323,7 @@ set -l proxy_file "$HOME/.config/rofi-network"
 if test -f "$proxy_file"
     and test (sed -n '2p' "$proxy_file") = "1"
     set -l proxy_addr (sed -n '1p' "$proxy_file")
+    set -l no_proxy_val (sed -n '3p' "$proxy_file")
     if test -n "$proxy_addr"
         set -gx http_proxy "http://$proxy_addr"
         set -gx https_proxy "http://$proxy_addr"
@@ -318,8 +331,12 @@ if test -f "$proxy_file"
         set -gx HTTPS_PROXY "http://$proxy_addr"
         set -gx all_proxy "socks5://$proxy_addr"
         set -gx ALL_PROXY "socks5://$proxy_addr"
-        set -gx no_proxy "localhost,127.0.0.1,::1"
-        set -gx NO_PROXY "localhost,127.0.0.1,::1"
+        if test -n "$no_proxy_val"
+            set -gx no_proxy "$no_proxy_val"
+        else
+            set -gx no_proxy "localhost,127.0.0.1,::1"
+        end
+        set -gx NO_PROXY "$no_proxy"
     end
 end
 FISH_EOF
