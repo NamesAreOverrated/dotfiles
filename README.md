@@ -1,6 +1,6 @@
 # dotfiles
 
-sway + waybar + swaylock + rofi + kanata + nvim + foot + starship + openwith.
+sway + waybar + gtklock + rofi + kanata + nvim + foot + starship + openwith.
 
 Catppuccin Mocha throughout.
 
@@ -10,7 +10,7 @@ Catppuccin Mocha throughout.
 |-------|--------|
 | [sway](https://swaywm.org) | `sway/config` |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
-| [swaylock](https://github.com/swaywm/swaylock) | `swaylock/config` |
+| [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `gtklock/style.css` |
 | [rofi](https://github.com/davatorium/rofi) | `rofi/config.rasi` + Catppuccin theme + rofi-wallpaper theme |
 | [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
@@ -47,7 +47,7 @@ The Linux bootstrap script (`bootstrap.sh`) does the following:
 
 - Checks which tools are installed and skips configs for missing ones
 - Prompts for Alt/Super mod key and writes to `~/.config/sway/local/mod.g`
-- Symlinks all config files (starship, nvim, foot, rofi, sway, swaylock, waybar)
+- Symlinks all config files (starship, nvim, foot, rofi, sway, gtklock, waybar)
 - Installs the afio font from `fonts/`
 - Offers to download kanata v1.11.0 from GitHub releases if missing
 - Generates a systemd user service for kanata using the detected binary path
@@ -158,4 +158,4 @@ directory is added to the user PATH.
 
 [Catppuccin Mocha](https://github.com/catppuccin/catppuccin) — all configs
 use it. Rofi has a dedicated Catppuccin theme with an additional grid-based
-theme for rofi-wallpaper. Waybar and swaylock are styled to match.
+theme for rofi-wallpaper. Waybar and gtklock are styled to match.

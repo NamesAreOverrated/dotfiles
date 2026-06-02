@@ -1,0 +1,76 @@
+/* gtklock — Catppuccin Mocha
+ * Loaded via ~/.config/gtklock/style.css (symlinked).
+ * Targets: window, the password entry, error labels, the clock.
+ */
+
+window {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+}
+
+#clock-label {
+    font-family: "afio";
+    font-size: 96px;
+    font-weight: 900;
+    color: #cba6f7;
+    margin-bottom: 40px;
+    text-shadow: 0 4px 18px rgba(17, 17, 27, 0.7);
+}
+
+#unlock-form {
+    background: #181825;
+    border: 2px solid #cba6f7;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+#input-label {
+    color: #a6adc8;
+    font-family: "afio";
+    font-size: 14px;
+    margin-right: 12px;
+}
+
+#input-field {
+    background: #313244;
+    color: #cdd6f4;
+    caret-color: #cba6f7;
+    border: 1.5px solid #45475a;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: "afio";
+    font-size: 14px;
+    min-width: 280px;
+}
+
+#input-field:focus {
+    border-color: #cba6f7;
+}
+
+#error-label,
+#warning-label {
+    color: #f38ba8;
+    font-family: "afio";
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+#warning-label {
+    color: #fab387;
+}
+
+#userinfo {
+    margin-bottom: 12px;
+}
+
+#user-image {
+    border: 2px solid #cba6f7;
+    border-radius: 100%;
+}
+
+#user-name {
+    color: #cdd6f4;
+    font-family: "afio";
+    font-size: 16px;
+    font-weight: bold;
+}

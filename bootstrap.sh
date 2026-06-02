@@ -8,7 +8,7 @@ KANATA_VERSION="1.11.0"
 has() { command -v "$1" &>/dev/null; }
 
 missing=()
-for cmd in starship nvim rofi foot pactl curl sway swaylock waybar swayidle nmcli; do
+for cmd in starship nvim rofi foot pactl curl sway gtklock waybar swayidle nmcli; do
     command -v "$cmd" &>/dev/null || missing+=("$cmd")
 done
 if ! command -v unzip &>/dev/null; then
@@ -222,9 +222,10 @@ if has sway; then
     fi
 fi
 
-if has swaylock; then
-    echo "Linking swaylock config..."
-    link "$DOTFILES/swaylock/config" "$HOME/.config/swaylock/config"
+if has gtklock; then
+    echo "Linking gtklock config..."
+    link "$DOTFILES/gtklock/config.ini" "$HOME/.config/gtklock/config.ini"
+    link "$DOTFILES/gtklock/style.css" "$HOME/.config/gtklock/style.css"
 fi
 
 if has waybar; then
