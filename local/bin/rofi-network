@@ -29,7 +29,7 @@ proxy_write() {
   no_proxy_val=$(sed -n '3p' "$HOME/.config/rofi-network" 2>/dev/null)
   [[ -z "$state" ]] && state="0"
   [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
-  printf '%s:%s\n%s\n%s\n' "$host:$port" "$state" "$no_proxy_val" > "$HOME/.config/rofi-network"
+  printf '%s\n%s\n%s\n' "$host:$port" "$state" "$no_proxy_val" > "$HOME/.config/rofi-network"
 }
 proxy_toggle() {
   mkdir -p "$HOME/.config"
