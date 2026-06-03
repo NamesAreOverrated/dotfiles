@@ -22,6 +22,34 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     [[ "$ans" =~ ^[yY] ]] || exit 1
 fi
 
+# --- Add ~/.local/bin to PATH ---
+if has fish; then
+    mkdir -p "$HOME/.config/fish"
+    if ! grep -q '.local/bin' "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
+
+# Add ~/.local/bin to PATH
+if not contains "$HOME/.local/bin" $PATH
+    set -gx PATH "$HOME/.local/bin" $PATH
+end
+FISH_EOF
+        echo "  Added ~/.local/bin to fish config.fish PATH"
+    fi
+fi
+
+# --- Add ~/.local/bin to PATH in .bash_profile (for ly-dm / login shell) ---
+if ! grep -q '.local/bin' "$HOME/.bash_profile" 2>/dev/null; then
+    if grep -q '^\[\[ -f ~\/\.bashrc \]\] && \. ~\/\.bashrc$' "$HOME/.bash_profile" 2>/dev/null; then
+        sed -i '/^\[\[ -f ~\/\.bashrc \]\] && \. ~\/\.bashrc$/i export PATH="$HOME\/.local\/bin:$PATH"' "$HOME/.bash_profile"
+    else
+        cat >> "$HOME/.bash_profile" << 'EOF'
+
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+    fi
+    echo "  Added ~/.local/bin to ~/.bash_profile PATH"
+fi
+
 echo ""
 
 
@@ -41,6 +69,27 @@ link() {
 if has starship; then
     echo "Linking starship.toml..."
     link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
+fi
+
+# --- starship prompt init ---
+if has starship; then
+    if has fish; then
+        mkdir -p "$HOME/.config/fish"
+        if ! grep -q "starship init fish" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+            cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
+# Starship prompt init
+starship init fish | source
+FISH_EOF
+            echo "  Added starship init to ~/.config/fish/config.fish"
+        fi
+    else
+        if ! grep -q "starship init bash" "$HOME/.bashrc" 2>/dev/null; then
+            cat >> "$HOME/.bashrc" << 'EOF'
+eval "$(starship init bash)"
+EOF
+            echo "  Added starship init to ~/.bashrc"
+        fi
+    fi
 fi
 
 if has nvim; then
@@ -113,11 +162,12 @@ RestartSec=5
 WantedBy=default.target
 EOF
         systemctl --user daemon-reload || true
-        if ! systemctl --user is-enabled kanata.service &>/dev/null; then
+        if systemctl --user is-enabled kanata.service &>/dev/null; then
+            systemctl --user restart kanata.service
+            echo "  kanata service restarted"
+        else
             systemctl --user enable --now kanata.service
             echo "  kanata service enabled and started"
-        else
-            echo "  kanata service already enabled"
         fi
     fi
 fi
@@ -255,14 +305,16 @@ if has nmcli && has rofi && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
     # ── Proxy migration + sourcing ────────────────────────
 
     # Extract old hardcoded proxy from .bashrc (if any)
-    OLD_PROXY=$(grep -m1 '^export http_proxy=' "$HOME/.bashrc" 2>/dev/null | sed 's|^export http_proxy=http://||')
+    OLD_PROXY=$(grep -m1 '^export http_proxy=' "$HOME/.bashrc" 2>/dev/null | sed 's|^export http_proxy=http://||') || true
+    OLD_HOST=""
+    OLD_PORT=""
     if [ -n "$OLD_PROXY" ]; then
         OLD_HOST="${OLD_PROXY%:*}"
         OLD_PORT="${OLD_PROXY#*:}"
         [[ "$OLD_PORT" == "$OLD_HOST" ]] && OLD_PORT="10808"
     fi
 
-    OLD_NO_PROXY=$(grep -m1 '^export no_proxy=' "$HOME/.bashrc" 2>/dev/null | sed 's/^export no_proxy=//')
+    OLD_NO_PROXY=$(grep -m1 '^export no_proxy=' "$HOME/.bashrc" 2>/dev/null | sed 's/^export no_proxy=//') || true
 
     # Remove old hardcoded proxy block from .bashrc
     sed -i \
@@ -292,32 +344,11 @@ if has nmcli && has rofi && [ -f "$DOTFILES/local/bin/rofi-network" ]; then
         echo "  Created default proxy config (disabled)"
     fi
 
-    # ── bashrc dynamic sourcing (idempotent) ────────
-    if ! grep -q "Proxy config (managed by rofi-network)" "$HOME/.bashrc" 2>/dev/null; then
-        cat >> "$HOME/.bashrc" << 'EOF'
-
-# Proxy config (managed by rofi-network)
-ROFI_NET_CFG="$HOME/.config/rofi-network"
-if [ -f "$ROFI_NET_CFG" ] && [ "$(sed -n '2p' "$ROFI_NET_CFG")" = "1" ]; then
-    PROXY="http://$(sed -n '1p' "$ROFI_NET_CFG")"
-    NO_PROXY_VAL="$(sed -n '3p' "$ROFI_NET_CFG")"
-    export http_proxy="$PROXY"
-    export https_proxy="$PROXY"
-    export HTTP_PROXY="$PROXY"
-    export HTTPS_PROXY="$PROXY"
-    export all_proxy="socks5://$(sed -n '1p' "$ROFI_NET_CFG")"
-    export ALL_PROXY="$all_proxy"
-    export no_proxy="${NO_PROXY_VAL:-localhost,127.0.0.1,::1}"
-    export NO_PROXY="$no_proxy"
-fi
-EOF
-        echo "  Added proxy sourcing to ~/.bashrc"
-    fi
-
-    # ── fish config.fish dynamic sourcing (idempotent) ──
-    mkdir -p "$HOME/.config/fish"
-    if ! grep -q "Proxy config (managed by rofi-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
+    # ── Proxy sourcing (gated by shell) ──────────
+    if has fish; then
+        mkdir -p "$HOME/.config/fish"
+        if ! grep -q "Proxy config (managed by rofi-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+            cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
 
 # Proxy config (managed by rofi-network)
 set -l proxy_file "$HOME/.config/rofi-network"
@@ -341,7 +372,29 @@ if test -f "$proxy_file"
     end
 end
 FISH_EOF
-        echo "  Added proxy sourcing to ~/.config/fish/config.fish"
+            echo "  Added proxy sourcing to ~/.config/fish/config.fish"
+        fi
+    else
+        if ! grep -q "Proxy config (managed by rofi-network)" "$HOME/.bashrc" 2>/dev/null; then
+            cat >> "$HOME/.bashrc" << 'EOF'
+
+# Proxy config (managed by rofi-network)
+ROFI_NET_CFG="$HOME/.config/rofi-network"
+if [ -f "$ROFI_NET_CFG" ] && [ "$(sed -n '2p' "$ROFI_NET_CFG")" = "1" ]; then
+    PROXY="http://$(sed -n '1p' "$ROFI_NET_CFG")"
+    NO_PROXY_VAL="$(sed -n '3p' "$ROFI_NET_CFG")"
+    export http_proxy="$PROXY"
+    export https_proxy="$PROXY"
+    export HTTP_PROXY="$PROXY"
+    export HTTPS_PROXY="$PROXY"
+    export all_proxy="socks5://$(sed -n '1p' "$ROFI_NET_CFG")"
+    export ALL_PROXY="$all_proxy"
+    export no_proxy="${NO_PROXY_VAL:-localhost,127.0.0.1,::1}"
+    export NO_PROXY="$no_proxy"
+fi
+EOF
+            echo "  Added proxy sourcing to ~/.bashrc"
+        fi
     fi
 fi
 
@@ -355,7 +408,7 @@ if has sway && has rofi && has swaybg; then
 fi
 
 # --- file management (termfilebrowser + openwith) ---
-if has rofi; then
+if has rofi && [ -f "$DOTFILES/local/bin/termfilebrowser" ]; then
     printf "  Set up file management (termfilebrowser + openwith)? [y/N] "
     read -r ans
     if [[ "$ans" =~ ^[yY] ]]; then
