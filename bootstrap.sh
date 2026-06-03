@@ -277,7 +277,8 @@ if has sway; then
     if ! [ -f "$HOME/.config/sway/local/outputs" ]; then
         {
             echo "# Machine-specific output configuration"
-            echo "# e.g. output eDP-1 resolution 1920x1080@60Hz position 0,0"
+            echo "# normal: output eDP-1 resolution 1920x1080@60Hz position 0,0"
+            echo "# force custom res: output Virtual-1 resolution --custom 3440x1440@60Hz position 0,0 scale 1.25"
         } > "$HOME/.config/sway/local/outputs"
         echo "  Created ~/.config/sway/local/outputs"
     fi
