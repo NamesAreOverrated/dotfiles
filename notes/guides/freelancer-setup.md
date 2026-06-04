@@ -433,59 +433,26 @@ the original (unmodded) game instead.
 
 ### Mouse Cursor Boundary Bug
 
-The cursor cannot reach the right ~5–10% of the screen (or sometimes the
-bottom edge, depending on resolution). This is a known Freelancer engine
-bug reproduced on real Windows hardware, not a wine issue.
+Cursor movement is limited to a randomly-sized region of the screen — the
+cursor cannot reach parts of the display, and the unreachable area varies.
 
-⚠️ **Root cause (best understanding):**
+**Root cause (not fully determined):**
 
-Freelancer creates a DirectInput mouse device and calls `GetDeviceState`
-to read relative motion. To keep the cursor inside the window, it also
-calls `ClipCursor` — a Win32 API that restricts cursor movement to a
-rectangle. On widescreen displays (or when the desktop/window dimensions
-differ from what the game expects at startup), `ClipCursor` is called
-with a rectangle that is narrower than the actual screen:
+The bug appears to be an intermittent VMware display/mouse capture
+synchronization issue — the guest's mouse region occasionally doesn't
+align with the actual screen. It is not specific to fullscreen mode:
+resizing the VMware display window or toggling fullscreen a few times
+can force a re-sync that fixes it.
 
-- The game reads the display mode at launch but may cache only the
-  4:3-safe area or miscalculate after applying aspect-ratio correction
-- X11 window decorations offset the client area — if `ClipCursor` uses
-  window frame coordinates instead of client coordinates, the clamping
-  is shifted left, cutting off the right edge (or shifted up, cutting
-  off the bottom)
-- JFLP v1.25 (pre-applied in the MagiPacks repack) patches widescreen
-  resolution support and may partially address this, but does not
-  fully fix it
+**Why HD Edition fixes it (unknown):**
+HD Edition resolves the issue, but the mechanism is not confirmed — it
+may force a capture re-sync via resolution/aspect ratio change, or patch
+something directly.
 
-**Why `dinput.dll=b,n` doesn't help:**
-
-`WINEDLLOVERRIDES="dinput.dll=b,n"` controls which DirectInput DLL is
-loaded (wine's builtin vs the game's shipped native copy). The bug is
-not in how DirectInput is implemented — it's in how the game's engine
-uses the API (wrong `ClipCursor` rectangle). Swapping the DLL doesn't
-change the game's `ClipCursor` call.
-
-**Fix: Freelancer HD Edition (confirmed):**
-
-Installing Freelancer HD Edition (Step 2.6) fixes this bug. HD Edition
-includes engine-level patches that correct the `ClipCursor` rectangle
-for modern resolutions. Tested and confirmed working on this system.
-If you haven't installed it yet, go back to Step 2.6.
-
-**Alternative: windowed mode:**
-
-If HD Edition is not desired, running in a window bypasses `ClipCursor`
-entirely — the OS naturally confines the cursor to the window borders:
-
-```bash
-WINEDLLOVERRIDES="dinput.dll=b,n" WINEDEBUG=-all \
-  wine "$WINEPREFIX/drive_c/MagiPacks/Freelancer/EXE/freelancer.exe" -window
-```
-
-Or set the registry key before launching:
-
-```
-HKEY_CURRENT_USER\Software\Microsoft\Direct3D\FullScreen = 0 (DWORD)
-```
+**Reliable workarounds:**
+1. **Freelancer HD Edition** — confirmed to fix it, mechanism unclear
+2. **Resize/reseat the display** — toggle fullscreen or resize the VMware
+   window until the cursor region re-syncs (hit-or-miss)
 
 ### xrandr Resolution
 
