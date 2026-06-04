@@ -1,5 +1,8 @@
 window {
     background-color: #1e1e2e;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     color: #cdd6f4;
 }
 
