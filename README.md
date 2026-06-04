@@ -154,6 +154,30 @@ If rofi is installed, bootstrap offers to set up:
 On Windows, termfilebrowser is silently copied to `~\.local\bin\` and the
 directory is added to the user PATH.
 
+## Notes
+
+`notes/` contains technical reference documents. They're split into two
+categories:
+
+| Directory | Contents |
+|-----------|----------|
+| `guides/` | Actual processes I've done end-to-end |
+| `reference/` | Researched deep-dives — cross-checked but not battle-tested |
+
+⚠️ Only [freelancer-setup.md](notes/guides/freelancer-setup.md) documents a
+process I've actually performed. The rest are researched reference notes —
+details may be incomplete or outdated.
+
+| Note | Topic |
+|------|-------|
+| [freelancer-setup.md](notes/guides/freelancer-setup.md) | Freelancer wine setup (VMware, Xorg/i3) |
+| [wine-deep-dive.md](notes/reference/wine-deep-dive.md) | Wine architecture, WineD3D, prefix anatomy |
+| [proton-deep-dive.md](notes/reference/proton-deep-dive.md) | Proton vs stock wine, DXVK/VKD3D, GE-Proton |
+| [dxvk-deep-dive.md](notes/reference/dxvk-deep-dive.md) | DXVK/VKD3D internals, config, debugging |
+| [lutris-deep-dive.md](notes/reference/lutris-deep-dive.md) | Lutris internals, install scripts |
+| [vmware.md](notes/reference/vmware.md) | VMware SVGA II graphics limitations |
+| [sessions-display-servers.md](notes/reference/sessions-display-servers.md) | X11 vs Wayland, display managers |
+
 ## Theme
 
 [Catppuccin Mocha](https://github.com/catppuccin/catppuccin) — all configs

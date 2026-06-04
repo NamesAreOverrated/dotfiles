@@ -1,3 +1,4 @@
 [submodule "wallpapers"]
 	path = wallpapers
 	url = https://github.com/fr0st-xyz/wallz
+	shallow = true
