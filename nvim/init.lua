@@ -224,6 +224,13 @@ do
 
 	vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
 
+	-- H/L: go to start/end of line (override H=scroll-top, L=scroll-bottom)
+	vim.keymap.set({ "n", "v" }, "H", "^", { desc = "Go to start of line" })
+	vim.keymap.set({ "n", "v" }, "L", "$", { desc = "Go to end of line" })
+	-- J/K: unbind (override J=join, K=man lookup)
+	vim.keymap.set({ "n", "v" }, "J", "<Nop>", { desc = "Unbind J" })
+	vim.keymap.set({ "n", "v" }, "K", "<Nop>", { desc = "Unbind K" })
+
 	-- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 	-- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 	-- is not what someone will guess without a bit more experience.
