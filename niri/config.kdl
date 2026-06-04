@@ -128,6 +128,16 @@ layout {
     // Alternatively, you can override it with a window rule called
     // `draw-border-with-background`.
 
+    tab-indicator {
+        width 4
+        gap 0
+        length total-proportion=0.5
+        position "left"
+        place-within-column
+        inactive-color "rgba(100,100,100,0)"
+        active-color "rgba(127,200,255,0.90)"
+    }
+
     // You can change how the focus ring looks.
     focus-ring {
         // Uncomment this line to disable the focus ring.
@@ -426,10 +436,19 @@ binds {
     // To avoid scrolling through workspaces really fast, you can use
     // the cooldown-ms property. The bind will be rate-limited to this value.
     // You can set a cooldown on any bind, but it's most useful for the wheel.
-    Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
-    Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
-    Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
-    Mod+Ctrl+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
+
+    Mod+Shift+WheelScrollDown     { focus-window-down; }
+    Mod+Shift+WheelScrollUp       { focus-window-up; }
+
+    //Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
+    //Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
+    //Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    //Mod+Ctrl+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
+
+    //Mod+WheelScrollDown      cooldown-ms=150 { focus-workspace-down; }
+    //Mod+WheelScrollUp        cooldown-ms=150 { focus-workspace-up; }
+    //Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    //Mod+Ctrl+WheelScrollUp   cooldown-ms=150 { move-column-to-workspace-up; }
 
     Mod+WheelScrollRight      { focus-column-right; }
     Mod+WheelScrollLeft       { focus-column-left; }
@@ -438,10 +457,10 @@ binds {
 
     // Usually scrolling up and down with Shift in applications results in
     // horizontal scrolling; these binds replicate that.
-    Mod+Shift+WheelScrollDown      { focus-column-right; }
-    Mod+Shift+WheelScrollUp        { focus-column-left; }
-    Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
-    Mod+Ctrl+Shift+WheelScrollUp   { move-column-left; }
+    Mod+WheelScrollDown      { focus-column-right; }
+    Mod+WheelScrollUp        { focus-column-left; }
+    //Mod+Ctrl+Shift+WheelScrollDown { move-column-right; }
+    //Mod+Ctrl+Shift+WheelScrollUp   { move-column-left; }
 
     // Similarly, you can bind touchpad scroll "ticks".
     // Touchpad scrolling is continuous, so for these binds it is split into
