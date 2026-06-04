@@ -41,7 +41,7 @@
 ;; 5. 媒体层 (按住 物理Esc 时激活)
 ;; ==========================================
 (deflayer esc_media
-  _    _    _    _    _    _    _    _    _    _    _    vold volu mute
+  _    _    _    _    _    _    _    _    _    _    micmute vold volu mute
   _    _    _    _    _    _    _    _    _    _
   _
 )

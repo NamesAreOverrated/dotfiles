@@ -26,7 +26,7 @@
     mantle: #181825;
     crust: #11111b;
 
-    font: "afio 11";
+    font: "afio 12";
     background-color: transparent;
     text-color: @text;
 }
@@ -60,12 +60,12 @@ inputbar {
 
 prompt {
     text-color: @blue;
-    font: "afio 11";
+    font: "afio 12";
 }
 
 entry {
     text-color: @text;
-    font: "afio 11";
+    font: "afio 12";
     placeholder: "Search...";
     placeholder-color: @overlay0;
     cursor-color: @blue;
@@ -74,7 +74,7 @@ entry {
 
 case-indicator {
     text-color: @surface2;
-    font: "afio 10";
+    font: "afio 12";
 }
 
 listview {

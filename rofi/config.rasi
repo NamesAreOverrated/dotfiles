@@ -1,6 +1,6 @@
 configuration {
     modes: "drun";
-    font: "afio 11";
+    font: "afio 12";
     show-icons: true;
     terminal: "foot";
     drun-display-format: "{name}";

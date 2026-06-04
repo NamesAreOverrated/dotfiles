@@ -37,7 +37,24 @@ fi
 if [ -d "$dir/$selected" ]; then
     "$0" "$dir/$selected"
 else
-    mkdir -p "$HOME/.config/sway/local"
-    echo "output * bg \"$dir/$selected\" fill" > "$HOME/.config/sway/local/wallpaper"
-    swaymsg output "*" bg "$dir/$selected" fill
+    # Write shared path (always)
+    echo "$dir/$selected" > "$HOME/.config/wallpaper"
+
+    # Write compositor configs (dir + dependency check)
+    if [ -d "$HOME/.config/sway/local" ]; then
+        printf 'output * bg "%s" fill\n' "$dir/$selected" > "$HOME/.config/sway/local/wallpaper"
+    fi
+
+    if [ -d "$HOME/.config/niri/local" ] && command -v swaybg >/dev/null; then
+        printf 'spawn-at-startup "swaybg" "-i" "%s" "-m" "fill"\n' "$dir/$selected" > "$HOME/.config/niri/local/wallpaper.kdl"
+    fi
+
+    # Apply at runtime (gated by socket)
+    if [ -n "$SWAYSOCK" ]; then
+        swaymsg output "*" bg "$dir/$selected" fill
+    fi
+    if [ -n "$NIRI_SOCKET" ] && command -v swaybg >/dev/null; then
+        killall swaybg 2>/dev/null || true
+        swaybg -i "$dir/$selected" -m fill &
+    fi
 fi

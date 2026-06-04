@@ -1,5 +1,5 @@
 * {
-    font: "afio 11";
+    font: "afio 12";
     background-color: transparent;
     text-color: #cdd6f4;
 
@@ -103,7 +103,7 @@ element-icon {
 
 element-text {
     text-color: inherit;
-    font: "afio 9";
+    font: "afio 12";
     horizontal-align: 0.5;
     vertical-align: 0;
 }
