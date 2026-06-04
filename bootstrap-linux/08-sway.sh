@@ -36,6 +36,10 @@ echo "  Generated ~/.config/sway/local/wallpaper"
     echo "# Do not edit manually; use local/custom instead"
     echo ""
 
+    if has waybar; then
+        echo "exec waybar"
+    fi
+
     if has rofi && has swaybg; then
         if [ "$MOD_CHOICE" = "2" ]; then
             echo "bindsym \$mod+Ctrl+w exec env MOD_LABEL=Super ~/.local/bin/rofi-wallpaper"
@@ -53,6 +57,13 @@ echo "  Generated ~/.config/sway/local/wallpaper"
 
     if has rofi-volmixer; then
         echo "bindsym \$mod+BackSpace exec ~/.local/bin/rofi-volmixer"
+    fi
+
+    if has swayidle && has powerctl; then
+        echo "exec swayidle -w \\"
+        echo "    timeout 300 'powerctl lock' \\"
+        echo "    timeout 600 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"' \\"
+        echo "    before-sleep 'powerctl lock'"
     fi
 } > "$HOME/.config/sway/local/utilities.g"
 echo "  Generated ~/.config/sway/local/utilities.g"

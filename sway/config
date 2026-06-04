@@ -36,15 +36,6 @@ input type:touchpad {
     natural_scroll enabled
 }
 
-### Idle
-exec swayidle -w \
-    timeout 300 'powerctl lock' \
-    timeout 600 'swaymsg "output * dpms off"' resume 'swaymsg "output * dpms on"' \
-    before-sleep 'powerctl lock'
-
-### Waybar
-exec waybar
-
 ### Key bindings
 bindsym $mod+Return exec $term
 bindsym $mod+Shift+q kill

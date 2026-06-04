@@ -44,6 +44,10 @@ fi
         echo 'spawn-at-startup "waybar"'
     fi
 
+    if has swayidle && has powerctl; then
+        echo 'spawn-at-startup "swayidle" "-w" "timeout" "300" "powerctl lock" "timeout" "600" "niri msg action power-off-monitors" "resume" "niri msg action power-on-monitors" "before-sleep" "powerctl lock"'
+    fi
+
     echo ""
     echo "binds {"
 
