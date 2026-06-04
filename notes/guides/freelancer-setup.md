@@ -454,48 +454,6 @@ something directly.
 2. **Resize/reseat the display** — toggle fullscreen or resize the VMware
    window until the cursor region re-syncs (hit-or-miss)
 
-### xrandr Resolution
-
-Set before launching if the game resolution is wrong:
-
-```bash
-xrandr -s <width>x<height>
-```
-
-`xrandr -s` tells Xorg to switch CRTC timing to match the requested
-resolution. The game sees the new mode via XRandR.
-
-### Sound Issues
-
-- Disable **3D sound** in Freelancer's audio options
-- `WINEDLLOVERRIDES="dsound=b,n"` for builtin DirectSound
-- `winetricks -q faudio` for FAudio replacement
-
-### Game Window Doesn't Appear
-
-```bash
-echo $XDG_SESSION_TYPE
-```
-
-Must be `x11`. If `wayland`, switch to i3 session or try:
-```bash
-WINEDLLOVERRIDES="winex11.drv=d" wine game.exe
-```
-(Unlikely to work — see "Why Xorg is required" above.)
-
-### Black Screen on Launch
-
-Some repacks (especially GOG releases) ship wrapper DLLs that replace
-DirectDraw or Direct3D with OpenGL. These can conflict with WineD3D.
-Override them to use wine's builtin implementations:
-
-```bash
-WINEDLLOVERRIDES="ddraw=b;d3d8=b" wine game.exe
-```
-
-`ddraw=b` tells wine to use its own builtin DirectDraw instead of the game's
-bundled `ddraw.dll`. Add `d3d8=b` for DirectX 8 games like Freelancer.
-
 ## Reference
 
 ### Wine DLL Override Syntax
@@ -513,7 +471,6 @@ Flags:
 ### GE-Proton
 
 Alternative wine runner containing DXVK, VKD3D, FAudio, etc.
-Available at `~/Games/GE-Proton-<version>/`.
 
 Not in use here — system wine-staging works for DX8/9 games via WineD3D, and
 the VMware SVGA II adapter has no Vulkan support, so DXVK (GE-Proton's main
