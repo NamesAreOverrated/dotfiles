@@ -578,26 +578,28 @@ do
 	vim.cmd.colorscheme("catppuccin")
 
 	-- General token overrides (all languages)
-	-- blue: builtin func
-	vim.api.nvim_set_hl(0, "@function.builtin", { fg = "#7dcfff" })
 	-- green family: functions
-	vim.api.nvim_set_hl(0, "@function", { fg = "#98c379" })
+	vim.api.nvim_set_hl(0, "@function", { fg = "#a6e3a1" })
 	vim.api.nvim_set_hl(0, "@method", { link = "@function" })
 	vim.api.nvim_set_hl(0, "@constructor", { link = "@function" })
+	vim.api.nvim_set_hl(0, "@function.method", { link = "@function" })
+	vim.api.nvim_set_hl(0, "@function.method.call", { italic = true })
+	vim.api.nvim_set_hl(0, "@function.builtin", { italic = true, bold = true })
+
 	-- yellow: strings
-	vim.api.nvim_set_hl(0, "@string", { fg = "#f9e2af" })
+	vim.api.nvim_set_hl(0, "@string", { fg = "#f5c2e7" })
 	vim.api.nvim_set_hl(0, "@string.regexp", { link = "@string" })
 	-- pink: string escapes
-	vim.api.nvim_set_hl(0, "@string.escape", { fg = "#f7768e" })
+	vim.api.nvim_set_hl(0, "@string.escape", { link = "@string" })
 	-- peach: constants
-	vim.api.nvim_set_hl(0, "@constant", { fg = "#fab387" })
+	vim.api.nvim_set_hl(0, "@constant", { fg = "#dd7878" })
 	vim.api.nvim_set_hl(0, "@number", { link = "@constant" })
 	vim.api.nvim_set_hl(0, "@boolean", { link = "@constant" })
 	vim.api.nvim_set_hl(0, "@character", { link = "@constant" })
 	-- red: properties
-	vim.api.nvim_set_hl(0, "@property", { fg = "#f38ba8" })
+	vim.api.nvim_set_hl(0, "@property", { fg = "#c7d79b", italic = true })
 	-- lavender: parameters
-	vim.api.nvim_set_hl(0, "@variable.parameter", { fg = "#b4befe" })
+	vim.api.nvim_set_hl(0, "@variable.parameter", { fg = "#eba0ac" })
 	-- light gray: variable text
 	vim.api.nvim_set_hl(0, "@variable", { fg = "#cdd6f4" })
 
@@ -614,7 +616,8 @@ do
 				return
 			end
 			-- steel blue: class
-			vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#6aa0d0" })
+			-- vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#6aa0d0" })
+			vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#89b4fa" })
 			-- sky: struct
 			vim.api.nvim_set_hl(0, "@lsp.type.struct", { fg = "#89dceb" })
 			-- medium green: delegate
@@ -622,29 +625,29 @@ do
 			-- yellow-green: event
 			vim.api.nvim_set_hl(0, "@lsp.type.event", { fg = "#9ece6a" })
 			-- mint: methods
-			vim.api.nvim_set_hl(0, "@lsp.type.method", { fg = "#a6e3a1" })
+			--vim.api.nvim_set_hl(0, "@lsp.type.method", { fg = "#a6e3a1" })
 			-- green-teal: interface
 			vim.api.nvim_set_hl(0, "@lsp.type.interface", { fg = "#8edbaa" })
 			-- maroon: fields
-			vim.api.nvim_set_hl(0, "@lsp.type.field", { fg = "#eba0ac" })
-			vim.api.nvim_set_hl(0, "@lsp.type.fieldName", { fg = "#eba0ac" })
-			vim.api.nvim_set_hl(0, "@variable.member", { fg = "#eba0ac" })
+			vim.api.nvim_set_hl(0, "@lsp.type.field", { fg = "#fab387", italic = true })
+			vim.api.nvim_set_hl(0, "@lsp.type.fieldName", { link = "@lsp.type.field" })
+			--vim.api.nvim_set_hl(0, "@variable.member", { italic = true })
+			vim.api.nvim_set_hl(0, "@lsp.mod.static", { italic = true })
+
 			-- red: globals
-			vim.api.nvim_set_hl(0, "@variable.global", { fg = "#f38ba8" })
+			vim.api.nvim_set_hl(0, "@variable.global", { link = "@lsp.type.field" })
 			-- peach: constants
-			vim.api.nvim_set_hl(0, "@lsp.type.constant", { fg = "#fab387" })
-			vim.api.nvim_set_hl(0, "@lsp.type.constantName", { fg = "#fab387" })
+			vim.api.nvim_set_hl(0, "@lsp.type.constant", { link = "@constant" })
+			vim.api.nvim_set_hl(0, "@lsp.type.constantName", { link = "@constant" })
 			-- lavender: parameters
-			vim.api.nvim_set_hl(0, "@lsp.type.parameter", { fg = "#b4befe" })
+			vim.api.nvim_set_hl(0, "@lsp.type.parameter", { fg = "#eba0ac" })
 			-- light gray-blue: namespace
 			vim.api.nvim_set_hl(0, "@lsp.type.namespace", { fg = "#a9b1d6" })
 			-- pale rose: enums
 			vim.api.nvim_set_hl(0, "@lsp.type.enum", { fg = "#f5e0dc" })
 			vim.api.nvim_set_hl(0, "@lsp.type.enumMember", { fg = "#f2cdcd" })
-			-- light gray: identifier (shows in `using` directives)
-			vim.api.nvim_set_hl(0, "@lsp.type.identifier", { fg = "#cdd6f4" })
 			-- yellow: type parameter (follows string color)
-			vim.api.nvim_set_hl(0, "@lsp.type.typeParameter", { fg = "#f9e2af" })
+			vim.api.nvim_set_hl(0, "@lsp.type.typeParameter", { link = "@string" })
 		end,
 	})
 
