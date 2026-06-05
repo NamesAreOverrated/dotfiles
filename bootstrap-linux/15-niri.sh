@@ -130,9 +130,9 @@ link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
 if [ "$PATCHED" = "1" ]; then
     link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
     echo ""
-    echo "  ─────────────────────────────────────────────"
-    echo "  Patched niri config linked."
-    echo "  To install the patched binary:"
-    echo "    sudo cp path/to/niri /usr/bin/niri"
-    echo "  ─────────────────────────────────────────────"
+    echo "  Downloading patched niri binary..."
+    curl -Lo /tmp/niri "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
+    chmod +x /tmp/niri
+    sudo cp /tmp/niri /usr/bin/niri
+    echo "  Installed patched niri to /usr/bin/niri"
 fi
