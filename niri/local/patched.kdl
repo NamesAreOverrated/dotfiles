@@ -1,0 +1,15 @@
+window-rule {
+    match is-pinned=true
+    border {
+        on
+        width 1
+        active-color "#a6e3a1"
+        inactive-color "rgba(166, 227, 161,0.5)"
+    }
+}
+
+binds {
+    Mod+P { toggle-window-height-pin; }
+    Mod+BracketLeft  { pull-column-right; }
+    Mod+BracketRight { pull-column-left; }
+}

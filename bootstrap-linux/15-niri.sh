@@ -3,6 +3,18 @@ if ! has niri; then
     return
 fi
 
+# --- Patched niri ---
+echo ""
+echo "Use patched niri?"
+echo "  (patched version at github.com/NamesAreOverrated/niri-patched)"
+while true; do
+    read -rp "  [y/N]: " yn
+    case "$yn" in
+        [Yy]*) PATCHED=1; break ;;
+        [Nn]*|"") PATCHED=0; break ;;
+    esac
+done
+
 mkdir -p "$HOME/.config/niri/local"
 
 if [ "$MOD_CHOICE" = "2" ]; then
@@ -114,3 +126,13 @@ fi
 
 echo "Linking niri config..."
 link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
+
+if [ "$PATCHED" = "1" ]; then
+    link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
+    echo ""
+    echo "  ─────────────────────────────────────────────"
+    echo "  Patched niri config linked."
+    echo "  To install the patched binary:"
+    echo "    sudo cp path/to/niri /usr/bin/niri"
+    echo "  ─────────────────────────────────────────────"
+fi

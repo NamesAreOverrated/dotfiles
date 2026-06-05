@@ -7,6 +7,7 @@ include optional=true "local/mod.kdl"
 include optional=true "local/autostart.kdl"
 include optional=true "local/outputs.kdl"
 include optional=true "local/wallpaper.kdl"
+include optional=true "local/patched.kdl"
 
 // Input device configuration.
 // Find the full list of options on the wiki:
@@ -106,6 +107,9 @@ layout {
 
     // You can also customize the heights that "switch-preset-window-height" (Mod+Ctrl+Shift+R) toggles between.
     preset-window-heights { 
+
+        proportion 0.1
+        proportion 0.2
         proportion 0.33333
         proportion 0.5
         proportion 0.66667
@@ -360,6 +364,7 @@ binds {
     Mod+Down  { focus-window-down; }
     Mod+Up    { focus-window-up; }
     Mod+Right { focus-column-right; }
+
     Mod+H     { focus-column-left; }
     Mod+J     { focus-window-down; }
     Mod+K     { focus-window-up; }
@@ -507,8 +512,8 @@ binds {
     // The following binds move the focused window in and out of a column.
     // If the window is alone, they will consume it into the nearby column to the side.
     // If the window is already in a column, they will expel it out.
-    Mod+BracketLeft  { consume-or-expel-window-left; }
-    Mod+BracketRight { consume-or-expel-window-right; }
+    // Mod+BracketLeft  { consume-or-expel-window-left; }
+    // Mod+BracketRight { consume-or-expel-window-right; }
 
     // Consume one window from the right to the bottom of the focused column.
     Mod+Comma  { consume-window-into-column; }
@@ -535,7 +540,7 @@ binds {
 
     // Expand the focused column to space not taken up by other fully visible columns.
     // Makes the column "fill the rest of the space".
-    Mod+Ctrl+R { expand-column-to-available-width; }
+    Mod+Ctrl+Equal { expand-column-to-available-width; }
 
     Mod+C { center-column; }
 
@@ -594,7 +599,7 @@ binds {
 
     // Powers off the monitors. To turn them back on, do any input like
     // moving the mouse or pressing any other key.
-    Mod+Shift+P { power-off-monitors; }
+    Mod+Ctrl+P { power-off-monitors; }
 }
 
 // Put custom overrides last so they take precedence
