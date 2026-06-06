@@ -601,6 +601,7 @@ do
 	-- peach: constants
 	vim.api.nvim_set_hl(0, "@constant", { fg = "#dd7878" })
 	vim.api.nvim_set_hl(0, "@number", { link = "@constant" })
+	vim.api.nvim_set_hl(0, "@number.float", { link = "@constant" })
 	vim.api.nvim_set_hl(0, "@boolean", { link = "@constant" })
 	vim.api.nvim_set_hl(0, "@character", { link = "@constant" })
 	-- red: properties

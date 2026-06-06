@@ -117,7 +117,9 @@ layout {
     }
 
     // You can change the default width of the new windows.
+    // If you use the patched version of niri. This is treated as the adaptive size MAX.
     default-column-width { proportion 0.5; }
+
     // If you leave the brackets empty, the windows themselves will decide their initial width.
     // default-column-width {}
 

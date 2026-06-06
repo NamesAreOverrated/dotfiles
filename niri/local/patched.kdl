@@ -8,6 +8,10 @@ window-rule {
     }
 }
 
+layout{
+    default-column-width-min { proportion 0.2; }
+}
+
 binds {
     Mod+P { toggle-window-height-pin; }
     Mod+BracketLeft  { pull-column-right; }
