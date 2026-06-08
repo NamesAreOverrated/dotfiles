@@ -68,7 +68,7 @@ fi
     fi
 
     if has rofi; then
-        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "rofi -dmenu"; }'
+        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "rofi" "-show" "drun"; }'
     fi
 
     if has powerctl; then
@@ -131,8 +131,11 @@ if [ "$PATCHED" = "1" ]; then
     link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
     echo ""
     echo "  Downloading patched niri binary..."
-    curl -Lo /tmp/niri "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
-    chmod +x /tmp/niri
-    sudo cp /tmp/niri /usr/bin/niri
-    echo "  Installed patched niri to /usr/bin/niri"
+    mkdir -p "$DOTFILES/niri/local"
+    curl -Lo "$DOTFILES/niri/local/niri" "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
+    chmod +x "$DOTFILES/niri/local/niri"
+    echo ""
+    echo "  Downloaded to: $DOTFILES/niri/local/niri"
+    echo "  Install manually:"
+    echo "    sudo cp \"$DOTFILES/niri/local/niri\" /usr/bin/niri"
 fi

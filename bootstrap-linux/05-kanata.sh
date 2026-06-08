@@ -9,7 +9,7 @@ KANATA_VERSION="1.11.0"
 KANATA_PREREQ_OK=true
 
 # Find any installed uinput udev rule (any filename)
-INSTALLED_RULE=$(grep -rl 'KERNEL=="uinput"' /etc/udev/rules.d/ 2>/dev/null | head -1) || true
+INSTALLED_RULE=$(grep -rl 'KERNEL=="uinput"' /etc/udev/rules.d/ /usr/lib/udev/rules.d/ 2>/dev/null | head -1) || true
 
 # Parse group from installed rule, default "input"
 KANATA_GROUP="input"
