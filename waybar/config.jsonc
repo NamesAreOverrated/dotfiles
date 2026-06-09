@@ -91,7 +91,6 @@
   "cpu": {
     "format": "󰻠  {usage}%",
     "interval": 5,
-    "tooltip": false
   },
   "memory": {
     "format": "󰍛  {percentage}%",
@@ -101,16 +100,16 @@
   "custom/lock": {
     "format": "󰌾",
     "on-click": "powerctl lock",
-    "tooltip": "Lock screen"
+    "tooltip-format": "Lock screen"
   },
   "custom/reboot": {
     "format": "󰑐",
     "on-click": "powerctl reboot",
-    "tooltip": false
+    "tooltip-format": "Reboot"
   },
   "custom/shutdown": {
     "format": "󰐥",
     "on-click": "powerctl poweroff",
-    "tooltip": false
+    "tooltip-format": "Shutdown"
   }
 }
