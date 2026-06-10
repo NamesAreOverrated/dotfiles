@@ -35,7 +35,7 @@ sed -i \
   -e '/^export ALL_PROXY=/d' \
   -e '/^export no_proxy=/d' \
   -e '/^export NO_PROXY=/d' \
-  "$HOME/.bashrc"
+  "$HOME/.bashrc" 2>/dev/null || true
 
 # Clean up old split-file proxy config
 if [ -f "$HOME/.config/proxy/config" ] || [ -f "$HOME/.config/proxy/state" ]; then
