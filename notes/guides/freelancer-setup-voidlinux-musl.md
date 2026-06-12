@@ -121,7 +121,8 @@ distrobox enter gamebox
 
 Enable `multilib` on Arch. Add or uncomment.
 
-```/etc/pacman.conf
+```toml
+#/etc/pacman.conf
 [multilib]
 Include=/etc/pacman.d/mirrorlist
 ```
