@@ -4,183 +4,64 @@ Target: Freelancer (MagiPacks repack) via wine on Arch Linux, VMware VM.
 
 ---
 
-## The Problem: Sway + Wayland Only
+## Prerequisite: XWayland
 
-The machine was installed with **Sway** as the only display session. Sway is a
-Wayland compositor — it uses the kernel DRM interface directly, has no X11
-server, and doesn't load any Xorg driver.
+Sway is Wayland-only. Wine's `winex11.drv` needs an X11 display — provided by XWayland:
 
 ```bash
-$ echo $XDG_SESSION_TYPE
-wayland
-$ ps aux | grep Xorg
-# nothing — no X server running
+sudo pacman -S xorg-xwayland
 ```
 
-This works well for daily driving (terminal, browser, coding), but fails for
-windows gaming via wine due to two issues:
-
-### Issue 1: XWayland Font Breakage
-
-wine's default display driver is `winex11.drv` — it speaks the X11 protocol.
-Under Wayland, the X11 server is **XWayland** (an X server that runs as a
-Wayland client). When wine tries to create its first window, XWayland tries
-to load the ISO8859-1 `cursor.pcf` font:
-
-```
-X connection to :0 broken (explicit kill or server shutdown)
-```
-
-This happens because `xorg-fonts-misc` (which provides this font) is not
-installed by default on Wayland-only systems. XWayland crashes before any
-window appears.
-
-### Issue 2: Wayland Wine Driver Can't Run Games
-
-`winex11.drv=d` forces wine to skip the X11 driver and use its native
-Wayland driver (`winewayland.drv`). This bypasses XWayland entirely:
+After restarting Sway, verify:
 
 ```bash
-WINEDLLOVERRIDES="winex11.drv=d" wine winecfg    # works — config window appears
+echo $DISPLAY
 ```
 
-But trying to run the Freelancer installer (or any standalone .exe) fails:
+If it prints `:0`, XWayland is running and wine should work via `winex11.drv`.
 
-```
-could not load kernel32.dll (error c0000135)
-```
+If XWayland doesn't work in your setup, try one of these:
 
-⚠️ **Honest guess at why:** `c0000135` is STATUS_DLL_NOT_FOUND — Windows
-reports this when a required DLL can't be located. `kernel32.dll` is the
-fundamental Windows API DLL, always loaded first. It exists in the prefix
-(`system32/kernel32.dll`), so the file is there. The failure might be in
-how the Wayland driver's PE loader resolves the WoW64 path (the 32-bit
-`kernel32` in `syswow64/` vs the 64-bit one in `system32/`), or in the
-loader's initialization order when no X11 display is available. But the
-real cause wasn't investigated further — the true cause remains unknown as of this writing.
-
-**What matters:** `winecfg` works (it's a GUI tool that creates its own
-window, yet runs successfully) — the failure pattern isn't simply
-"GUI vs non-GUI." The `c0000135` error on standalone executables was
-not investigated beyond finding that the Xorg workaround bypasses it.
-
-### The Fix: Add an X11 Session
-
-The solution is to install **i3** on **Xorg** alongside Sway, and switch
-to it when gaming. Both sessions share the same user, filesystem, and
-installed packages. Only the display server changes.
+- **Distrobox approach** — wine in an Arch container via podman (see `freelancer-setup-voidlinux-musl.md`)
+- **X11 + i3 session** — native Xorg session (see below)
 
 ---
 
-## Part 1: Set Up X11 + i3 Session
+### Plan B: X11 + i3 Session
 
-### Step 1.1: Install Xorg and i3
+If wine still has issues under XWayland, switch to a native X11 session.
+
+#### 1. Install Packages
 
 ```bash
 sudo pacman -S xorg-server i3-wm alacritty xorg-xrandr
 ```
 
-| Package | What It Does | Why Needed |
-|---------|-------------|-------------|
-| `xorg-server` | The X11 display server. Listens on Unix socket `/tmp/.X11-unix/X0`, manages windows, handles input, talks to the GPU via DRM | Provides an X11 display that wine's `winex11.drv` can connect to |
-| `i3-wm` | Tiling window manager for Xorg. Manages windows in a grid with keyboard shortcuts | Gives us a usable X11 desktop. Without a WM, Xorg shows only a blank screen with an X cursor |
-| `alacritty` | GPU-accelerated terminal for X11 | Terminal emulator that works under Xorg. The Sway config used `foot`, which is Wayland-only |
-| `xorg-xrandr` | Command-line display configuration tool | Sets resolution (`xrandr -s 1920x1080`). Also useful for verifying the X server is alive |
+| Package | Why |
+|---------|-----|
+| `xorg-server` | X11 display server — wine's `winex11.drv` connects here |
+| `i3-wm` | Tiling WM — without it Xorg shows a blank screen |
+| `alacritty` | Terminal for X11 (foot is Wayland-only) |
+| `xorg-xrandr` | Set resolution, verify X server is alive |
 
-### Step 1.2: Register i3 as a Login Session
+#### 2. Register i3 as Login Session
 
-The display manager (**ly-dm**) reads session files from two directories:
-
-```
-/usr/share/wayland-sessions/   → Wayland compositors (sway.desktop)
-/usr/share/xsessions/          → Xorg Window Managers (i3.desktop)
-```
-
-Installing `i3-wm` should automatically create `/usr/share/xsessions/i3.desktop`:
-
-```ini
-[Desktop Entry]
-Name=i3
-Comment=i3 window manager
-Exec=i3
-Type=Application
-```
-
-When ly-dm launches i3, it runs `exec /usr/lib/Xorg :0 vt2 -keeptty ...`.
-Xorg starts, takes over the VT, and launches i3 as its window manager.
-
-### Step 1.3: Configure i3
-
-The i3 config is at `~/.config/i3/config`. It was **converted from the Sway
-config** at `~/.config/sway/config` with these changes:
-
-| Aspect | Sway config | i3 config (converted) |
-|--------|-------------|----------------------|
-| Modifier | `set $mod Mod4` (Super) | `set $mod Mod1` (Alt) — Super conflicts with VMware host key |
-| Terminal | `set $term foot` | `set $term alacritty` — foot is Wayland-only |
-| Bar | `exec waybar` | Removed — waybar needs `GDK_BACKEND=x11` and isn't installed for X11 |
-| Gaps | `gaps inner 4` | Same syntax (i3 supports gaps natively since 4.22) |
-| Colors | Catppuccin Mocha (client.focused, etc.) | Same palette, using i3's `client.focused` and `client.background` directives |
-
-The resulting layout:
+`i3-wm` creates `/usr/share/xsessions/i3.desktop` automatically.
+The ly-dm display manager reads sessions from:
 
 ```
-Mod1+h/j/k/l         Focus left/down/up/right
-Mod1+Shift+h/j/k/l   Move window left/down/up/right
-Mod1+Return          Launch terminal (alacritty)
-Mod1+Space           Toggle floating
-Mod1+Shift+Space     Toggle tiling/floating
-Mod1+minus           Send to scratchpad
-Mod1+Shift+minus     Show scratchpad
-Mod1+1..0            Switch to workspace 1..10
-Mod1+Shift+1..0      Move window to workspace 1..10
+/usr/share/wayland-sessions/   → Wayland compositors (sway)
+/usr/share/xsessions/          → Xorg WMs (i3)
 ```
 
-### Step 1.4: The Xorg Driver Problem
+Restart ly-dm, select **i3** instead of Sway at login.
 
-Xorg needs a display driver to talk to the GPU. The VM has a **VMware SVGA II**
-adapter (PCI 15ad:0405). Two driver options exist:
+#### 3. Configure the Xorg Driver
 
-#### Option A: `xf86-video-vmware` (chipset-specific — BROKEN)
-
-```
-sudo pacman -S xf86-video-vmware
-```
-
-This driver tries to access legacy ISA I/O ports (0x0000–0x03ff) via
-`xf86EnableIO()` for VGA register control. Modern kernels restrict this
-via the `ioperm()` syscall — only root or processes with `CAP_SYS_RAWIO`
-can call it. Xorg runs as a user process (via systemd-logind), so the call
-fails:
-
-```
-xf86EnableIO: failed to enable I/O ports 0000-03ff (Operation not permitted)
-```
-
-After this failure, the driver cannot initialize its native 2D acceleration
-(Gallium3D Xa). It disables all rendering:
-
-```
-Failed to initialize Gallium3D Xa. No render acceleration available.
-Render acceleration is disabled.
-Direct rendering (DRI2 3D) is disabled.
-AIGLX: Screen 0 is not DRI2 capable
-GLX: Initialized DRISWRAST GL provider for screen 0
-```
-
-Both 2D and 3D fall to pure software (LLVMpipe) — slower than any other
-option. **This driver should not be used.**
-
-#### Option B: `modesetting` (generic — WORKS)
-
-This is Xorg's **generic** display driver. Instead of talking to the GPU
-hardware directly, it communicates through the kernel's DRM/DRI interface —
-the **same interface Wayland compositors use**. Since `vmwgfx` (the kernel
-DRM driver) handles the actual GPU communication, modesetting works
-correctly:
+**Don't install `xf86-video-vmware`** — broken on modern kernels
+(I/O port access blocked). Use `modesetting` (built into xorg-server):
 
 ```bash
-# No package to install — modesetting is built into xorg-server
 sudo tee /etc/X11/xorg.conf.d/10-modesetting.conf << 'EOF'
 Section "Device"
     Identifier "VMware SVGA II"
@@ -190,40 +71,38 @@ EndSection
 EOF
 ```
 
-**Why `AccelMethod "none"`:**
+`AccelMethod "none"` disables glamor (OpenGL 2D), which is slower
+on SVGA3D than simple CPU framebuffer ops.
 
-`modesetting` has two 2D rendering paths:
+#### 4. i3 Keybinds (minimal)
 
-| Path | Configuration | What It Does | Performance on VMware |
-|------|--------------|-------------|----------------------|
-| **glamor** | Default | Translates 2D drawing into OpenGL calls via Mesa/SVGA3D | **Slow** — every GL call must traverse guest→hypervisor→host GPU via SVGA3D protocol translation |
-| **framebuffer** | `AccelMethod "none"` | Draws 2D via simple CPU framebuffer operations (`memcpy`, fill rects) | **Faster** — avoids SVGA3D entirely |
-
-glamor is useful for 2D-heavy desktop environments (GNOME, KDE) with
-real GPUs. On VMware SVGA3D, the protocol translation overhead makes it
-slower than raw framebuffer access. Disabling glamor makes i3 feel snappy.
-
-#### Verification
-
-After creating the config, log out of Sway and log into the i3 session.
-Check the Xorg log:
-
-```bash
-cat ~/.local/share/xorg/Xorg.0.log | grep -E "modesetting|glamor|Accel"
+```
+Mod1+Return          Terminal (alacritty)
+Mod1+h/j/k/l         Focus
+Mod1+Shift+h/j/k/l   Move window
+Mod1+1..0            Switch workspace
+Mod1+Shift+1..0      Move window to workspace
 ```
 
-Expected output:
+#### 5. Verify
 
+```bash
+cat ~/.local/share/xorg/Xorg.0.log | grep -E "modesetting|Accel"
+```
+
+Expected:
 ```
 (II) modeset(0): using drv /dev/dri/card0
 (II) modeset(0): glamor X acceleration disabled by "none" option
 ```
 
+Now run wine normally — no `WINEDLLOVERRIDES` needed.
+
 ---
 
-## Part 2: Install Freelancer
+## Install Freelancer
 
-### Step 2.1: Create Wine Prefix
+### Step 1: Create Wine Prefix
 
 A **wine prefix** is a directory that mimics a Windows system drive. It
 contains `drive_c/` (C: drive), registry files (`system.reg`, `user.reg`),
@@ -255,7 +134,7 @@ path, which avoids the console hang entirely.
 
 A config window appears. Leave it open for the next step.
 
-### Step 2.2: Set Windows Version to 7
+### Step 2: Set Windows Version to 7
 
 In the winecfg window:
 
@@ -269,39 +148,7 @@ Windows version (Win10 was used; Win7 may also work). After HD install,
 Win7 was set in winecfg and both the HD-modded and original (post-patch)
 versions ran fine with it.
 
-### Step 2.3: Install DirectPlay ⚠️
-
-Freelancer uses **DirectPlay** (a deprecated DirectX networking API) for
-both multiplayer and single-player session management. Even in single-player,
-the engine initializes DirectPlay on startup — it creates a local session
-listener. Without DirectPlay registered, the game hangs or crashes at launch.
-⚠️ This step was taken based on advice from the WineHQ AppDB — it has not been
-confirmed whether DirectPlay is actually required on this setup. The game was
-never tested without it.
-
-```bash
-winetricks -q directplay
-```
-
-| Argument | Meaning |
-|----------|---------|
-| `-q` | Quiet mode — skip prompts, run unattended |
-| `directplay` | Component name: registers four DirectPlay DLLs via `regsvr32` |
-
-This runs `regsvr32` on each DLL, which calls `DllRegisterServer` to write
-COM class IDs and AppID entries to the registry:
-
-| DLL | Provides | Registered COM Class |
-|-----|----------|---------------------|
-| `dplayx.dll` | DirectPlay 4 (legacy) | `CLSID_DirectPlay` |
-| `dpnet.dll` | DirectPlay 8 (used by Freelancer) | `CLSID_DirectPlay8Client`, `CLSID_DirectPlay8Server` |
-| `dpnhpast.dll` | NAT Helper PAST | DirectPlay NAT traversal |
-| `dpnhupnp.dll` | NAT Helper UPnP | DirectPlay NAT traversal (UPnP) |
-
-After registration, the game's `CoCreateInstance(CLSID_DirectPlay8Client)`
-succeeds instead of returning "Class not registered."
-
-### Step 2.4: Run the Game Installer
+### Step 3: Run the Game Installer
 
 The MagiPacks repack consists of two files in `~/Games/`:
 
@@ -325,7 +172,7 @@ The repack already includes:
 - **Patch v1.1** — official Microsoft patch
 - **Jason's Freelancer Patch v1.25** (JFLP) — bug fixes, widescreen prep
 
-### Step 2.5: Verify Installation
+### Step 4: Verify Installation
 
 ```bash
 ls "$WINEPREFIX/drive_c/MagiPacks/Freelancer/EXE/"
@@ -336,7 +183,7 @@ ls "$WINEPREFIX/drive_c/MagiPacks/Freelancer/DATA/" | head -5
 
 The game executable: `C:\MagiPacks\Freelancer\EXE\freelancer.exe`
 
-### Step 2.6: Install Freelancer HD Edition
+### Step 5: Install Freelancer HD Edition
 
 Freelancer HD Edition is a mod that improves textures, models, audio,
 and includes engine patches that fix the mouse cursor bug (see Known
@@ -355,24 +202,7 @@ in-place. No separate download or config needed.
 
 ---
 
-## Part 3: Run the Game
-
-### Before Running
-
-**You must be in the i3/Xorg session.** Confirm:
-
-```bash
-$ echo $XDG_SESSION_TYPE
-x11
-```
-
-If it says `wayland`, log out of Sway, select **i3** at the ly-dm prompt,
-and log back in.
-
-**Why Xorg is required:** wine's Wayland driver can't run any real Windows
-executable — they all fail with `could not load kernel32.dll` for unknown
-reasons. Only `winecfg` works. The X11 driver (`winex11.drv`) on Xorg works
-normally. So Xorg is mandatory for wine gaming on this system.
+## Run the Game
 
 ### Command
 
@@ -401,7 +231,7 @@ DirectX 8 → OpenGL translation:
   - Shader conversion (DX bytecode → GLSL)
   - Texture format mapping (DXT5 → GL_COMPRESSED_RGBA)
     ↓
-winex11.drv → X11 → Xorg → modesetting
+winex11.drv → X11 → XWayland → vmwgfx
     ↓
 OpenGL context via GLX → Mesa SVGA3D Gallium driver
     ↓
