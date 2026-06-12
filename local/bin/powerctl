@@ -1,15 +1,15 @@
 #!/bin/sh
 case "$1" in
     lock)
-        shift
+        pgrep -x gtklock >/dev/null && exit 0
         w=$(cat "$HOME/.config/wallpaper" 2>/dev/null)
         [ -n "$w" ] && set -- --background="$w" "$@"
-        cd "$HOME/.config/gtklock" && command -v gtklock &>/dev/null && exec gtklock "$@"
+        exec gtklock "$@"
         ;;
     reboot)
-        systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || openrc-shutdown -r now
+        systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || openrc-shutdown -r now 2>/dev/null || sudo reboot || sudo shutdown -r now
         ;;
     poweroff)
-        systemctl poweroff 2>/dev/null || loginctl poweroff 2>/dev/null || openrc-shutdown -p now
+        systemctl poweroff 2>/dev/null || loginctl poweroff 2>/dev/null || openrc-shutdown -p now 2>/dev/null || sudo poweroff || sudo shutdown -p now
         ;;
 esac
