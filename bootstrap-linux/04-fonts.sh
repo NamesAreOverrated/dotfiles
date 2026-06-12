@@ -3,10 +3,7 @@ if [ ! -f "$DOTFILES/fonts/afio.zip" ]; then
     return
 fi
 
-if ! has unzip; then
-    echo "  Skipping (unzip not found)"
-    return
-fi
+need unzip || return
 
 echo "Installing afio font..."
 FONT_DIR="$HOME/.local/share/fonts/afio"

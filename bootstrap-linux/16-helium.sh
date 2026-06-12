@@ -10,8 +10,11 @@ printf "  Install Helium browser? [y/N] "
 read -r ans
 [[ ! "$ans" =~ ^[yY] ]] && { echo "  Skipping"; return; }
 
-if ! has curl || ! has tar; then
-    echo "  Skipping (curl or tar not found)"
+need curl || return
+need tar || return
+
+if [ "$IS_MUSL" = 1 ]; then
+    echo "  Skipping (Helium is an Electron app — requires glibc, not available on musl)"
     return
 fi
 

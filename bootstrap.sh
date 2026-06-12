@@ -6,6 +6,28 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 has() { command -v "$1" &>/dev/null; }
 
+IS_MUSL=0
+if ldd --version 2>&1 | grep -qi musl; then
+    IS_MUSL=1
+fi
+
+need() {
+    local cmd=$1 pkg=${2:-$1}
+    if ! has "$cmd"; then
+        echo "  MISSING: $cmd"
+        if has pacman; then
+            echo "    Install: sudo pacman -S $pkg"
+        elif has xbps-install; then
+            echo "    Install: sudo xbps-install $pkg"
+        elif has apt; then
+            echo "    Install: sudo apt install $pkg"
+        elif has dnf; then
+            echo "    Install: sudo dnf install $pkg"
+        fi
+        return 1
+    fi
+}
+
 link() {
     local src="$1" dst="$2"
     [[ ! -e "$src" ]] && { echo "  Skipping (src missing): $src"; return; }

@@ -19,7 +19,7 @@ CURRENT=""
 if has fish; then
     [ -f "$HOME/.config/fish/config.fish" ] && CURRENT=$(grep -m1 '^set -gx TERMINAL' "$HOME/.config/fish/config.fish" 2>/dev/null | sed 's/.*"\(.*\)"/\1/') || true
 else
-    [ -f "$HOME/.bash_profile" ] && CURRENT=$(grep -m1 '^export TERMINAL=' "$HOME/.bash_profile" 2>/dev/null | sed 's/.*=//') || true
+    [ -f "$HOME/.bash_profile" ] && CURRENT=$(grep -m1 '^export TERMINAL=' "$HOME/.bash_profile" 2>/dev/null | sed 's/.*=//;s/"//g') || true
 fi
 
 terminals=()

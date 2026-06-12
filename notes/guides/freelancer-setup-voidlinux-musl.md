@@ -30,10 +30,11 @@ sudo usermod -aG wheel,video,input,audio,_seatd YOURUSERNAME
 
 ```
 
-Create `Wayland` required directory
+Create `Wayland` required directory and start niri with dbus.
 
-```bash_profile
+Add to `~/.bash_profile`:
 
+```bash
 if [ -z "$XDG_RUNTIME_DIR" ]; then
     export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
     if [ ! -d "$XDG_RUNTIME_DIR" ]; then
@@ -42,7 +43,6 @@ if [ -z "$XDG_RUNTIME_DIR" ]; then
 fi
 
 exec dbus-run-session niri
-
 ```
 
 
@@ -52,12 +52,13 @@ exec dbus-run-session niri
 
 ```bash
 
-sudo xbps-install -S podman, crun
+sudo xbps-install -S podman crun
 
 ```
 set up registries.conf and `crun`
 
-```~/.config/containers/registries.conf
+```toml
+# ~/.config/containers/registries.conf
 unqualified-search-registries = ['docker.io', 'quay.io', 'registry.fedoraproject.org']
 
 
@@ -210,7 +211,7 @@ The original freelancer's font render will break if you go any higher than 1024x
 Chmod the bash file
 
 ```bash
-chmod ~/games/freelancer.sh
+chmod +x ~/games/freelancer.sh
 ```
 
 Run it. (it should just fine it because we added the games folder in the .bash_profile)

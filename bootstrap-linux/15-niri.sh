@@ -129,13 +129,22 @@ link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
 
 if [ "$PATCHED" = "1" ]; then
     link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
-    echo ""
-    echo "  Downloading patched niri binary..."
-    mkdir -p "$DOTFILES/niri/local"
-    curl -Lo "$DOTFILES/niri/local/niri" "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
-    chmod +x "$DOTFILES/niri/local/niri"
-    echo ""
-    echo "  Downloaded to: $DOTFILES/niri/local/niri"
-    echo "  Install manually:"
-    echo "    sudo cp \"$DOTFILES/niri/local/niri\" /usr/bin/niri"
+    if [ "$IS_MUSL" = 1 ]; then
+        echo ""
+        echo "  Musl detected — patched niri binary requires glibc"
+        echo "  Build from source:"
+        echo "    git clone https://github.com/NamesAreOverrated/niri-patched"
+        echo "    cd niri-patched && cargo build --release"
+        echo "    sudo cp target/release/niri /usr/bin/niri"
+    else
+        echo ""
+        echo "  Downloading patched niri binary..."
+        mkdir -p "$DOTFILES/niri/local"
+        curl -Lo "$DOTFILES/niri/local/niri" "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
+        chmod +x "$DOTFILES/niri/local/niri"
+        echo ""
+        echo "  Downloaded to: $DOTFILES/niri/local/niri"
+        echo "  Install manually:"
+        echo "    sudo cp \"$DOTFILES/niri/local/niri\" /usr/bin/niri"
+    fi
 fi
