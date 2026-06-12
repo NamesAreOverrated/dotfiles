@@ -107,7 +107,8 @@ make the box
 
 distrobox create --name gamebox \
                  --image archlinux:latest \
-                 --home ~/boxes/gamebox
+                 --home ~/boxes/gamebox \
+                 --unshare-process
 ```
 
 ## Step 5: Prepare the game box
