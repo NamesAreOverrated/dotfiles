@@ -14,6 +14,6 @@ layout{
 
 binds {
     Mod+P { toggle-window-height-pin; }
-    Mod+BracketLeft  { pull-column-right; }
-    Mod+BracketRight { pull-column-left; }
+    Mod+BracketLeft  { swap-column-left; }
+    Mod+BracketRight { swap-column-right; }
 }
