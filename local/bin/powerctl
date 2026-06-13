@@ -1,10 +1,14 @@
 #!/bin/sh
 case "$1" in
     lock)
+        #echo "$(date '+%FT%F') lock called by PID=$$ PPID=$PPID ($(ps -p $PPID -o comm =2>/dev/null))" >>/tmp/powerctl.log
         pgrep -x gtklock >/dev/null && exit 0
         w=$(cat "$HOME/.config/wallpaper" 2>/dev/null)
-        [ -n "$w" ] && set -- --background="$w" "$@"
-        exec gtklock "$@"
+        if [ -n "$w" ]; then
+            exec gtklock --background "$w"
+        else
+            exec gtklock
+        fi
         ;;
     reboot)
         systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || openrc-shutdown -r now 2>/dev/null || sudo reboot || sudo shutdown -r now
