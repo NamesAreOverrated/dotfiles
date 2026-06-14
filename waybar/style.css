@@ -20,6 +20,7 @@ window#waybar {
 #cpu,
 #memory,
 #clock,
+#custom-containers,
 #custom-lock,
 #custom-reboot,
 #custom-shutdown {
@@ -91,6 +92,8 @@ window#waybar {
 #cpu                     { color: #a6e3a1; }
 #memory                  { color: #f9e2af; }
 #clock                   { color: #b4befe; }
+
+#custom-containers { color: #fab387; }
 
 #custom-lock     { color: #cba6f7; }
 #custom-reboot   { color: #f9e2af; }

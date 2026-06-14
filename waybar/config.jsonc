@@ -8,7 +8,7 @@
   "margin-right": 5,
   "modules-left": ["niri/workspaces","sway/workspaces", "custom/lock", "custom/reboot", "custom/shutdown"],
   "modules-center": [],
-  "modules-right": ["tray", "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
+  "modules-right": ["tray","custom/containers", "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
   "niri/workspaces": {
     "format": "{icon}",
     "on-click": "activate",
@@ -87,6 +87,12 @@
     "format-source-muted": "󰍭",
     "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
     "on-click-right": "~/.local/bin/rofi-volmixer",
+  },
+  "custom/containers": {
+  "format": " {}",
+  "interval": 10,
+  "exec": "sh -c 'containers=$( (podman ps --format {{.Names}} 2>/dev/null; docker ps --format {{.Names}} 2>/dev/null) | sed \"/^$/d\" ); count=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | wc -l | tr -d \" \"); names=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | paste -sd \", \" -); printf \"%s\\n%s\" \"$count\" \"$names\"'",
+  "tooltip": true
   },
   "cpu": {
     "format": "󰻠  {usage}%",
