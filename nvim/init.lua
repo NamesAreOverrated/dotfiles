@@ -255,7 +255,8 @@ do
 	vim.keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
 
 	-- Open TermFileBrowser (JSON output mode)
-	local function open_termfilebrowser(open_cmd, use_split, dir)
+	local function open_termfilebrowser(open_cmd, use_split, dir, opts)
+		opts = opts or {}
 		local outfile = vim.fn.tempname() .. ".tfb.json"
 		local win
 		if use_split then
@@ -265,6 +266,9 @@ do
 		local cmd = "termfilebrowser --output-file " .. outfile
 		if dir then
 			cmd = cmd .. " " .. vim.fn.shellescape(dir)
+		end
+		if opts.root then
+			cmd = cmd .. " --root " .. vim.fn.shellescape(opts.root) .. " --strict"
 		end
 		vim.fn.termopen(cmd, {
 			on_exit = function()
@@ -301,6 +305,14 @@ do
 			return vim.trim(result) .. "/.nvim"
 		end
 		return vim.fn.getcwd() .. "/.nvim"
+	end
+
+	local function get_git_root()
+		local ok, result = pcall(vim.fn.system, "git rev-parse --show-toplevel 2>/dev/null")
+		if ok and vim.v.shell_error == 0 then
+			return vim.trim(result)
+		end
+		return nil
 	end
 
 	local function save_session()
@@ -359,7 +371,8 @@ do
 				end)
 			elseif vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
 				vim.schedule(function()
-					open_termfilebrowser("edit", false)
+					local dir = vim.fn.argv(0)
+					open_termfilebrowser("edit", false, dir, { root = dir })
 				end)
 			end
 		end,
@@ -374,10 +387,14 @@ do
 	end
 
 	vim.keymap.set("n", "<leader>e", function()
-		open_termfilebrowser("edit", true, current_file_dir())
+		local dir = current_file_dir()
+		local root = get_git_root()
+		open_termfilebrowser("edit", true, dir, root and { root = root } or {})
 	end, { desc = "[E]xplore with TermFileBrowser" })
 	vim.keymap.set("n", "<leader>E", function()
-		open_termfilebrowser("vsplit", false, current_file_dir())
+		local dir = current_file_dir()
+		local root = get_git_root()
+		open_termfilebrowser("vsplit", false, dir, root and { root = root } or {})
 	end, { desc = "[E]xplore in split with TermFileBrowser" })
 
 	vim.keymap.set("n", "<leader>ts", function()
