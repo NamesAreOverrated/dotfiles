@@ -129,22 +129,33 @@ link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
 
 if [ "$PATCHED" = "1" ]; then
     link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
-    if [ "$IS_MUSL" = 1 ]; then
-        echo ""
-        echo "  Musl detected — patched niri binary requires glibc"
-        echo "  Build from source:"
-        echo "    git clone https://github.com/NamesAreOverrated/niri-patched"
-        echo "    cd niri-patched && cargo build --release"
-        echo "    sudo cp target/release/niri /usr/bin/niri"
+    if has niri && niri --version 2>/dev/null | grep -qi patched; then
+        echo "  Patched niri already installed"
     else
-        echo ""
-        echo "  Downloading patched niri binary..."
-        mkdir -p "$DOTFILES/niri/local"
-        curl -Lo "$DOTFILES/niri/local/niri" "https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/niri"
-        chmod +x "$DOTFILES/niri/local/niri"
-        echo ""
-        echo "  Downloaded to: $DOTFILES/niri/local/niri"
-        echo "  Install manually:"
-        echo "    sudo cp \"$DOTFILES/niri/local/niri\" /usr/bin/niri"
+        printf "  Download patched niri binary? [y/N] "
+        read -r ans
+        if [[ "$ans" =~ ^[yY] ]]; then
+            need curl || return
+            mkdir -p "$DOTFILES/niri/local"
+            if [ "$IS_MUSL" = 1 ]; then
+                ASSET="niri-musl"
+            else
+                ASSET="niri-glibc"
+            fi
+            URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/niri-patched-latest/$ASSET"
+            echo "  Downloading $ASSET ..."
+            if curl -fsSL "$URL" -o "$DOTFILES/niri/local/niri"; then
+                chmod +x "$DOTFILES/niri/local/niri"
+                echo "  Downloaded to: $DOTFILES/niri/local/niri"
+                echo "  Install manually:"
+                echo "    sudo cp \"$DOTFILES/niri/local/niri\" /usr/bin/niri"
+            else
+                echo "  Download failed — release not yet available"
+                echo "  Build from source:"
+                echo "    git clone https://github.com/NamesAreOverrated/niri-patched"
+                echo "    cd niri-patched && cargo build --release"
+                echo "    sudo cp target/release/niri /usr/bin/niri"
+            fi
+        fi
     fi
 fi

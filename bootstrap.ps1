@@ -103,12 +103,25 @@ if ((Test-Path $fontZip) -and -not (Test-Path "$fontDir\afio-*.ttf")) {
 }
 
 # --- termfilebrowser ---
-$tfb = "$DOTFILES\local\bin\termfilebrowser.exe"
 $localTfb = "$HOME\.local\bin\termfilebrowser.exe"
-if ((Test-Path $tfb) -and -not (Test-Path $localTfb)) {
-    $null = New-Item -Force -ItemType Directory -Path "$HOME\.local\bin"
-    Copy-Item $tfb $localTfb -Force
-    Write-Host "  Installed termfilebrowser.exe"
+if (Test-Path $localTfb) {
+    Write-Host "  termfilebrowser already installed"
+} else {
+    $ans = Read-Host "  Download termfilebrowser binary? [y/N]"
+    if ($ans -match '^[yY]') {
+        $url = "https://github.com/NamesAreOverrated/dotfiles/releases/download/termfilebrowser-latest/termfilebrowser.exe"
+        Write-Host "  Downloading termfilebrowser..."
+        $null = New-Item -Force -ItemType Directory -Path "$HOME\.local\bin"
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $localTfb
+            Write-Host "  Downloaded to $localTfb"
+        } catch {
+            Write-Host "  Download failed — Windows release not yet available"
+            Write-Host "  Build from source:"
+            Write-Host "    cargo build --release"
+            Write-Host "    cp target/release/termfilebrowser.exe ~/.local/bin/"
+        }
+    }
 }
 
 # --- add ~\.local\bin to user PATH ---
