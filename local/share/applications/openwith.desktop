@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Open With...
-Exec=openwith %f
-NoDisplay=true
-MimeType=inode/directory;

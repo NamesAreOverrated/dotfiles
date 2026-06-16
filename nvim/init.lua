@@ -254,10 +254,10 @@ do
 	vim.keymap.set("n", "<C-j>", "<C-w><C-j>", { desc = "Move focus to the lower window" })
 	vim.keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
 
-	-- Open TermFileBrowser (JSON output mode)
+	-- Open TermFileBrowser (writes raw path to --output-file)
 	local function open_termfilebrowser(open_cmd, use_split, dir, opts)
 		opts = opts or {}
-		local outfile = vim.fn.tempname() .. ".tfb.json"
+		local outfile = vim.fn.tempname() .. ".tfb"
 		local win
 		if use_split then
 			local buf = vim.api.nvim_create_buf(false, true)
@@ -274,16 +274,15 @@ do
 			on_exit = function()
 				local f = io.open(outfile, "r")
 				if f then
-					local content = f:read("*a")
+					local path = f:read("*a"):gsub("%s+", "")
 					f:close()
 					os.remove(outfile)
-					local ok, result = pcall(vim.json.decode, content)
-					if ok and result.action == "open" then
+					if path ~= "" then
 						vim.schedule(function()
 							if win then
 								vim.api.nvim_win_close(win, true)
 							end
-							local buf = vim.fn.bufadd(result.file)
+							local buf = vim.fn.bufadd(path)
 							vim.fn.bufload(buf)
 							if open_cmd == "vsplit" then
 								vim.cmd("vsplit")
@@ -394,7 +393,7 @@ do
 	vim.keymap.set("n", "<leader>E", function()
 		local dir = current_file_dir()
 		local root = get_git_root()
-		open_termfilebrowser("vsplit", false, dir, root and { root = root } or {})
+		open_termfilebrowser("vsplit", true, dir, root and { root = root } or {})
 	end, { desc = "[E]xplore in split with TermFileBrowser" })
 
 	vim.keymap.set("n", "<leader>ts", function()
