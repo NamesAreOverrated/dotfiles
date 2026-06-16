@@ -274,7 +274,7 @@ do
 			on_exit = function()
 				local f = io.open(outfile, "r")
 				if f then
-					local path = f:read("*a"):gsub("%s+", "")
+					local path = f:read("*a"):gsub("^%s+", ""):gsub("%s+$", "")
 					f:close()
 					os.remove(outfile)
 					if path ~= "" then
