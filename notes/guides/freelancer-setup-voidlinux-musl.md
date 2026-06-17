@@ -55,7 +55,7 @@ exec dbus-run-session niri
 sudo xbps-install -S podman crun
 
 ```
-set up registries.conf and `crun`
+set up `registries.conf` ,`containers.conf` and `crun`
 
 ```toml
 # ~/.config/containers/registries.conf
@@ -69,13 +69,87 @@ unqualified-search-registries = ['docker.io', 'quay.io', 'registry.fedoraproject
 # Ref: https://cloud.google.com/container-registry/docs/pulling-cached-images
 prefix="docker.io"
 location="mirror.gcr.io"
+```
+
+```toml
+#~/.config/containers/containers.conf
+
+# The containers configuration file specifies all of the available configuration
+# command-line options/flags for container engine tools like Podman & Buildah,
+# but in a TOML format that can be easily modified and versioned.
+
+# Please refer to containers.conf(5) for details of all configuration options.
+# Not all container engines implement all of the options.
+# All of the options have hard coded defaults and these options will override
+# the built in defaults. Users can then override these options via the command
+# line. Container engines will read containers.conf files in up to three
+# locations in the following order:
+#  1. /usr/share/containers/containers.conf
+#  2. /etc/containers/containers.conf
+#  3. $XDG_CONFIG_HOME/containers/containers.conf or
+#     $HOME/.config/containers/containers.conf if $XDG_CONFIG_HOME is not set
+#  Items specified in the latter containers.conf, if they exist, override the
+# previous containers.conf settings, or the default settings.
 
 [containers]
-cgroup_manager="none"
-events_backend="file"
+
+# Control container cgroup configuration
+# Determines  whether  the  container will create CGroups.
+# Options are:
+# `enabled`   Enable cgroup support within container
+# `disabled`  Disable cgroup support, will inherit cgroups from parent
+# `no-conmon` Do not create a cgroup dedicated to conmon.
+#
+cgroups = "disabled"
+
+# A list of sysctls to be set in containers by default,
+# specified as "name=value",
+# for example:"net.ipv4.ping_group_range=0 0".
+#
+default_sysctls = [
+  "net.ipv4.ping_group_range=0 0",
+]
+
+# Default proxy environment variables passed into the container.
+# The environment variables passed in include:
+# http_proxy, https_proxy, ftp_proxy, no_proxy, and the upper case versions of
+# these. This option is needed when host system uses a proxy but container
+# should not use proxy. Proxy environment variables specified for the container
+# in any other way will override the values passed from the host.
+#
+http_proxy = true
 
 [engine]
-runtime="crun"
+# Cgroup management implementation used for the runtime.
+# Valid options "systemd" or "cgroupfs"
+#
+cgroup_manager = "cgroupfs"
+
+# Default OCI runtime
+#
+runtime = "crun"
+
+# List of the OCI runtimes that supports running containers without cgroups.
+#
+runtime_supports_nocgroups = ["crun"]
+
+# Paths to look for a valid OCI runtime (crun, runc, kata, runsc, krun, etc)
+[engine.runtimes]
+crun = [
+  "/usr/bin/crun",
+  "/usr/sbin/crun",
+  "/usr/local/bin/crun",
+  "/usr/local/sbin/crun",
+  "/sbin/crun",
+  "/bin/crun",
+  "/run/current-system/sw/bin/crun",
+]
+
+# Default flags for a valid OCI runtime (crun, runc, kata, runsc, krun, etc)
+# Note: Do not pass the leading -- to the flag. To pass the runc flag --log-format json, the option given is log-format=json.
+[engine.runtimes_flags]
+crun = []
+
 ```
 
 `distrobox` has to be install with their official [install-script](https://github.com/89luca89/distrobox#alternative-methods) (void doesn't have package for it) 
