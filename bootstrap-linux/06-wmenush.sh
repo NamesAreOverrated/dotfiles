@@ -66,7 +66,7 @@ else
     link "$DOTFILES/local/bin/wm-alias" "$HOME/.local/bin/wm-alias"
 fi
 
-link "$DOTFILES/local/bin/env" "$HOME/.local/bin/env"
+link "$DOTFILES/local/bin/wm-env" "$HOME/.local/bin/wm-env"
 
 # ── Proxy config ──
 
@@ -97,28 +97,28 @@ if has fish; then
     mkdir -p "$HOME/.config/fish"
     # Migrate old proxy block → env sourcing
     if grep -q "Proxy config (managed by wm-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        sed -i '/^# Proxy config (managed by wm-network)$/,/^end$/c\~/.local/bin/env --fish | source' "$HOME/.config/fish/config.fish"
-        echo "  Migrated proxy sourcing in ~/.config/fish/config.fish → ~/.local/bin/env --fish | source"
+        sed -i '/^# Proxy config (managed by wm-network)$/,/^end$/c\~/.local/bin/wm-env --fish | source' "$HOME/.config/fish/config.fish"
+        echo "  Migrated proxy sourcing in ~/.config/fish/config.fish → ~/.local/bin/wm-env --fish | source"
     fi
-    if ! grep -q "env --fish | source" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+    if ! grep -q "wm-env --fish | source" "$HOME/.config/fish/config.fish" 2>/dev/null; then
         cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
 
-~/.local/bin/env --fish | source
+~/.local/bin/wm-env --fish | source
 FISH_EOF
-        echo "  Added env sourcing to ~/.config/fish/config.fish"
+        echo "  Added wm-env sourcing to ~/.config/fish/config.fish"
     fi
 else
-    # Migrate old proxy block → eval "$(env)"
+    # Migrate old proxy block → eval "$(wm-env)"
     if grep -q "Proxy config (managed by wm-network)" "$HOME/.bashrc" 2>/dev/null; then
-        sed -i '/^# Proxy config (managed by wm-network)$/,/^fi$/c\eval "$(env)"' "$HOME/.bashrc"
-        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(env)\""
+        sed -i '/^# Proxy config (managed by wm-network)$/,/^fi$/c\eval "$(wm-env)"' "$HOME/.bashrc"
+        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(wm-env)\""
     fi
-    if ! grep -q 'eval "$(env)"' "$HOME/.bashrc" 2>/dev/null; then
+    if ! grep -q 'wm-env' "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << 'EOF'
 
-eval "$(env)"
+eval "$(wm-env)"
 EOF
-        echo "  Added eval \$(env) to ~/.bashrc"
+        echo "  Added eval \$(wm-env) to ~/.bashrc"
     fi
 fi
 
