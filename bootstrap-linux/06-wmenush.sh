@@ -82,7 +82,7 @@ if [ ! -f "$CFG" ]; then
     echo "  Created default proxy config (disabled)"
 fi
 
-# ── Fish proxy sourcing ──
+# ── Shell proxy sourcing ──
 
 if has fish; then
     mkdir -p "$HOME/.config/fish"
@@ -113,10 +113,31 @@ end
 FISH_EOF
         echo "  Added proxy sourcing to ~/.config/fish/config.fish"
     fi
+else
+    # Inject bashrc proxy sourcing if not already present
+    if ! grep -q "Proxy config (managed by wm-network)" "$HOME/.bashrc" 2>/dev/null; then
+        cat >> "$HOME/.bashrc" << 'EOF'
+
+# Proxy config (managed by wm-network)
+PROXY_CFG="$HOME/.config/wm-network"
+if [ -f "$PROXY_CFG" ] && [ "$(sed -n '2p' "$PROXY_CFG")" = "1" ]; then
+    PROXY="http://$(sed -n '1p' "$PROXY_CFG")"
+    NO_PROXY_VAL="$(sed -n '3p' "$PROXY_CFG")"
+    export http_proxy="$PROXY"
+    export https_proxy="$PROXY"
+    export HTTP_PROXY="$PROXY"
+    export HTTPS_PROXY="$PROXY"
+    export all_proxy="socks5://$(sed -n '1p' "$PROXY_CFG")"
+    export ALL_PROXY="$all_proxy"
+    export no_proxy="${NO_PROXY_VAL:-localhost,127.0.0.1,::1}"
+    export NO_PROXY="$no_proxy"
+fi
+EOF
+        echo "  Added proxy sourcing to ~/.bashrc"
+    fi
 fi
 
-# ── Update .bashrc proxy sourcing (if stale) ──
-
+# Migrate old rofi-network variable names in bashrc (if fish user ever had rofi)
 if [ -f "$HOME/.bashrc" ]; then
     sed -i \
         -e 's|# Proxy config (managed by rofi-network)|# Proxy config (managed by wm-network)|' \
@@ -126,5 +147,4 @@ if [ -f "$HOME/.bashrc" ]; then
         -e 's|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$ROFI_NET_CFG")"|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$PROXY_CFG")"|' \
         -e 's|export all_proxy="socks5://$(sed -n '\''1p'\'' "$ROFI_NET_CFG")"|export all_proxy="socks5://$(sed -n '\''1p'\'' "$PROXY_CFG")"|' \
         "$HOME/.bashrc" 2>/dev/null || true
-    echo "  Updated proxy sourcing in ~/.bashrc"
 fi
