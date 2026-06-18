@@ -15,7 +15,7 @@ else
         else
             ASSET="wmenush-glibc"
         fi
-        URL="https://github.com/NamesAreOverrated/wmenush/releases/download/latest/$ASSET"
+        URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/wmenush-latest/$ASSET"
         echo "  Downloading $ASSET ..."
         if curl -fsSL "$URL" -o "$HOME/.local/bin/wmenush"; then
             chmod +x "$HOME/.local/bin/wmenush"
