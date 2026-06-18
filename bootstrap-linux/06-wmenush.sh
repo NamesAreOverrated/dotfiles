@@ -40,43 +40,83 @@ fi
 
 # ── Wrapper scripts ──
 
-# wm-launcher — no system dependency
 link "$DOTFILES/local/bin/wm-launcher" "$HOME/.local/bin/wm-launcher"
 
-# wm-volmixer — requires PulseAudio/PipeWire
 if has pactl; then
     link "$DOTFILES/local/bin/wm-volmixer" "$HOME/.local/bin/wm-volmixer"
 else
     echo "  Skipping wm-volmixer (pactl not found)"
 fi
 
-# wm-network — requires NetworkManager
 if has nmcli; then
     link "$DOTFILES/local/bin/wm-network" "$HOME/.local/bin/wm-network"
 else
     echo "  Skipping wm-network (nmcli not found)"
 fi
 
-# wm-wallpaper — requires swaybg
 if has swaybg; then
     link "$DOTFILES/local/bin/wm-wallpaper" "$HOME/.local/bin/wm-wallpaper"
 else
     echo "  Skipping wm-wallpaper (swaybg not found)"
 fi
 
-# ── Proxy config migration ──
+# ── Proxy config ──
 
+CFG="$HOME/.config/wm-network"
+
+# Migrate old rofi-network config
 if [ -f "$HOME/.config/rofi-network" ]; then
-    if [ ! -f "$HOME/.config/wm-network" ]; then
-        mv "$HOME/.config/rofi-network" "$HOME/.config/wm-network"
+    if [ ! -f "$CFG" ]; then
+        mv "$HOME/.config/rofi-network" "$CFG"
         echo "  Migrated ~/.config/rofi-network → ~/.config/wm-network"
     else
         rm "$HOME/.config/rofi-network"
-        echo "  Removed old ~/.config/rofi-network (replaced by ~/.config/wm-network)"
+        echo "  Removed old ~/.config/rofi-network"
     fi
 fi
 
-# Update proxy sourcing in .bashrc
+# Create default proxy config if none exists
+if [ ! -f "$CFG" ]; then
+    mkdir -p "$HOME/.config"
+    printf '%s\n0\n%s\n' "localhost:10808" "localhost,127.0.0.1,::1" > "$CFG"
+    echo "  Created default proxy config (disabled)"
+fi
+
+# ── Fish proxy sourcing ──
+
+if has fish; then
+    mkdir -p "$HOME/.config/fish"
+    if ! grep -q "Proxy config (managed by wm-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
+
+# Proxy config (managed by wm-network)
+set -l proxy_file "$HOME/.config/wm-network"
+if test -f "$proxy_file"
+    and test (sed -n '2p' "$proxy_file") = "1"
+    set -l proxy_addr (sed -n '1p' "$proxy_file")
+    set -l no_proxy_val (sed -n '3p' "$proxy_file")
+    if test -n "$proxy_addr"
+        set -gx http_proxy "http://$proxy_addr"
+        set -gx https_proxy "http://$proxy_addr"
+        set -gx HTTP_PROXY "http://$proxy_addr"
+        set -gx HTTPS_PROXY "http://$proxy_addr"
+        set -gx all_proxy "socks5://$proxy_addr"
+        set -gx ALL_PROXY "socks5://$proxy_addr"
+        if test -n "$no_proxy_val"
+            set -gx no_proxy "$no_proxy_val"
+        else
+            set -gx no_proxy "localhost,127.0.0.1,::1"
+        end
+        set -gx NO_PROXY "$no_proxy"
+    end
+end
+FISH_EOF
+        echo "  Added proxy sourcing to ~/.config/fish/config.fish"
+    fi
+fi
+
+# ── Update .bashrc proxy sourcing (if stale) ──
+
 if [ -f "$HOME/.bashrc" ]; then
     sed -i \
         -e 's|# Proxy config (managed by rofi-network)|# Proxy config (managed by wm-network)|' \
