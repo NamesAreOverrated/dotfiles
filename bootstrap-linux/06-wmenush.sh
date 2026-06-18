@@ -60,6 +60,12 @@ else
     echo "  Skipping wm-wallpaper (swaybg not found)"
 fi
 
+if has fish; then
+    echo "  Skipping wm-alias (bash-only tool)"
+else
+    link "$DOTFILES/local/bin/wm-alias" "$HOME/.local/bin/wm-alias"
+fi
+
 # ── Proxy config ──
 
 CFG="$HOME/.config/wm-network"

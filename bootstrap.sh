@@ -46,3 +46,21 @@ for f in "$DOTFILES/bootstrap-linux/"*.sh; do
     source "$f"
     echo ""
 done
+
+cat << EOF
+
+── Post-install notes ──
+
+1. Start a new shell or source ~/.bashrc to pick up TERMINAL,
+   SUDO_EDITOR, starship, proxy config, and PATH changes.
+
+2. Non-systemd systems (runit, openrc, etc.):
+   Add to /etc/sudoers for waybar power controls:
+     $(whoami) ALL=(ALL) NOPASSWD: /sbin/shutdown, /sbin/reboot
+
+3. If using wm-network proxy:
+   Add to /etc/sudoers to preserve proxy env vars:
+     Defaults env_keep += "http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+                           no_proxy NO_PROXY all_proxy ALL_PROXY"
+
+EOF

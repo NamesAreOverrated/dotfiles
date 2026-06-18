@@ -1,29 +1,28 @@
 # dotfiles
 
-sway + waybar + gtklock + rofi + kanata + nvim + foot + starship + openwith.
-
+sway/niri + waybar + gtklock + wmenush + kanata + nvim + foot + starship.
 Catppuccin Mocha throughout.
 
 ## What's inside
 
 | Thing | Config |
 |-------|--------|
-| [sway](https://swaywm.org) | `sway/config` |
+| [sway](https://swaywm.org) | `sway/config` — Mod key auto-detected (Alt/Super) |
+| [niri](https://github.com/YaLTeR/niri) | `niri/config.kdl` — patched build support |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
-| [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `gtklock/style.css` |
-| [rofi](https://github.com/davatorium/rofi) | `rofi/config.rasi` + Catppuccin theme + rofi-wallpaper theme |
-| [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — keyboard remapper |
+| [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `style.css` + `layout.xml` |
+| wmenush | Overlay menu (rofi replacement). 5 companion scripts: `wm-launcher`, `wm-volmixer`, `wm-network`, `wm-wallpaper`, `wm-alias` |
+| [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — CapsLock layer-tap keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
 | [starship](https://starship.rs) | `starship.toml` |
-| [termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) | `local/bin/termfilebrowser` — TUI file browser with Neovim integration |
-| [openwith](https://github.com/NamesAreOverrated/openwith) | `openwith/` — universal file opener |
-| rofi-volmixer | `local/bin/rofi-volmixer` — pactl-based audio volume mixer |
+| [termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) | TUI file browser, auto-installed via bootstrap |
+
 | wallpapers | `wallz` submodule — symlinked to `~/Pictures/wallpapers` |
 
-## Quick start
+Old rofi scripts and configs remain in the repo but are no longer linked.
 
-### Linux
+## Quick start
 
 ```bash
 git clone --recurse-submodules https://github.com/NamesAreOverrated/dotfiles.git
@@ -31,48 +30,80 @@ cd dotfiles
 bash bootstrap.sh
 ```
 
-### Windows
-
-```powershell
-# Run as Administrator
-git clone --recurse-submodules https://github.com/NamesAreOverrated/dotfiles.git
-.\bootstrap.ps1
-```
-
 Re-running is safe — everything is idempotent.
 
 ## Bootstrap
 
-The Linux bootstrap script (`bootstrap.sh`) does the following:
+The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 
-- Checks which tools are installed and skips configs for missing ones
-- Prompts for Alt/Super mod key and writes to `~/.config/sway/local/mod.g`
-- Symlinks all config files (starship, nvim, foot, rofi, sway, gtklock, waybar)
-- Installs the afio font from `fonts/`
-- Offers to download kanata v1.11.0 from GitHub releases if missing
-- Generates a systemd user service for kanata using the detected binary path
-- Creates machine-specific sway config in `~/.config/sway/local/`
-- Symlinks wallpapers to `~/Pictures/wallpapers`
-- If rofi is installed, offers to set up file management (termfilebrowser, openwith)
+1. **Init** — prompts for mod key (Alt/Super) and terminal emulator
+2. **Paths** — ensures `~/.local/bin` is in PATH for login shells
+3. **Config linking** — symlinks starship, nvim, foot, sway/niri, gtklock, waybar
+4. **Kanata** — offers to download from GitHub if missing, generates systemd service
+5. **Wmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: wm-volmixer needs pactl, wm-network needs nmcli, wm-wallpaper needs swaybg; wm-alias bash-only skips on fish systems)
+6. **Wallpapers** — symlinks wallz submodule to `~/Pictures/wallpapers`
+7. **WM configs** — generates machine-specific sway/niri configs (outputs, wallpaper, keybinds)
+8. **File management** — offers to install termfilebrowser from GitHub
+9. **Proxy** — migrates old `~/.config/rofi-network` → `~/.config/wm-network`, sets up shell sourcing
 
-The Windows bootstrap (`bootstrap.ps1`) mirrors this — links configs,
-installs kanata, sets up a scheduled task, installs the font, and adds
-`~\.local\bin\` to the user PATH.
+Each script checks which tools are actually installed and skips configs for missing ones.
 
 ## Machine-specific config
 
-Sway includes `~/.config/sway/local/` which holds anything machine-specific:
+In sway, `~/.config/sway/local/` holds anything machine-specific:
 
 | File | Behavior |
 |------|----------|
 | `mod.g` | **Always regenerated.** Contains `set $mod Mod1` or `set $mod Mod4`. |
 | `outputs` | Created once. Add your monitor layout here. |
-| `wallpaper` | Updated by rofi-wallpaper. Never hand-edit. |
+| `wallpaper` | Updated by wm-wallpaper. Never hand-edit. |
 | `utilities.g` | **Always regenerated.** Auto-generated keybinds based on installed tools. |
 | `custom` | Created once. Add your own binds here (brightness, media keys, etc.). |
 
-Files marked `.g` are auto-generated and should not be hand-edited — use `custom`
-instead.
+Niri has the same pattern under `~/.config/niri/local/`.
+
+## Wmenush
+
+Wmenush is a Wayland-native overlay menu that reads items from stdin and
+outputs the selection to stdout. It replaces `rofi -dmenu` across all scripts.
+
+The bootstrap installs these companion scripts:
+
+| Script | Depends on | Description |
+|--------|-----------|-------------|
+| `wm-launcher` | — | Desktop launcher — parses `.desktop` files with icon resolution |
+| `wm-volmixer` | pactl | Audio sink/source/app volume and mute control |
+| `wm-network` | nmcli | Network manager — WiFi scan/connect, proxy config |
+| `wm-wallpaper` | swaybg | Wallpaper picker with directory browsing and thumbnails |
+| `wm-alias` | bash | Alias manager — add/edit/delete aliases via wmenush, bash only |
+
+## Sway
+
+Mod key is `Mod1` (Alt) by default, overridden by `~/.config/sway/local/mod.g`
+if you choose Super during bootstrap.
+
+Includes a resize mode (`$mod+r`) that temporarily highlights focused windows
+in red (`#f38ba8`). Exit with Enter or Escape.
+
+Keybinds generated at bootstrap time in `utilities.g`:
+- `$mod+d` — Application launcher (wm-launcher)
+- `$mod+Ctrl+w` — Wallpaper picker (wm-wallpaper)
+- `$mod+BackSpace` — Volume mixer (wm-volmixer)
+- Media keys — Volume, playback, brightness (gated by pactl/playerctl/brightnessctl)
+- `$mod+r` — Resize mode
+- `$mod+Shift+e` — Exit sway (with confirmation)
+
+## Niri
+
+Niri gets the same auto-generated keybinds in `~/.config/niri/local/autostart.kdl`:
+
+- `Mod+D` — Application launcher
+- `Mod+Ctrl+W` — Wallpaper picker
+- `Mod+BackSpace` — Volume mixer
+- Media keys — Volume, playback, brightness
+
+A patched niri build (with adaptive column width support) can be installed
+through the bootstrap if desired.
 
 ## Neovim
 
@@ -111,22 +142,6 @@ installed via Mason as `roslyn-language-server`). Other LSPs: `rust_analyzer`,
 - `<leader>f` / `<leader>sf` — Telescope find files
 - `<leader>sg` — Telescope live grep
 
-## Sway
-
-Mod key is `Mod1` (Alt) by default, overridden by `~/.config/sway/local/mod.g`
-if you choose Super during bootstrap.
-
-Includes a resize mode (`$mod+r`) that temporarily highlights focused windows
-in red (`#f38ba8`). Exit with Enter or Escape.
-
-Machine-specific includes at the bottom of `config`:
-```
-include ~/.config/sway/local/outputs
-include ~/.config/sway/local/wallpaper
-include ~/.config/sway/local/utilities.g
-include ~/.config/sway/local/custom
-```
-
 ## Kanata
 
 [Kanata](https://github.com/jtroo/kanata) is a keyboard remapper. The config
@@ -134,52 +149,26 @@ uses CapsLock as a layer-tap: tap for Escape, hold for navigation layer
 (arrow keys, home/end, pgup/pgdn). Physical Escape doubles as backtick on
 tap and a media layer on hold.
 
-If kanata isn't installed, bootstrap offers to download v1.11.0 from GitHub
-releases to `~/.local/bin/`. The version is pinned — bump `KANATA_VERSION`
-in the bootstrap script to update.
-
-A systemd user service (Linux) or scheduled task (Windows) is generated
-at bootstrap time using the detected binary path.
+If kanata isn't installed, bootstrap offers to download it from GitHub
+releases to `~/.local/bin/`. A systemd user service is generated at
+bootstrap time using the detected binary path.
 
 ## File management
 
-If rofi is installed, bootstrap offers to set up:
-
-- **termfilebrowser** — TUI file browser with Neovim integration (`<leader>e`,
-  `<leader>E`). Binary committed to the repo.
-- **openwith** — universal file opener via rofi. Registers as the default
-  handler for all MIME types.
-- **rofi-volmixer** — pactl-based audio volume mixer (rofi-driven).
-
-On Windows, termfilebrowser is silently copied to `~\.local\bin\` and the
-directory is added to the user PATH.
+Bootstrap offers to install termfilebrowser, a TUI file browser with Neovim
+integration (`<leader>e`, `<leader>E`). The binary is downloaded from the
+dotfiles GitHub releases, same pattern as wmenush and kanata.
 
 ## Notes
 
-`notes/` contains technical reference documents. They're split into two
-categories:
+`notes/` contains technical reference documents:
 
 | Directory | Contents |
 |-----------|----------|
 | `guides/` | Actual processes I've done end-to-end |
-| `reference/` | Researched deep-dives — cross-checked but not battle-tested |
-
-⚠️ Only [freelancer-setup.md](notes/guides/freelancer-setup.md) documents a
-process I've actually performed. The rest are researched reference notes —
-details may be incomplete or outdated.
-
-| Note | Topic |
-|------|-------|
-| [freelancer-setup.md](notes/guides/freelancer-setup.md) | Freelancer wine setup (VMware, Xorg/i3) |
-| [wine-deep-dive.md](notes/reference/wine-deep-dive.md) | Wine architecture, WineD3D, prefix anatomy |
-| [proton-deep-dive.md](notes/reference/proton-deep-dive.md) | Proton vs stock wine, DXVK/VKD3D, GE-Proton |
-| [dxvk-deep-dive.md](notes/reference/dxvk-deep-dive.md) | DXVK/VKD3D internals, config, debugging |
-| [lutris-deep-dive.md](notes/reference/lutris-deep-dive.md) | Lutris internals, install scripts |
-| [vmware.md](notes/reference/vmware.md) | VMware SVGA II graphics limitations |
-| [sessions-display-servers.md](notes/reference/sessions-display-servers.md) | X11 vs Wayland, display managers |
+| `reference/` | Random nonsense |
 
 ## Theme
 
 [Catppuccin Mocha](https://github.com/catppuccin/catppuccin) — all configs
-use it. Rofi has a dedicated Catppuccin theme with an additional grid-based
-theme for rofi-wallpaper. Waybar and gtklock are styled to match.
+use it. Waybar and gtklock are styled to match.

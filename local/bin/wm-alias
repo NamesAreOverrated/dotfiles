@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# wm-alias — manage bash aliases via wmenush
+set -u
+
+WMENUSH="wmenush"
+BASHRC="$HOME/.bashrc"
+
+NAMES=()
+CMDS=()
+LINENOS=()
+
+parse_aliases() {
+  local line_no=0
+  while IFS='' read -r line; do
+    line_no=$((line_no + 1))
+    if [[ "$line" =~ ^alias\ ([a-zA-Z0-9_.-]+)=(.*)$ ]]; then
+      local name="${BASH_REMATCH[1]}"
+      local val="${BASH_REMATCH[2]}"
+      if [[ "${val:0:1}" == "'" && "${val: -1}" == "'" ]]; then
+        val="${val:1:-1}"
+      elif [[ "${val:0:1}" == '"' && "${val: -1}" == '"' ]]; then
+        val="${val:1:-1}"
+      fi
+      NAMES+=("$name")
+      CMDS+=("$val")
+      LINENOS+=("$line_no")
+    fi
+  done < "$BASHRC"
+}
+
+add_alias() {
+  local name cmd
+  name=$(printf '\x00\n' | $WMENUSH -p "Alias name:" --input-fallback) || true
+  [[ -z "$name" ]] && return
+
+  for n in "${NAMES[@]}"; do
+    if [[ "$n" == "$name" ]]; then
+      printf '\x00\n' | $WMENUSH -p "Alias '$name' already exists!" --input-fallback >/dev/null || true
+      return
+    fi
+  done
+
+  cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "cd $PWD" --input-fallback) || true
+  [[ -z "$cmd" ]] && return
+
+  local escaped="${cmd//\'/\'\\\'\'}"
+  grep -q '^# --- wm-alias ---' "$BASHRC" 2>/dev/null || {
+    printf '\n# --- wm-alias ---\n' >> "$BASHRC"
+  }
+  printf "alias %s='%s'\n" "$name" "$escaped" >> "$BASHRC"
+  echo "Added: alias $name='$cmd'"
+  echo "Run: source ~/.bashrc"
+}
+
+edit_alias() {
+  local idx="$1"
+  local name="${NAMES[$idx]}" old_cmd="${CMDS[$idx]}"
+  local new_cmd
+  new_cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "$old_cmd" --input-fallback) || true
+  [[ -z "$new_cmd" || "$new_cmd" == "$old_cmd" ]] && return
+
+  local escaped="${new_cmd//\'/\'\\\'\'}"
+  grep -v "^alias $name=" "$BASHRC" > "$BASHRC.tmp"
+  printf "alias %s='%s'\n" "$name" "$escaped" >> "$BASHRC.tmp"
+  mv "$BASHRC.tmp" "$BASHRC"
+  echo "Updated: alias $name='$new_cmd'"
+  echo "Run: source ~/.bashrc"
+}
+
+delete_alias() {
+  local idx="$1"
+  local name="${NAMES[$idx]}"
+  grep -v "^alias $name=" "$BASHRC" > "$BASHRC.tmp" && mv "$BASHRC.tmp" "$BASHRC"
+  echo "Deleted alias '$name'"
+  echo "Run: source ~/.bashrc"
+}
+
+main() {
+  [[ -f "$BASHRC" ]] || touch "$BASHRC"
+  parse_aliases
+
+  local selected
+
+  selected=$(
+    {
+      printf '+ Add new\n'
+      printf '\x00--Edit/Delete--\n'
+      for i in "${!NAMES[@]}"; do
+        local label="${NAMES[$i]}: ${CMDS[$i]}"
+        [[ ${#label} -gt 72 ]] && label="${label:0:69}..."
+        printf '%s\n' "$label"
+      done
+    } | $WMENUSH -p "Aliases" --format i
+  ) || true
+  [[ -z "$selected" ]] && exit 0
+
+  local idx="$selected"
+
+  if [[ "$idx" -eq 0 ]]; then
+    add_alias
+  elif [[ "$idx" -eq 1 ]]; then
+    exit 0
+  else
+    local alias_idx=$((idx - 2))
+    if [[ "$alias_idx" -ge 0 && "$alias_idx" -lt "${#NAMES[@]}" ]]; then
+      local choice
+      choice=$(printf 'Edit\nDelete\n' | $WMENUSH -p "${NAMES[$alias_idx]}" --format i) || true
+      case "$choice" in
+        0) edit_alias "$alias_idx" ;;
+        1) delete_alias "$alias_idx" ;;
+      esac
+    fi
+  fi
+}
+
+main "$@"
