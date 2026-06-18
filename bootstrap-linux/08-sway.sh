@@ -40,11 +40,11 @@ echo "  Generated ~/.config/sway/local/wallpaper"
         echo "exec waybar"
     fi
 
-    if has rofi && has swaybg; then
+    if has swaybg; then
         if [ "$MOD_CHOICE" = "2" ]; then
-            echo "bindsym \$mod+Ctrl+w exec env MOD_LABEL=Super ~/.local/bin/rofi-wallpaper"
+            echo "bindsym \$mod+Ctrl+w exec env MOD_LABEL=Super ~/.local/bin/wm-wallpaper"
         else
-            echo "bindsym \$mod+Ctrl+w exec ~/.local/bin/rofi-wallpaper"
+            echo "bindsym \$mod+Ctrl+w exec ~/.local/bin/wm-wallpaper"
         fi
     fi
 
@@ -55,8 +55,8 @@ echo "  Generated ~/.config/sway/local/wallpaper"
         echo "bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
     fi
 
-    if has rofi-volmixer; then
-        echo "bindsym \$mod+BackSpace exec ~/.local/bin/rofi-volmixer"
+    if has wm-volmixer; then
+        echo "bindsym \$mod+BackSpace exec ~/.local/bin/wm-volmixer"
     fi
 
     if has swayidle && has powerctl; then

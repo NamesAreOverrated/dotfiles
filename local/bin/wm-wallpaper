@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -u
+
+dir="${1:-$HOME/Pictures/wallpapers}"
+relpath=$(echo "$dir" | sed "s|$HOME/Pictures/wallpapers/||" | sed "s|$HOME/Pictures/||")
+
+declare -a ids=() labels=()
+sep=$'\x1f'
+
+# Directories
+for f in "$dir"/*/; do
+  [ -d "$f" ] || continue
+  name=$(basename "$f")
+  first=$(find "$f" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) 2>/dev/null | head -1)
+  [ -z "$first" ] && continue
+  ids+=("$f")
+  labels+=("▶  $name${sep}$first")
+done
+
+# Image files
+for f in "$dir"/*; do
+  [ -f "$f" ] || continue
+  name=$(basename "$f")
+  case "${name##*.}" in
+    png|jpg|jpeg|PNG|JPG|JPEG)
+      ids+=("$f")
+      labels+=("$name${sep}$f")
+      ;;
+  esac
+done
+
+[[ ${#ids[@]} -eq 0 ]] && exit 0
+
+selected=$({
+  for i in "${!ids[@]}"; do
+    printf '%s\n' "${labels[$i]}"
+  done
+} | wmenush -c ~/.config/wmenush/theme-wallpaper.toml -p "${relpath:-Wallpapers}")
+
+if [[ -z "$selected" ]]; then
+  # Escape — go up one level if not at root
+  root="$HOME/Pictures/wallpapers"
+  if [[ "$dir" != "$root" ]]; then
+    exec "$0" "$(dirname "$dir")"
+  fi
+  exit 0
+fi
+
+# Match label back to id (strip \x1f thumbnail suffix)
+action=""
+for i in "${!labels[@]}"; do
+  label="${labels[$i]%%$sep*}"
+  if [[ "$label" == "$selected" ]]; then
+    action="${ids[$i]}"
+    break
+  fi
+done
+[[ -z "$action" ]] && exit 0
+
+# If it's a directory, recurse
+if [ -d "$action" ]; then
+  exec "$0" "$action"
+fi
+
+# Apply wallpaper
+echo "$action" > "$HOME/.config/wallpaper"
+
+if [ -d "$HOME/.config/sway/local" ]; then
+  printf 'output * bg "%s" fill\n' "$action" > "$HOME/.config/sway/local/wallpaper"
+fi
+
+if [ -d "$HOME/.config/niri/local" ] && command -v swaybg >/dev/null; then
+  printf 'spawn-at-startup "swaybg" "-i" "%s" "-m" "fill"\n' "$action" > "$HOME/.config/niri/local/wallpaper.kdl"
+fi
+
+if [ -n "${SWAYSOCK:-}" ]; then
+  swaymsg output "*" bg "$action" fill
+fi
+if [ -n "${NIRI_SOCKET:-}" ] && command -v swaybg >/dev/null; then
+  killall swaybg 2>/dev/null || true
+  swaybg -i "$action" -m fill &
+fi

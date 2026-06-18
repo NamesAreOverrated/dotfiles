@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+set -u
+
+WMENUSH="wmenush"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+LAUNCHER_CACHE="$HOME/.cache/wm-launcher.txt"
+
+# ── App dirs ──
+get_app_dirs() {
+  echo "$XDG_DATA_HOME/applications"
+  local xdg_data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  IFS=':' read -ra parts <<< "$xdg_data_dirs"
+  for part in "${parts[@]}"; do
+    echo "$part/applications"
+  done
+}
+
+# ── Icon theme ──
+get_icon_theme() {
+  [[ -n "${GTK_ICON_THEME:-}" ]] && { echo "$GTK_ICON_THEME"; return; }
+  for f in "$CONFIG_DIR/gtk-3.0/settings.ini" "$CONFIG_DIR/gtk-4.0/settings.ini"; do
+    [[ -f "$f" ]] || continue
+    local t
+    t=$(sed -n 's/^gtk-icon-theme-name=\s*//p' "$f" 2>/dev/null | head -1)
+    [[ -n "$t" ]] && { echo "$t"; return; }
+  done
+  for theme in Pop Cosmic Adwaita hicolor; do
+    for base in "$HOME/.icons" /usr/share/icons /usr/local/share/icons; do
+      [[ -d "$base/$theme" ]] && { echo "$theme"; return; }
+    done
+  done
+  echo "hicolor"
+}
+
+# ── Icon theme search chain ──
+get_theme_dirs() {
+  local theme="$1" depth="${2:-0}"
+  (( depth > 8 )) && return
+  local base
+  for base in "$HOME/.icons" /usr/share/icons /usr/local/share/icons; do
+    local dir="$base/$theme"
+    if [[ -d "$dir" ]]; then
+      echo "$dir"
+      local inherit
+      inherit=$(sed -n 's/^Inherits=\s*//p' "$dir/index.theme" 2>/dev/null | head -1)
+      if [[ -n "$inherit" ]]; then
+        get_theme_dirs "$inherit" $((depth + 1))
+      fi
+      return
+    fi
+  done
+  [[ "$theme" != "hicolor" ]] && get_theme_dirs "hicolor" $((depth + 1))
+}
+
+# ── Resolve icon path ──
+# Searches largest PNG first, then SVG, then pixmaps
+resolve_icon() {
+  local name="$1"
+  # Absolute path icon → use as-is
+  [[ "$name" == /* && -f "$name" ]] && { echo "$name"; return; }
+  # Strip file extension if icon name includes one (e.g. "godot-mono.svg")
+  [[ "$name" == *.* ]] && name="${name%.*}"
+  local theme_dirs=()
+  while IFS='' read -r dir; do theme_dirs+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)")
+  local sizes=(256 128 64 48 32 24 22 16)
+  for td in "${theme_dirs[@]}"; do
+    for sz in "${sizes[@]}"; do
+      local p="$td/${sz}x${sz}/apps/${name}.png"
+      [[ -f "$p" ]] && { echo "$p"; return; }
+    done
+  done
+  for td in "${theme_dirs[@]}"; do
+    for sz in "${sizes[@]}"; do
+      local p="$td/${sz}x${sz}/apps/${name}.svg"
+      [[ -f "$p" ]] && { echo "$p"; return; }
+    done
+    local p="$td/scalable/apps/${name}.svg"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+  done
+    local p="/usr/share/pixmaps/${name}.png"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="/usr/share/pixmaps/${name}.svg"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="/usr/share/pixmaps/${name}.xpm"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+}
+
+# ── Parse a .desktop file ──
+# Returns: path|name|exec|icon|terminal
+parse_desktop() {
+  local file="$1" name exec icon terminal nodisplay
+  name=$(sed -n '/^Name=/{s/^Name=//p;q}' "$file" 2>/dev/null)
+  exec=$(sed -n '/^Exec=/{s/^Exec=//p;q}' "$file" 2>/dev/null)
+  icon=$(sed -n '/^Icon=/{s/^Icon=//p;q}' "$file" 2>/dev/null)
+  terminal=$(sed -n '/^Terminal=/{s/^Terminal=//p;q}' "$file" 2>/dev/null)
+  nodisplay=$(sed -n '/^NoDisplay=/{s/^NoDisplay=//p;q}' "$file" 2>/dev/null)
+  [[ -z "$name" || "$nodisplay" == "true" || -z "$exec" ]] && return 1
+  echo "$file|$name|$exec|$icon|$terminal"
+}
+
+# ── Process Exec field ──
+# Strips field codes, expands %i/%c/%k, resolves backslash escapes
+process_exec() {
+  local exec="$1" icon_name="$2" app_name="$3" desktop_path="$4"
+  local result="" i ch
+  for ((i=0; i<${#exec}; i++)); do
+    ch="${exec:$i:1}"
+    if [[ "$ch" == "\\" && $((i+1)) -lt ${#exec} ]]; then
+      local next="${exec:$((i+1)):1}"
+      case "$next" in
+        s) result+=" "; i=$((i+1)) ;;
+        n) result+=$'\n'; i=$((i+1)) ;;
+        t) result+=$'\t'; i=$((i+1)) ;;
+        \\) result+="\\"; i=$((i+1)) ;;
+        \") result+="\""; i=$((i+1)) ;;
+        *) result+="$ch$next"; i=$((i+1)) ;;
+      esac
+    elif [[ "$ch" == "%" && $((i+1)) -lt ${#exec} ]]; then
+      local next="${exec:$((i+1)):1}"
+      case "$next" in
+        %) result+="%"; i=$((i+1)) ;;
+        i) result+=" --icon ${icon_name} "; i=$((i+1)) ;;
+        c) result+="$app_name"; i=$((i+1)) ;;
+        k) result+="$desktop_path"; i=$((i+1)) ;;
+        [fFuUdDnNvVm]) i=$((i+1)) ;;
+        *) result+="$ch$next"; i=$((i+1)) ;;
+      esac
+    else
+      result+="$ch"
+    fi
+  done
+  echo "$result" | tr -s ' ' | sed 's/^ //;s/ $//'
+}
+
+# ── Split processed Exec into argv ──
+exec_to_argv() {
+  local exec="$1"
+  local args=() arg="" in_quotes=false i ch
+  for ((i=0; i<${#exec}; i++)); do
+    ch="${exec:$i:1}"
+    if $in_quotes; then
+      if [[ "$ch" == '"' ]]; then
+        in_quotes=false
+      else
+        arg+="$ch"
+      fi
+    else
+      if [[ "$ch" == '"' ]]; then
+        in_quotes=true
+      elif [[ "$ch" == ' ' ]]; then
+        [[ -n "$arg" ]] && args+=("$arg")
+        arg=""
+      else
+        arg+="$ch"
+      fi
+    fi
+  done
+  [[ -n "$arg" ]] && args+=("$arg")
+  printf '%s\0' "${args[@]}"
+}
+
+# ── Build cache ──
+build_cache() {
+  local tmpf
+  tmpf=$(mktemp)
+  for dir in $(get_app_dirs); do
+    [[ -d "$dir" ]] || continue
+    for file in "$dir"/*.desktop; do
+      [[ -f "$file" ]] || continue
+      local parsed
+      parsed=$(parse_desktop "$file") || continue
+      local mtime
+      mtime=$(stat -c '%Y' "$file" 2>/dev/null) || continue
+      echo "$mtime|$parsed" >> "$tmpf"
+    done
+  done
+  mv "$tmpf" "$LAUNCHER_CACHE"
+  cat "$LAUNCHER_CACHE"
+}
+
+# ── Read cache ──
+read_cache() {
+  [[ -f "$LAUNCHER_CACHE" ]] || return 1
+  while IFS='' read -r line; do
+    [[ -z "$line" ]] && continue
+    local mtime file rest
+    mtime="${line%%|*}"; rest="${line#*|}"
+    file="${rest%%|*}"; rest="${rest#*|}"
+    local curr_mtime
+    curr_mtime=$(stat -c '%Y' "$file" 2>/dev/null) || return 1
+    [[ "$curr_mtime" != "$mtime" ]] && return 1
+    echo "$file|$rest"
+  done < "$LAUNCHER_CACHE"
+}
+
+# ── Launch with terminal ──
+launch_terminal() {
+  local term
+  term="${TERMINAL:-}"
+  [[ -z "$term" ]] && term="$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || '')"
+  if [[ -z "$term" ]]; then
+    notify-send "wm-launcher" "No terminal emulator found"
+    return 1
+  fi
+  "$term" "$@"
+}
+
+# ── Main ──
+main() {
+  local entries
+  entries=$(read_cache) || entries=$(build_cache)
+  [[ -z "$entries" ]] && { notify-send "wm-launcher" "No applications found"; exit 1; }
+
+  local items=()
+  local execs=() icons=() terminals=() paths=() names=()
+  while IFS='' read -r line; do
+    [[ -z "$line" ]] && continue
+    local path name exec icon terminal tail
+    path="${line%%|*}"; tail="${line#*|}"
+    name="${tail%%|*}"; tail="${tail#*|}"
+    exec="${tail%%|*}"; tail="${tail#*|}"
+    icon="${tail%%|*}"; terminal="${tail#*|}"
+    paths+=("$path")
+    names+=("$name")
+    execs+=("$exec")
+    icons+=("$icon")
+    terminals+=("$terminal")
+    local thumb=""
+    if [[ -n "$icon" ]]; then
+      local ico_path
+      ico_path=$(resolve_icon "$icon")
+      [[ -n "$ico_path" ]] && thumb="$name"$'\x1f'"$ico_path"
+    fi
+    items+=("${thumb:-$name}")
+  done <<< "$entries"
+
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  [[ -z "$selected" ]] && exit 0
+
+  local idx="$selected"
+  local exec="${execs[$idx]}"
+  local icon_name="${icons[$idx]}"
+  local name="${names[$idx]}"
+  local path="${paths[$idx]}"
+  local terminal="${terminals[$idx]}"
+
+  local processed
+  processed=$(process_exec "$exec" "$icon_name" "$name" "$path")
+  [[ -z "$processed" ]] && exit 1
+
+  local args=()
+  while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
+  [[ ${#args[@]} -eq 0 ]] && exit 1
+
+  if [[ "$terminal" == "true" ]]; then
+    launch_terminal "${args[@]}"
+  else
+    exec "${args[@]}"
+  fi
+}
+
+main "$@"

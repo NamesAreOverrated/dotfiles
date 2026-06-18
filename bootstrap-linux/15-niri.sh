@@ -67,8 +67,8 @@ fi
         echo "    Mod+Return hotkey-overlay-title=\"Open a Terminal\" { spawn \"$TERMINAL\"; }"
     fi
 
-    if has rofi; then
-        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "rofi" "-show" "drun"; }'
+    if has wm-launcher; then
+        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "wm-launcher"; }'
     fi
 
     if has powerctl; then
@@ -98,12 +98,12 @@ fi
         echo '    Super+Alt+S allow-when-locked=true hotkey-overlay-title=null { spawn-sh "pkill orca || exec orca"; }'
     fi
 
-    if has rofi; then
-        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn "rofi-wallpaper"; }'
+    if has wm-wallpaper; then
+        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn "wm-wallpaper"; }'
     fi
 
-    if has rofi-volmixer; then
-        echo '    Mod+BackSpace hotkey-overlay-title="Volume Mixer" { spawn "rofi-volmixer"; }'
+    if has wm-volmixer; then
+        echo '    Mod+BackSpace hotkey-overlay-title="Volume Mixer" { spawn "wm-volmixer"; }'
     fi
 
     echo "}"

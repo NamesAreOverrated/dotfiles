@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+set -u
+
+_WM="wmenush"
+
+signal_bars() {
+  local s=$1
+  if   (( s >= 80 )); then echo "󰤨"
+  elif (( s >= 60 )); then echo "󰤥"
+  elif (( s >= 40 )); then echo "󰤢"
+  elif (( s >= 20 )); then echo "󰤟"
+  else                     echo "󰤯"
+  fi
+}
+
+proxy_host() {
+  local a; a=$(sed -n '1p' "$HOME/.config/wm-network" 2>/dev/null)
+  echo "${a%:*}" ; }
+proxy_port() {
+  local a; a=$(sed -n '1p' "$HOME/.config/wm-network" 2>/dev/null)
+  local p="${a#*:}"
+  [[ "$p" != "$a" ]] && echo "$p" || echo "10808"
+}
+proxy_addr() { echo "$(proxy_host):$(proxy_port)"; }
+proxy_on()   { [[ $(sed -n '2p' "$HOME/.config/wm-network" 2>/dev/null) == "1" ]]; }
+proxy_write() {
+  local host="$1" port="$2"
+  local state no_proxy_val
+  mkdir -p "$HOME/.config"
+  state=$(sed -n '2p' "$HOME/.config/wm-network" 2>/dev/null)
+  no_proxy_val=$(sed -n '3p' "$HOME/.config/wm-network" 2>/dev/null)
+  [[ -z "$state" ]] && state="0"
+  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
+  printf '%s\n%s\n%s\n' "$host:$port" "$state" "$no_proxy_val" > "$HOME/.config/wm-network"
+}
+proxy_toggle() {
+  mkdir -p "$HOME/.config"
+  local addr state no_proxy_val
+  addr=$(sed -n '1p' "$HOME/.config/wm-network" 2>/dev/null)
+  state=$(sed -n '2p' "$HOME/.config/wm-network" 2>/dev/null)
+  no_proxy_val=$(sed -n '3p' "$HOME/.config/wm-network" 2>/dev/null)
+  [[ -z "$addr" ]] && addr="localhost:10808"
+  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
+  if [[ "$state" == "1" ]]; then
+    printf '%s\n0\n%s\n' "$addr" "$no_proxy_val" > "$HOME/.config/wm-network"
+  else
+    printf '%s\n1\n%s\n' "$addr" "$no_proxy_val" > "$HOME/.config/wm-network"
+  fi
+}
+
+proxy_noproxy_menu() {
+  local np
+  np=$(sed -n '3p' "$HOME/.config/wm-network" 2>/dev/null)
+  [[ -z "$np" ]] && np="localhost,127.0.0.1,::1"
+
+  local -a sub_ids=() sub_labels=()
+  sub_ids+=("__noproxy_add__"); sub_labels+=("󰐚  Add entry")
+  IFS=',' read -ra entries <<< "$np"
+  if [[ ${#entries[@]} -gt 0 ]]; then
+    for entry in "${entries[@]}"; do
+      sub_ids+=("__noproxy_del__:${entry}"); sub_labels+=("󰅖  ${entry}")
+    done
+  fi
+
+  local sel
+  sel=$(for i in "${!sub_ids[@]}"; do printf '%s\n' "${sub_labels[$i]}"; done | $_WM -p "No proxy")
+  [[ -z "$sel" ]] && return
+
+  local act=""; local idx=0
+  for i in "${!sub_labels[@]}"; do
+    if [[ "${sub_labels[$i]}" == "$sel" ]]; then act="${sub_ids[$i]}"; break; fi
+  done
+
+  case "$act" in
+    __noproxy_add__)
+      local new
+      new=$(printf '\x00hostname\n' | $_WM -p "Add no proxy entry" --input-fallback)
+      [[ -z "$new" ]] && return
+      local host port state
+      host="$(proxy_host)"; port="$(proxy_port)"
+      state="$(sed -n '2p' "$HOME/.config/wm-network" 2>/dev/null)"
+      local new_np="${np:+"${np},"}${new}"
+      printf '%s:%s\n%s\n%s\n' "$host" "$port" "${state:-0}" "$new_np" > "$HOME/.config/wm-network"
+      proxy_noproxy_menu
+      ;;
+    __noproxy_del__:*)
+      local entry="${act#__noproxy_del__:}"
+      local host port state
+      host="$(proxy_host)"; port="$(proxy_port)"
+      state="$(sed -n '2p' "$HOME/.config/wm-network" 2>/dev/null)"
+      local new_np
+      new_np=$(echo "$np" | tr ',' '\n' | grep -vFx "$entry" | paste -sd, -)
+      printf '%s:%s\n%s\n%s\n' "$host" "$port" "${state:-0}" "$new_np" > "$HOME/.config/wm-network"
+      proxy_noproxy_menu
+      ;;
+  esac
+}
+
+# ── Networking info ──
+wifi_device=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -1)
+
+connected_ssid=""
+if [[ -n "$wifi_device" ]]; then
+  connected_ssid=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null | grep '^\*' | cut -d: -f2 | head -1)
+fi
+
+net_on=$(nmcli networking 2>/dev/null)
+
+declare -a ids=() labels=()
+
+# ── Connection info ──
+current_line=$(nmcli -t -f DEVICE,STATE,CONNECTION device status 2>/dev/null | grep ':connected:' | head -1)
+current_device=$(echo "$current_line" | cut -d: -f1)
+current_conn=$(echo "$current_line" | cut -d: -f3)
+ip_addr=$(ip -4 -br addr show 2>/dev/null | grep -v '^lo ' | awk '{print $3}' | cut -d/ -f1 | head -1)
+[[ -z "$ip_addr" ]] && ip_addr="—"
+device_icon="󰈀"; [[ "$current_device" =~ wl ]] && device_icon="󰖩"
+ids+=("__info__"); labels+=("${device_icon}  ${current_conn:-Not connected}  —  ${ip_addr}")
+
+# ── Airplane mode ──
+ids+=("__airplane__"); labels+=("$([[ "$net_on" == "enabled" ]] && echo "󰀝  Airplane mode" || echo "󰖩  Turn networking on")")
+
+# ── WiFi ──
+if [[ -n "$wifi_device" ]]; then
+  while IFS=$'\n' read -r line; do
+    [[ -z "$line" || "$line" == *"SSID"* ]] && continue
+    inuse=$(echo "$line" | cut -d: -f1)
+    ssid=$(echo "$line" | cut -d: -f2)
+    signal=$(echo "$line" | cut -d: -f3)
+    sec=$(echo "$line" | cut -d: -f4-)
+    [[ -z "$ssid" ]] && continue
+    bars=$(signal_bars "$signal")
+    mark="  "; [[ "$inuse" == "*" ]] && mark="󰗠 "
+    lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
+    ids+=("net:$ssid"); labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
+  done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
+  ids+=("__rescan__"); labels+=("󰑐  Rescan")
+fi
+
+# ── Proxy ──
+ph=$(proxy_host); pp=$(proxy_port); np=$(sed -n '3p' "$HOME/.config/wm-network" 2>/dev/null)
+proxy_idx=${#ids[@]}
+ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰔡  Proxy ON' || echo '󰔢  Proxy OFF')")
+ids+=("__proxy_edit_host__"); labels+=("󰏫  Edit address   (${ph})")
+ids+=("__proxy_edit_port__"); labels+=("󰏫  Edit port       (${pp})")
+ids+=("__proxy_noproxy__"); labels+=("󰩠  No proxy       (${np:-localhost,127.0.0.1,::1})")
+
+# ── Menu ──
+selected=$({
+  for i in "${!ids[@]}"; do
+    [[ "$i" == "$proxy_idx" ]] && printf '\x00── Proxy ──\n'
+    printf '%s\n' "${labels[$i]}"
+  done
+} | $_WM -p "Network")
+[[ -z "$selected" ]] && exit 0
+
+# Find matching id
+action=""
+for i in "${!labels[@]}"; do
+  if [[ "${labels[$i]}" == "$selected" ]]; then
+    action="${ids[$i]}"
+    break
+  fi
+done
+[[ -z "$action" ]] && exit 0
+
+case "$action" in
+  __info__)  exit 0 ;;
+
+  __airplane__)
+    if [[ "$net_on" == "enabled" ]]; then nmcli networking off; else nmcli networking on; fi
+    exec "$0"
+    ;;
+
+  __rescan__)
+    nmcli device wifi rescan 2>/dev/null || true
+    sleep 2; exec "$0"
+    ;;
+
+  __proxy_edit_host__)
+    new=$(printf '\x00Current: %s\n' "$ph" | $_WM -p "Proxy address" --input-fallback)
+    [[ -z "$new" ]] && exec "$0"
+    proxy_write "$new" "$pp"
+    exec "$0"
+    ;;
+
+  __proxy_edit_port__)
+    new=$(printf '\x00Current: %s\n' "$pp" | $_WM -p "Proxy port" --input-fallback)
+    [[ -z "$new" ]] && exec "$0"
+    proxy_write "$ph" "$new"
+    exec "$0"
+    ;;
+
+  __proxy_noproxy__)
+    proxy_noproxy_menu
+    exec "$0"
+    ;;
+
+  __proxy_toggle__)
+    proxy_toggle; exec "$0"
+    ;;
+
+  net:*)
+    ssid="${action#net:}"
+    [[ "$ssid" == "$connected_ssid" ]] && exit 0
+    sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep ":${ssid}:" | head -1 | cut -d: -f4-)
+    sec="${sec#:}"
+    if [[ -z "$sec" || "$sec" == "--" ]]; then
+      nmcli device wifi connect "$ssid" 2>/dev/null || notify-send "wm-network" "Failed to connect"
+    else
+      pw=$(printf '\x00Enter password\n' | $_WM -p "Password for ${ssid}" -P --input-fallback)
+      [[ -z "$pw" ]] && exit 0
+      nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || notify-send "wm-network" "Wrong password or connection failed"
+    fi
+    ;;
+esac

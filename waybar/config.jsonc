@@ -44,7 +44,7 @@
     "format-disconnected": "󰖪  offline",
     "tooltip-format-wifi": "{essid} ({signalStrength}%)  {ipaddr}\n{ifname}",
     "tooltip-format-ethernet": "{ipaddr}  {ifname}",
-    "on-click": "~/.local/bin/rofi-network",
+    "on-click": "~/.local/bin/wm-network",
     "interval": 5
   },
   "disk": {
@@ -78,7 +78,7 @@
       "default": ["󰕿", "󰖀", "󰕾"]
     },
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-    "on-click-right": "~/.local/bin/rofi-volmixer",
+    "on-click-right": "~/.local/bin/wm-volmixer",
     "scroll-step": 5
   },
   "pulseaudio#input": {
@@ -86,7 +86,7 @@
     "format-source": "󰍬",
     "format-source-muted": "󰍭",
     "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-    "on-click-right": "~/.local/bin/rofi-volmixer",
+    "on-click-right": "~/.local/bin/wm-volmixer",
   },
   "custom/containers": {
   "format": " {}",
