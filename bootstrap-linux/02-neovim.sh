@@ -14,12 +14,20 @@ set -gx SUDO_EDITOR nvim
 FISH_EOF
         echo "  Added SUDO_EDITOR=nvim to ~/.config/fish/config.fish"
     fi
+    if ! grep -q "EDITOR" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        echo 'set -gx EDITOR nvim' >> "$HOME/.config/fish/config.fish"
+        echo "  Added EDITOR=nvim to ~/.config/fish/config.fish"
+    fi
 else
     if ! grep -q "SUDO_EDITOR" "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << 'EOF'
 export SUDO_EDITOR=nvim
 EOF
         echo "  Added SUDO_EDITOR=nvim to ~/.bashrc"
+    fi
+    if ! grep -q "EDITOR" "$HOME/.bashrc" 2>/dev/null; then
+        echo 'export EDITOR=nvim' >> "$HOME/.bashrc"
+        echo "  Added EDITOR=nvim to ~/.bashrc"
     fi
 fi
 
