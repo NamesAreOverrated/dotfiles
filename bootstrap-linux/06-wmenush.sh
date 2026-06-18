@@ -108,17 +108,17 @@ FISH_EOF
         echo "  Added config-env sourcing to ~/.config/fish/config.fish"
     fi
 else
-    # Migrate old proxy block → eval "$(config-env)"
+    # Migrate old proxy block → eval "$(~/.local/bin/config-env)"
     if grep -q "Proxy config (managed by wm-network)" "$HOME/.bashrc" 2>/dev/null; then
-        sed -i '/^# Proxy config (managed by wm-network)$/,/^fi$/c\eval "$(config-env)"' "$HOME/.bashrc"
-        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(config-env)\""
+        sed -i '/^# Proxy config (managed by wm-network)$/,/^fi$/c\eval "$(~/.local/bin/config-env)"' "$HOME/.bashrc"
+        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(~/.local/bin/config-env)\""
     fi
     if ! grep -q 'config-env' "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << 'EOF'
 
-eval "$(config-env)"
+eval "$(~/.local/bin/config-env)"
 EOF
-        echo "  Added eval \$(config-env) to ~/.bashrc"
+        echo "  Added eval \$(~/.local/bin/config-env) to ~/.bashrc"
     fi
 fi
 
