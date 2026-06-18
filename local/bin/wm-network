@@ -178,14 +178,14 @@ case "$action" in
     ;;
 
   __proxy_edit_host__)
-    new=$(printf '\x00Current: %s\n' "$ph" | $_WM -p "Proxy address" --input-fallback)
+    new=$(printf '\x00Current: %s\n' "$ph" | $_WM -p "Proxy address" --pfill "$ph" --input-fallback)
     [[ -z "$new" ]] && exec "$0"
     proxy_write "$new" "$pp"
     exec "$0"
     ;;
 
   __proxy_edit_port__)
-    new=$(printf '\x00Current: %s\n' "$pp" | $_WM -p "Proxy port" --input-fallback)
+    new=$(printf '\x00Current: %s\n' "$pp" | $_WM -p "Proxy port" --pfill "$pp" --input-fallback)
     [[ -z "$new" ]] && exec "$0"
     proxy_write "$ph" "$new"
     exec "$0"
@@ -203,7 +203,7 @@ case "$action" in
   net:*)
     ssid="${action#net:}"
     [[ "$ssid" == "$connected_ssid" ]] && exit 0
-    sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep ":${ssid}:" | head -1 | cut -d: -f4-)
+    sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
     sec="${sec#:}"
     if [[ -z "$sec" || "$sec" == "--" ]]; then
       nmcli device wifi connect "$ssid" 2>/dev/null || notify-send "wm-network" "Failed to connect"

@@ -40,9 +40,29 @@ fi
 
 # ── Wrapper scripts ──
 
-for script in wm-launcher wm-volmixer wm-network wm-wallpaper; do
-    link "$DOTFILES/local/bin/$script" "$HOME/.local/bin/$script"
-done
+# wm-launcher — no system dependency
+link "$DOTFILES/local/bin/wm-launcher" "$HOME/.local/bin/wm-launcher"
+
+# wm-volmixer — requires PulseAudio/PipeWire
+if has pactl; then
+    link "$DOTFILES/local/bin/wm-volmixer" "$HOME/.local/bin/wm-volmixer"
+else
+    echo "  Skipping wm-volmixer (pactl not found)"
+fi
+
+# wm-network — requires NetworkManager
+if has nmcli; then
+    link "$DOTFILES/local/bin/wm-network" "$HOME/.local/bin/wm-network"
+else
+    echo "  Skipping wm-network (nmcli not found)"
+fi
+
+# wm-wallpaper — requires swaybg
+if has swaybg; then
+    link "$DOTFILES/local/bin/wm-wallpaper" "$HOME/.local/bin/wm-wallpaper"
+else
+    echo "  Skipping wm-wallpaper (swaybg not found)"
+fi
 
 # ── Proxy config migration ──
 
