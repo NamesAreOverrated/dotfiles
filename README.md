@@ -16,7 +16,7 @@ Catppuccin Mocha throughout.
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
 | [starship](https://starship.rs) | `starship.toml` |
-| [termfilebrowser](https://github.com/NamesAreOverrated/rust-file-browser) | TUI file browser, auto-installed via bootstrap |
+| termfilebrowser | TUI file browser, auto-installed via bootstrap |
 
 | wallpapers | `wallz` submodule — symlinked to `~/Pictures/wallpapers` |
 
