@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# env — emit environment vars for bash or fish
+set -u
+
+MODE="bash"
+[ "${1:-}" = "--fish" ] && MODE="fish"
+
+# ── Persistent overrides ──
+[ -f "$HOME/.config/env" ] && . "$HOME/.config/env"
+
+# ── Defaults ──
+TERMINAL="${TERMINAL:-foot}"
+EDITOR="${EDITOR:-nvim}"
+SUDO_EDITOR="${SUDO_EDITOR:-nvim}"
+
+# ── Path guard ──
+path_line() {
+  if [ "$MODE" = "fish" ]; then
+    echo 'if not contains "$HOME/.local/bin" $PATH; set -gx PATH "$HOME/.local/bin" $PATH; end'
+  else
+    echo 'case ":$PATH:" in *:"$HOME/.local/bin":*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac'
+  fi
+}
+
+# ── Proxy ──
+proxy_lines() {
+  local cfg="$HOME/.config/wm-network"
+  [ -f "$cfg" ] || return
+  [ "$(sed -n '2p' "$cfg")" = "1" ] || return
+  local host no_proxy_val
+  host=$(sed -n '1p' "$cfg")
+  no_proxy_val=$(sed -n '3p' "$cfg")
+  [ -z "$host" ] && return
+  local no_proxy="${no_proxy_val:-localhost,127.0.0.1,::1}"
+  if [ "$MODE" = "fish" ]; then
+    cat << FISH
+set -gx http_proxy "http://$host"
+set -gx https_proxy "http://$host"
+set -gx HTTP_PROXY "http://$host"
+set -gx HTTPS_PROXY "http://$host"
+set -gx all_proxy "socks5://$host"
+set -gx ALL_PROXY "socks5://$host"
+set -gx no_proxy "$no_proxy"
+set -gx NO_PROXY "$no_proxy"
+FISH
+  else
+    cat << BASH
+export http_proxy="http://$host"
+export https_proxy="http://$host"
+export HTTP_PROXY="http://$host"
+export HTTPS_PROXY="http://$host"
+export all_proxy="socks5://$host"
+export ALL_PROXY="socks5://$host"
+export no_proxy="$no_proxy"
+export NO_PROXY="$no_proxy"
+BASH
+  fi
+}
+
+# ── Main ──
+if [ "$MODE" = "fish" ]; then
+  echo "set -gx TERMINAL \"$TERMINAL\""
+  echo "set -gx EDITOR \"$EDITOR\""
+  echo "set -gx SUDO_EDITOR \"$SUDO_EDITOR\""
+else
+  echo "export TERMINAL=\"$TERMINAL\""
+  echo "export EDITOR=\"$EDITOR\""
+  echo "export SUDO_EDITOR=\"$SUDO_EDITOR\""
+fi
+path_line
+proxy_lines

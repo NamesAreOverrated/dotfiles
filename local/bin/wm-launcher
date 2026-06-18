@@ -6,6 +6,8 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 LAUNCHER_CACHE="$HOME/.cache/wm-launcher.txt"
 
+eval "$(env)"
+
 # ── App dirs ──
 get_app_dirs() {
   echo "$XDG_DATA_HOME/applications"

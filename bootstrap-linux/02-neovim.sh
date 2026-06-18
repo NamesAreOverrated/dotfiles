@@ -6,29 +6,14 @@ fi
 echo "Linking nvim config..."
 link "$DOTFILES/nvim" "$HOME/.config/nvim"
 
-if has fish; then
-    mkdir -p "$HOME/.config/fish"
-    if ! grep -q "SUDO_EDITOR" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
-set -gx SUDO_EDITOR nvim
-FISH_EOF
-        echo "  Added SUDO_EDITOR=nvim to ~/.config/fish/config.fish"
+# Write EDITOR vars to ~/.config/env (consumed by env script)
+mkdir -p "$HOME/.config"
+
+for var in EDITOR SUDO_EDITOR; do
+    if ! grep -q "^${var}=" "$HOME/.config/env" 2>/dev/null; then
+        echo "$var=nvim" >> "$HOME/.config/env"
+        echo "  Added $var=nvim to ~/.config/env"
     fi
-    if ! grep -q "EDITOR" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        echo 'set -gx EDITOR nvim' >> "$HOME/.config/fish/config.fish"
-        echo "  Added EDITOR=nvim to ~/.config/fish/config.fish"
-    fi
-else
-    if ! grep -q "SUDO_EDITOR" "$HOME/.bashrc" 2>/dev/null; then
-        cat >> "$HOME/.bashrc" << 'EOF'
-export SUDO_EDITOR=nvim
-EOF
-        echo "  Added SUDO_EDITOR=nvim to ~/.bashrc"
-    fi
-    if ! grep -q "EDITOR" "$HOME/.bashrc" 2>/dev/null; then
-        echo 'export EDITOR=nvim' >> "$HOME/.bashrc"
-        echo "  Added EDITOR=nvim to ~/.bashrc"
-    fi
-fi
+done
 
 echo "Done! Open Neovim to install plugins."

@@ -52,13 +52,10 @@ esac
 export TERMINAL
 
 # --- Persist TERMINAL ---
-if has fish; then
-    mkdir -p "$HOME/.config/fish"
-    sed -i '/^set -gx TERMINAL/d' "$HOME/.config/fish/config.fish" 2>/dev/null || true
-    printf '\nset -gx TERMINAL "%s"\n' "$TERMINAL" >> "$HOME/.config/fish/config.fish"
-    echo "  TERMINAL=$TERMINAL set in fish config.fish"
-else
-    sed -i '/^export TERMINAL=/d' "$HOME/.bash_profile" 2>/dev/null || true
-    printf '\nexport TERMINAL="%s"\n' "$TERMINAL" >> "$HOME/.bash_profile"
-    echo "  TERMINAL=$TERMINAL set in ~/.bash_profile"
+mkdir -p "$HOME/.config"
+if [ -f "$HOME/.config/env" ]; then
+    # Update existing
+    sed -i '/^TERMINAL=/d' "$HOME/.config/env"
 fi
+echo "TERMINAL=$TERMINAL" >> "$HOME/.config/env"
+echo "  TERMINAL=$TERMINAL set in ~/.config/env"

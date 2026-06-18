@@ -66,6 +66,8 @@ else
     link "$DOTFILES/local/bin/wm-alias" "$HOME/.local/bin/wm-alias"
 fi
 
+link "$DOTFILES/local/bin/env" "$HOME/.local/bin/env"
+
 # ── Proxy config ──
 
 CFG="$HOME/.config/wm-network"
@@ -88,58 +90,35 @@ if [ ! -f "$CFG" ]; then
     echo "  Created default proxy config (disabled)"
 fi
 
-# ── Shell proxy sourcing ──
+# ── Shell env sourcing ──
+# Ensure shell configs source the env script for proxy + tool vars
 
 if has fish; then
     mkdir -p "$HOME/.config/fish"
-    if ! grep -q "Proxy config (managed by wm-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+    # Migrate old proxy block → env sourcing
+    if grep -q "Proxy config (managed by wm-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        sed -i '/^# Proxy config (managed by wm-network)$/,/^end$/c\~/.local/bin/env --fish | source' "$HOME/.config/fish/config.fish"
+        echo "  Migrated proxy sourcing in ~/.config/fish/config.fish → ~/.local/bin/env --fish | source"
+    fi
+    if ! grep -q "env --fish | source" "$HOME/.config/fish/config.fish" 2>/dev/null; then
         cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
 
-# Proxy config (managed by wm-network)
-set -l proxy_file "$HOME/.config/wm-network"
-if test -f "$proxy_file"
-    and test (sed -n '2p' "$proxy_file") = "1"
-    set -l proxy_addr (sed -n '1p' "$proxy_file")
-    set -l no_proxy_val (sed -n '3p' "$proxy_file")
-    if test -n "$proxy_addr"
-        set -gx http_proxy "http://$proxy_addr"
-        set -gx https_proxy "http://$proxy_addr"
-        set -gx HTTP_PROXY "http://$proxy_addr"
-        set -gx HTTPS_PROXY "http://$proxy_addr"
-        set -gx all_proxy "socks5://$proxy_addr"
-        set -gx ALL_PROXY "socks5://$proxy_addr"
-        if test -n "$no_proxy_val"
-            set -gx no_proxy "$no_proxy_val"
-        else
-            set -gx no_proxy "localhost,127.0.0.1,::1"
-        end
-        set -gx NO_PROXY "$no_proxy"
-    end
-end
+~/.local/bin/env --fish | source
 FISH_EOF
-        echo "  Added proxy sourcing to ~/.config/fish/config.fish"
+        echo "  Added env sourcing to ~/.config/fish/config.fish"
     fi
 else
-    # Inject bashrc proxy sourcing if not already present
-    if ! grep -q "Proxy config (managed by wm-network)" "$HOME/.bashrc" 2>/dev/null; then
+    # Migrate old proxy block → eval "$(env)"
+    if grep -q "Proxy config (managed by wm-network)" "$HOME/.bashrc" 2>/dev/null; then
+        sed -i '/^# Proxy config (managed by wm-network)$/,/^fi$/c\eval "$(env)"' "$HOME/.bashrc"
+        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(env)\""
+    fi
+    if ! grep -q 'eval "$(env)"' "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << 'EOF'
 
-# Proxy config (managed by wm-network)
-PROXY_CFG="$HOME/.config/wm-network"
-if [ -f "$PROXY_CFG" ] && [ "$(sed -n '2p' "$PROXY_CFG")" = "1" ]; then
-    PROXY="http://$(sed -n '1p' "$PROXY_CFG")"
-    NO_PROXY_VAL="$(sed -n '3p' "$PROXY_CFG")"
-    export http_proxy="$PROXY"
-    export https_proxy="$PROXY"
-    export HTTP_PROXY="$PROXY"
-    export HTTPS_PROXY="$PROXY"
-    export all_proxy="socks5://$(sed -n '1p' "$PROXY_CFG")"
-    export ALL_PROXY="$all_proxy"
-    export no_proxy="${NO_PROXY_VAL:-localhost,127.0.0.1,::1}"
-    export NO_PROXY="$no_proxy"
-fi
+eval "$(env)"
 EOF
-        echo "  Added proxy sourcing to ~/.bashrc"
+        echo "  Added eval \$(env) to ~/.bashrc"
     fi
 fi
 
