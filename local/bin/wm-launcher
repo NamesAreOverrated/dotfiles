@@ -9,8 +9,11 @@ LAUNCHER_CACHE="$HOME/.cache/wm-launcher.txt"
 eval "$(~/.local/bin/config-env)"
 
 # ── App dirs ──
-get_app_dirs() {
+get_local_app_dirs() {
   echo "$XDG_DATA_HOME/applications"
+}
+
+get_system_app_dirs() {
   local xdg_data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
   IFS=':' read -ra parts <<< "$xdg_data_dirs"
   for part in "${parts[@]}"; do
@@ -166,7 +169,7 @@ exec_to_argv() {
 build_cache() {
   local tmpf
   tmpf=$(mktemp)
-  for dir in $(get_app_dirs); do
+  for dir in $(get_local_app_dirs); do
     [[ -d "$dir" ]] || continue
     for file in "$dir"/*.desktop; do
       [[ -f "$file" ]] || continue
@@ -200,7 +203,7 @@ read_cache() {
 launch_terminal() {
   local term
   term="${TERMINAL:-}"
-  [[ -z "$term" ]] && term="$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || '')"
+  [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
   if [[ -z "$term" ]]; then
     notify-send "wm-launcher" "No terminal emulator found"
     return 1
@@ -208,43 +211,158 @@ launch_terminal() {
   "$term" "$@"
 }
 
+# ── Add mode: symlink system apps ──
+do_add() {
+  local local_dir items=() paths=()
+  local_dir=$(get_local_app_dirs | head -1)
+  mkdir -p "$local_dir"
+
+  for dir in $(get_system_app_dirs); do
+    [[ -d "$dir" ]] || continue
+    for file in "$dir"/*.desktop; do
+      [[ -f "$file" ]] || continue
+      local bn name exec icon terminal _path rest thumb ico_path
+      bn=$(basename "$file")
+      [[ -f "$local_dir/$bn" ]] && continue
+      local seen=0
+      for p in "${paths[@]}"; do
+        [[ "$(basename "$p")" == "$bn" ]] && seen=1 && break
+      done
+      (( seen )) && continue
+
+      parsed=$(parse_desktop "$file") || continue
+      _path="${parsed%%|*}"; rest="${parsed#*|}"
+      name="${rest%%|*}"; rest="${rest#*|}"
+      exec="${rest%%|*}"; rest="${rest#*|}"
+      icon="${rest%%|*}"; terminal="${rest#*|}"
+
+      thumb=""
+      if [[ -n "$icon" ]]; then
+        ico_path=$(resolve_icon "$icon")
+        [[ -n "$ico_path" ]] && thumb="$name"$'\x1f'"$ico_path"
+      fi
+      items+=("${thumb:-$name}")
+      paths+=("$file")
+    done
+  done
+
+  if [[ ${#items[@]} -eq 0 ]]; then
+    notify-send "wm-launcher" "All system apps already added"
+    main
+    return
+  fi
+
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  [[ -z "$selected" ]] && { main; return; }
+
+  ln -s "${paths[$selected]}" "$local_dir/"
+  build_cache > /dev/null 2>&1 || true
+  main
+}
+
+# ── Remove mode: unlink symlinked apps ──
+do_remove() {
+  local local_dir items=() paths=()
+  local_dir=$(get_local_app_dirs | head -1)
+  [[ -d "$local_dir" ]] || { notify-send "wm-launcher" "No local apps directory"; main; return; }
+
+  for file in "$local_dir"/*.desktop; do
+    [[ -f "$file" ]] || continue
+    [[ -L "$file" ]] || continue
+    local parsed name exec icon terminal _path rest ico_path
+    parsed=$(parse_desktop "$file") || continue
+    _path="${parsed%%|*}"; rest="${parsed#*|}"
+    name="${rest%%|*}"; rest="${rest#*|}"
+    exec="${rest%%|*}"; rest="${rest#*|}"
+    icon="${rest%%|*}"; terminal="${rest#*|}"
+
+    local indicator=" "
+    [[ -L "$file" ]] && indicator=" "
+    local label="$name$indicator"
+    if [[ -n "$icon" ]]; then
+      ico_path=$(resolve_icon "$icon")
+      [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
+    fi
+    items+=("$label")
+    paths+=("$file")
+  done
+
+  if [[ ${#items[@]} -eq 0 ]]; then
+    notify-send "wm-launcher" "No symlinked apps to remove"
+    main
+    return
+  fi
+
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  [[ -z "$selected" ]] && { main; return; }
+
+  rm "${paths[$selected]}"
+  build_cache > /dev/null 2>&1 || true
+  main
+}
+
 # ── Main ──
 main() {
+  # One-time migration: invalidate old cache with system entries
+  if [[ -f "$LAUNCHER_CACHE" ]] && grep -q '/usr/' "$LAUNCHER_CACHE" 2>/dev/null; then
+    rm -f "$LAUNCHER_CACHE"
+  fi
+
   local entries
   entries=$(read_cache) || entries=$(build_cache)
   [[ -z "$entries" ]] && { notify-send "wm-launcher" "No applications found"; exit 1; }
 
-  local items=()
-  local execs=() icons=() terminals=() paths=() names=()
+  local execs=() icons=() terminals=() paths=() names_list=() thumbs=()
   while IFS='' read -r line; do
     [[ -z "$line" ]] && continue
-    local path name exec icon terminal tail
+    local path name exec icon terminal tail ico_path thumb
     path="${line%%|*}"; tail="${line#*|}"
     name="${tail%%|*}"; tail="${tail#*|}"
     exec="${tail%%|*}"; tail="${tail#*|}"
     icon="${tail%%|*}"; terminal="${tail#*|}"
     paths+=("$path")
-    names+=("$name")
+    names_list+=("$name")
     execs+=("$exec")
     icons+=("$icon")
     terminals+=("$terminal")
-    local thumb=""
+    local indicator=" "
+    [[ -L "$path" ]] && indicator=" "
+    local label="$name$indicator"
     if [[ -n "$icon" ]]; then
-      local ico_path
       ico_path=$(resolve_icon "$icon")
-      [[ -n "$ico_path" ]] && thumb="$name"$'\x1f'"$ico_path"
+      [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
     fi
-    items+=("${thumb:-$name}")
+    thumbs+=("$label")
   done <<< "$entries"
 
+  local add_svg="$HOME/.local/share/wm-launcher/icons/add.svg"
+  local remove_svg="$HOME/.local/share/wm-launcher/icons/remove.svg"
+  local add_thumb remove_thumb
+  [[ -f "$add_svg" ]] && add_thumb="Add App"$'\x1f'"$add_svg"
+  [[ -f "$remove_svg" ]] && remove_thumb="Remove App"$'\x1f'"$remove_svg"
+
   local selected
-  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  selected=$({
+    printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
+    printf '\x00%s\n' '────────────────────'
+    printf '%s\n' "${thumbs[@]}"
+  } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
   [[ -z "$selected" ]] && exit 0
 
-  local idx="$selected"
+  if [[ "$selected" -eq 0 ]]; then
+    do_add
+    return
+  elif [[ "$selected" -eq 1 ]]; then
+    do_remove
+    return
+  fi
+
+  local idx=$((selected - 3))
   local exec="${execs[$idx]}"
   local icon_name="${icons[$idx]}"
-  local name="${names[$idx]}"
+  local name="${names_list[$idx]}"
   local path="${paths[$idx]}"
   local terminal="${terminals[$idx]}"
 

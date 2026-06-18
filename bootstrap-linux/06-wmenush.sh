@@ -42,6 +42,10 @@ fi
 
 link "$DOTFILES/local/bin/wm-launcher" "$HOME/.local/bin/wm-launcher"
 
+# ── Launcher icons ──
+
+link "$DOTFILES/local/share/wm-launcher/icons" "$HOME/.local/share/wm-launcher/icons"
+
 if has pactl; then
     link "$DOTFILES/local/bin/wm-volmixer" "$HOME/.local/bin/wm-volmixer"
 else
