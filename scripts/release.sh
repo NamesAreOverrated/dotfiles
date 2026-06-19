@@ -3,7 +3,14 @@ set -euo pipefail
 
 IS_MUSL=0
 if ldd --version 2>&1 | grep -qi musl; then
-    IS_MUSL=1; SUFFIX="musl"
+    IS_MUSL=1
+elif readelf -l /bin/sh 2>/dev/null | grep -qi musl; then
+    IS_MUSL=1
+elif [ -f /lib/ld-musl-x86_64.so.1 ] || [ -f /lib/ld-musl-aarch64.so.1 ]; then
+    IS_MUSL=1
+fi
+if [ "$IS_MUSL" = 1 ]; then
+    SUFFIX="musl"
 else
     SUFFIX="glibc"
 fi
