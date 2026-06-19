@@ -77,52 +77,53 @@ delete_alias() {
 
 main() {
   [[ -f "$BASHRC" ]] || touch "$BASHRC"
-  parse_aliases
 
-  local selected
+  while true; do
+    NAMES=(); CMDS=(); LINENOS=()
+    parse_aliases
 
-  local selected
+    local selected
+    selected=$(
+      {
+        printf '󰩈 Add new\n'
+        printf '󰎞 Edit .bashrc\n'
+        printf '󰎞 Edit .bash_profile\n'
+        printf '\x00──────────────────────\n'
+        for i in "${!NAMES[@]}"; do
+          local label="${NAMES[$i]} 󰅂 ${CMDS[$i]}"
+          [[ ${#label} -gt 72 ]] && label="${label:0:69}..."
+          printf '%s\n' "$label"
+        done
+      } | $WMENUSH -p "Aliases" --format i
+    ) || true
+    [[ -z "$selected" ]] && exit 0
 
-  selected=$(
-    {
-      printf '󰩈 Add new\n'
-      printf '󰎞 Edit .bashrc\n'
-      printf '󰎞 Edit .bash_profile\n'
-      printf '\x00──────────────────────\n'
-      for i in "${!NAMES[@]}"; do
-        local label="${NAMES[$i]} 󰅂 ${CMDS[$i]}"
-        [[ ${#label} -gt 72 ]] && label="${label:0:69}..."
-        printf '%s\n' "$label"
-      done
-    } | $WMENUSH -p "Aliases" --format i
-  ) || true
-  [[ -z "$selected" ]] && exit 0
+    local idx="$selected"
 
-  local idx="$selected"
-
-  if [[ "$idx" -eq 0 ]]; then
-    add_alias
-  elif [[ "$idx" -eq 1 ]]; then
-    "${EDITOR:-vim}" "$BASHRC"
-  elif [[ "$idx" -eq 2 ]]; then
-    if [[ -f "$HOME/.bash_profile" ]]; then
-      "${EDITOR:-vim}" "$HOME/.bash_profile"
+    if [[ "$idx" -eq 0 ]]; then
+      add_alias
+    elif [[ "$idx" -eq 1 ]]; then
+      "${EDITOR:-vim}" "$BASHRC"
+    elif [[ "$idx" -eq 2 ]]; then
+      if [[ -f "$HOME/.bash_profile" ]]; then
+        "${EDITOR:-vim}" "$HOME/.bash_profile"
+      else
+        printf '\x00\n' | $WMENUSH -p "~/.bash_profile does not exist" --input-fallback >/dev/null || true
+      fi
+    elif [[ "$idx" -eq 3 ]]; then
+      continue
     else
-      printf '\x00\n' | $WMENUSH -p "~/.bash_profile does not exist" --input-fallback >/dev/null || true
+      local alias_idx=$((idx - 4))
+      if [[ "$alias_idx" -ge 0 && "$alias_idx" -lt "${#NAMES[@]}" ]]; then
+        local choice
+        choice=$(printf 'Edit\nDelete\n' | $WMENUSH -p "${NAMES[$alias_idx]}" --format i) || true
+        case "$choice" in
+          0) edit_alias "$alias_idx" ;;
+          1) delete_alias "$alias_idx" ;;
+        esac
+      fi
     fi
-  elif [[ "$idx" -eq 3 ]]; then
-    exit 0
-  else
-    local alias_idx=$((idx - 4))
-    if [[ "$alias_idx" -ge 0 && "$alias_idx" -lt "${#NAMES[@]}" ]]; then
-      local choice
-      choice=$(printf 'Edit\nDelete\n' | $WMENUSH -p "${NAMES[$alias_idx]}" --format i) || true
-      case "$choice" in
-        0) edit_alias "$alias_idx" ;;
-        1) delete_alias "$alias_idx" ;;
-      esac
-    fi
-  fi
+  done
 }
 
 main "$@"
