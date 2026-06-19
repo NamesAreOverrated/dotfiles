@@ -425,6 +425,8 @@ do
 		vim.notify("Spell check: " .. tostring(vim.opt.spell:get()))
 	end, { desc = "[T]oggle Spell [O]n" })
 
+	-- Toggle comment (gcc/gc)
+
 	-- [[ Basic Autocommands ]]
 	--  See `:help lua-guide-autocommands`
 
@@ -678,6 +680,10 @@ do
 	-- Highlight todo, notes, etc in comments
 	vim.pack.add({ gh("folke/todo-comments.nvim") })
 	require("todo-comments").setup({ signs = false })
+
+	-- Toggle comments (Ctrl+/ in VS Code style)
+	vim.pack.add({ gh("folke/ts-comments.nvim") })
+	require("ts-comments").setup()
 
 	-- [[ mini.nvim ]]
 	--  A collection of various small independent plugins/modules
