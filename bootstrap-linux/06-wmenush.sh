@@ -41,6 +41,8 @@ fi
 # ── Wrapper scripts ──
 
 link "$DOTFILES/local/bin/wm-launcher" "$HOME/.local/bin/wm-launcher"
+link "$DOTFILES/local/bin/wm-image" "$HOME/.local/bin/wm-image"
+link "$DOTFILES/local/bin/wm-preview" "$HOME/.local/bin/wm-preview"
 
 # ── Launcher icons ──
 
@@ -60,6 +62,7 @@ fi
 
 if has swaybg; then
     link "$DOTFILES/local/bin/wm-wallpaper" "$HOME/.local/bin/wm-wallpaper"
+    link "$DOTFILES/local/bin/set-wallpaper" "$HOME/.local/bin/set-wallpaper"
 else
     echo "  Skipping wm-wallpaper (swaybg not found)"
 fi

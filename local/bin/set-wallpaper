@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -u
+
+img="$1"
+[ -z "$img" ] && { echo "Usage: set-wallpaper <path>" >&2; exit 1; }
+
+echo "$img" > "$HOME/.config/wallpaper"
+
+if [ -d "$HOME/.config/sway/local" ]; then
+  printf 'output * bg "%s" fill\n' "$img" > "$HOME/.config/sway/local/wallpaper"
+fi
+
+if [ -d "$HOME/.config/niri/local" ] && command -v swaybg >/dev/null; then
+  printf 'spawn-at-startup "swaybg" "-i" "%s" "-m" "fill"\n' "$img" > "$HOME/.config/niri/local/wallpaper.kdl"
+fi
+
+if [ -n "${SWAYSOCK:-}" ]; then
+  swaymsg output "*" bg "$img" fill
+fi
+if [ -n "${NIRI_SOCKET:-}" ] && command -v swaybg >/dev/null; then
+  killall swaybg 2>/dev/null || true
+  swaybg -i "$img" -m fill &
+fi

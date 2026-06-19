@@ -23,6 +23,6 @@ item_spacing = 4
 shadow_blur_sigma = 5.0
 font_size = 12
 font_family = "afio"
-width = 800
+width = 1080
 lines = 5
 thumb_width = 120
