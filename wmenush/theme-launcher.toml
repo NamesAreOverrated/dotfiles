@@ -1,5 +1,5 @@
 font_family = "afio"
-shadow_blur_sigma = 20
+shadow_blur_sigma = 5
 font_size = 12
 thumb_width = 36
 lines = 12
@@ -9,7 +9,7 @@ input_pad = 10
 input_radius = 6
 input_border_width = 2
 selection_border_width = 2
-list_border_width = 2
+list_border_width = 0
 list_border_radius = 10
 thumb_text_gap=16
 prompt_input_gap=10
