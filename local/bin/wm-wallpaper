@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-set -u
-
-result=$(wm-image "$@")
-[[ -z "$result" ]] && exit 1
-set-wallpaper "$result"

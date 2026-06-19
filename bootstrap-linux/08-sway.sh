@@ -14,6 +14,9 @@ else
     echo "set \$mod Mod1" > "$HOME/.config/sway/local/mod.g"
 fi
 
+echo "set \$term $TERMINAL" > "$HOME/.config/sway/local/terminal.g"
+echo "  Generated ~/.config/sway/local/terminal.g"
+
 if ! [ -f "$HOME/.config/sway/local/outputs" ]; then
     {
         echo "# Machine-specific output configuration"
@@ -40,12 +43,8 @@ echo "  Generated ~/.config/sway/local/wallpaper"
         echo "exec waybar"
     fi
 
-    if has swaybg; then
-        if [ "$MOD_CHOICE" = "2" ]; then
-            echo "bindsym \$mod+Ctrl+w exec env MOD_LABEL=Super ~/.local/bin/wm-wallpaper"
-        else
-            echo "bindsym \$mod+Ctrl+w exec ~/.local/bin/wm-wallpaper"
-        fi
+    if has swaybg && [ -x "$HOME/.local/libexec/set-wallpaper" ]; then
+        echo "bindsym \$mod+Ctrl+w exec sh -c 'wm-image -m cover | ~/.local/libexec/set-wallpaper'"
     fi
 
     if has pactl; then

@@ -98,8 +98,8 @@ fi
         echo '    Super+Alt+S allow-when-locked=true hotkey-overlay-title=null { spawn-sh "pkill orca || exec orca"; }'
     fi
 
-    if has wm-wallpaper; then
-        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn "wm-wallpaper"; }'
+    if has swaybg && [ -x "$HOME/.local/libexec/set-wallpaper" ]; then
+        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn-sh "wm-image -m cover | ~/.local/libexec/set-wallpaper"; }'
     fi
 
     if has wm-volmixer; then

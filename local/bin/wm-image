@@ -3,12 +3,14 @@ set -u
 
 dir="$HOME/Pictures/wallpapers"
 theme="$HOME/.config/wmenush/theme-wallpaper.toml"
+mode="center"
 sep=$'\x1f'
 
-while getopts "d:c:" opt; do
+while getopts "d:c:m:" opt; do
   case $opt in
     d) dir="$OPTARG" ;;
     c) theme="$OPTARG" ;;
+    m) mode="$OPTARG" ;;
   esac
 done
 shift $((OPTIND - 1))
@@ -75,6 +77,6 @@ while true; do
   # ------ Phase 2: Preview mode ------
   [[ ${#images[@]} -eq 0 ]] && continue
 
-  result=$(wm-preview -c "$theme" -i "$action" "${images[@]}")
+  result=$(wm-preview -m "$mode" -c "$theme" -i "$action" "${images[@]}")
   [[ -n "$result" ]] && { echo "$result"; exit 0; }
 done

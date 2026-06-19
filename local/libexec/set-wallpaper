@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# ext:png,jpg,jpeg
+# desc:Set as wallpaper
 set -u
 
 img="$1"

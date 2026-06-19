@@ -19,7 +19,7 @@ fi
 
 # Init shared wallpaper path if not exists
 if ! [ -f "$HOME/.config/wallpaper" ]; then
-    WALL="$HOME/Pictures/wallpapers/Catppuccin Mocha/01. Catppuccin Mocha.png"
+    WALL="$HOME/Pictures/wallpapers/19. Catppuccin Mocha.png"
     if [ -f "$WALL" ]; then
         echo "$WALL" > "$HOME/.config/wallpaper"
         echo "  Created ~/.config/wallpaper"

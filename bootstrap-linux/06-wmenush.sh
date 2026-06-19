@@ -61,10 +61,9 @@ else
 fi
 
 if has swaybg; then
-    link "$DOTFILES/local/bin/wm-wallpaper" "$HOME/.local/bin/wm-wallpaper"
-    link "$DOTFILES/local/bin/set-wallpaper" "$HOME/.local/bin/set-wallpaper"
+    link "$DOTFILES/local/libexec/set-wallpaper" "$HOME/.local/libexec/set-wallpaper"
 else
-    echo "  Skipping wm-wallpaper (swaybg not found)"
+    echo "  Skipping set-wallpaper (swaybg not found)"
 fi
 
 if has fish; then

@@ -11,7 +11,7 @@ Catppuccin Mocha throughout.
 | [niri](https://github.com/YaLTeR/niri) | `niri/config.kdl` — patched build support |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
 | [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `style.css` + `layout.xml` |
-| wmenush | Overlay menu (rofi replacement). 5 companion scripts: `wm-launcher`, `wm-volmixer`, `wm-network`, `wm-wallpaper`, `wm-alias` |
+| wmenush | Overlay menu (rofi replacement). Companion scripts: `wm-launcher`, `wm-volmixer`, `wm-network`, `wm-alias`, `set-wallpaper` |
 | [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — CapsLock layer-tap keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
@@ -40,7 +40,7 @@ The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 2. **Paths** — ensures `~/.local/bin` is in PATH for login shells
 3. **Config linking** — symlinks starship, nvim, foot, sway/niri, gtklock, waybar
 4. **Kanata** — offers to download from GitHub if missing, generates systemd service
-5. **Wmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: wm-volmixer needs pactl, wm-network needs nmcli, wm-wallpaper needs swaybg; wm-alias bash-only skips on fish systems)
+5. **Wmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: wm-volmixer needs pactl, wm-network needs nmcli, set-wallpaper needs swaybg; wm-alias bash-only skips on fish systems)
 6. **Wallpapers** — symlinks wallz submodule to `~/Pictures/wallpapers`
 7. **WM configs** — generates machine-specific sway/niri configs (outputs, wallpaper, keybinds)
 8. **File management** — offers to install termfilebrowser from GitHub
@@ -56,7 +56,7 @@ In sway, `~/.config/sway/local/` holds anything machine-specific:
 |------|----------|
 | `mod.g` | **Always regenerated.** Contains `set $mod Mod1` or `set $mod Mod4`. |
 | `outputs` | Created once. Add your monitor layout here. |
-| `wallpaper` | Updated by wm-wallpaper. Never hand-edit. |
+| `wallpaper` | Updated by set-wallpaper. Never hand-edit. |
 | `utilities.g` | **Always regenerated.** Auto-generated keybinds based on installed tools. |
 | `custom` | Created once. Add your own binds here (brightness, media keys, etc.). |
 
@@ -74,7 +74,7 @@ The bootstrap installs these companion scripts:
 | `wm-launcher` | — | Desktop launcher — parses `.desktop` files with icon resolution |
 | `wm-volmixer` | pactl | Audio sink/source/app volume and mute control |
 | `wm-network` | nmcli | Network manager — WiFi scan/connect, proxy config |
-| `wm-wallpaper` | swaybg | Wallpaper picker with directory browsing and thumbnails |
+| `set-wallpaper` | swaybg | Set wallpaper from selected image |
 | `wm-alias` | bash | Alias manager — add/edit/delete aliases via wmenush, bash only |
 
 ## Sway
@@ -87,7 +87,7 @@ in red (`#f38ba8`). Exit with Enter or Escape.
 
 Keybinds generated at bootstrap time in `utilities.g`:
 - `$mod+d` — Application launcher (wm-launcher)
-- `$mod+Ctrl+w` — Wallpaper picker (wm-wallpaper)
+- `$mod+Ctrl+w` — Wallpaper picker (wm-image | set-wallpaper)
 - `$mod+BackSpace` — Volume mixer (wm-volmixer)
 - Media keys — Volume, playback, brightness (gated by pactl/playerctl/brightnessctl)
 - `$mod+r` — Resize mode
