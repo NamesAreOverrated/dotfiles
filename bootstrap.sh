@@ -32,7 +32,7 @@ link() {
     local src="$1" dst="$2"
     [[ ! -e "$src" ]] && { echo "  Skipping (src missing): $src"; return; }
     if [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]]; then
-        echo "  OK"
+        echo "  OK  $(basename "$dst")"
         return
     fi
     rm -rf "$dst"

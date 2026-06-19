@@ -45,6 +45,7 @@
     "tooltip-format-wifi": "{essid} ({signalStrength}%)  {ipaddr}\n{ifname}",
     "tooltip-format-ethernet": "{ipaddr}  {ifname}",
     "on-click": "~/.local/bin/wm-network",
+    "on-click-right":"~/.local/bin/wm-network",
     "interval": 5
   },
   "disk": {
