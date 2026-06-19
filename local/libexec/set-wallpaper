@@ -3,8 +3,10 @@
 # desc:Set as wallpaper
 set -u
 
-img="$1"
-[ -z "$img" ] && { echo "Usage: set-wallpaper <path>" >&2; exit 1; }
+img="${1:-}"
+if [ -z "$img" ]; then
+    read -r img || { echo "Usage: set-wallpaper <path>" >&2; exit 1; }
+fi
 
 echo "$img" > "$HOME/.config/wallpaper"
 
