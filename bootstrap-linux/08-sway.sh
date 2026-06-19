@@ -59,6 +59,10 @@ echo "  Generated ~/.config/sway/local/wallpaper"
         echo "bindsym \$mod+BackSpace exec ~/.local/bin/wm-volmixer"
     fi
 
+    if has wm-alias; then
+        echo "bindsym \$mod+a exec ~/.local/bin/wm-alias"
+    fi
+
     if has swayidle && has powerctl; then
         echo "exec swayidle -w \\"
         echo "    timeout 300 'powerctl lock' \\"

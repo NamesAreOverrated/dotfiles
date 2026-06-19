@@ -106,6 +106,10 @@ fi
         echo '    Mod+BackSpace hotkey-overlay-title="Volume Mixer" { spawn "wm-volmixer"; }'
     fi
 
+    if has wm-alias; then
+        echo '    Mod+A hotkey-overlay-title="Manage Aliases" { spawn "wm-alias"; }'
+    fi
+
     echo "}"
 } > "$HOME/.config/niri/local/autostart.kdl"
 echo "  Generated ~/.config/niri/local/autostart.kdl"
