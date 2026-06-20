@@ -105,10 +105,10 @@ main() {
     if [[ "$idx" -eq 0 ]]; then
       add_alias
     elif [[ "$idx" -eq 1 ]]; then
-      "${EDITOR:-vim}" "$BASHRC"
+      "${TERMINAL:-foot}" -e "${EDITOR:-nvim}" "$BASHRC"
     elif [[ "$idx" -eq 2 ]]; then
       if [[ -f "$HOME/.bash_profile" ]]; then
-        "${EDITOR:-vim}" "$HOME/.bash_profile"
+        "${TERMINAL:-foot}" -e "${EDITOR:-nvim}" "$HOME/.bash_profile"
       else
         printf '\x00\n' | $WMENUSH -p "~/.bash_profile does not exist" --input-fallback >/dev/null || true
       fi
