@@ -52,6 +52,12 @@ fi
     echo "// Do not edit manually; use local/custom.kdl instead"
     echo ""
 
+    echo 'cursor {'
+    echo '    xcursor-theme "Graphite-dark-mocha"'
+    echo '    xcursor-size 24'
+    echo '}'
+    echo ""
+
     if has waybar; then
         echo 'spawn-at-startup "waybar"'
     fi

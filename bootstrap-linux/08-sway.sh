@@ -76,7 +76,7 @@ if ! [ -f "$HOME/.config/sway/local/custom" ]; then
         echo "# Machine-specific custom keybinds -- add your own below"
         echo "# e.g. bindsym --locked XF86MonBrightnessUp exec brightnessctl set +10%"
         echo ""
-        echo "seat seat0 xcursor_theme Adwaita 24"
+        echo "seat seat0 xcursor_theme Graphite-dark-mocha 24"
     } > "$HOME/.config/sway/local/custom"
     echo "  Created ~/.config/sway/local/custom"
 fi
