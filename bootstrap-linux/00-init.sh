@@ -14,13 +14,9 @@ export MOD_CHOICE
 # --- Terminal detection ---
 echo ""
 
-# Read current persisted value
+# Read current persisted value from canonical source
 CURRENT=""
-if has fish; then
-    [ -f "$HOME/.config/fish/config.fish" ] && CURRENT=$(grep -m1 '^set -gx TERMINAL' "$HOME/.config/fish/config.fish" 2>/dev/null | sed 's/.*"\(.*\)"/\1/') || true
-else
-    [ -f "$HOME/.bash_profile" ] && CURRENT=$(grep -m1 '^export TERMINAL=' "$HOME/.bash_profile" 2>/dev/null | sed 's/.*=//;s/"//g') || true
-fi
+[ -f "$HOME/.config/env" ] && CURRENT=$(grep -m1 '^TERMINAL=' "$HOME/.config/env" 2>/dev/null | sed 's/.*=//;s/"//g') || true
 
 terminals=()
 for t in foot alacritty kitty wezterm ghostty; do

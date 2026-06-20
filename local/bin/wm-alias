@@ -2,6 +2,8 @@
 # wm-alias — manage bash aliases via wmenush
 set -u
 
+eval "$(~/.local/bin/config-env)"
+
 WMENUSH="wmenush"
 BASHRC="$HOME/.bashrc"
 
