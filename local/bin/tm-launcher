@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -u
 
-WMENUSH="wmenush"
+WMENUSH="tiny-wmenush"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-LAUNCHER_CACHE="$HOME/.cache/wm-launcher.txt"
+LAUNCHER_CACHE="$HOME/.cache/tm-launcher.txt"
 
 eval "$(~/.local/bin/config-env)"
 
@@ -205,7 +205,7 @@ launch_terminal() {
   term="${TERMINAL:-}"
   [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
   if [[ -z "$term" ]]; then
-    notify-send "wm-launcher" "No terminal emulator found"
+    notify-send "tm-launcher" "No terminal emulator found"
     return 1
   fi
   "$term" "$@"
@@ -247,13 +247,13 @@ do_add() {
   done
 
   if [[ ${#items[@]} -eq 0 ]]; then
-    notify-send "wm-launcher" "All system apps already added"
+    notify-send "tm-launcher" "All system apps already added"
     main
     return
   fi
 
   local selected
-  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-wmenush/theme-launcher.toml") || true
   [[ -z "$selected" ]] && { main; return; }
 
   ln -s "${paths[$selected]}" "$local_dir/"
@@ -265,7 +265,7 @@ do_add() {
 do_remove() {
   local local_dir items=() paths=()
   local_dir=$(get_local_app_dirs | head -1)
-  [[ -d "$local_dir" ]] || { notify-send "wm-launcher" "No local apps directory"; main; return; }
+    [[ -d "$local_dir" ]] || { notify-send "tm-launcher" "No local apps directory"; main; return; }
 
   for file in "$local_dir"/*.desktop; do
     [[ -f "$file" ]] || continue
@@ -289,13 +289,13 @@ do_remove() {
   done
 
   if [[ ${#items[@]} -eq 0 ]]; then
-    notify-send "wm-launcher" "No symlinked apps to remove"
+    notify-send "tm-launcher" "No symlinked apps to remove"
     main
     return
   fi
 
   local selected
-  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/tiny-wmenush/theme-launcher.toml") || true
   [[ -z "$selected" ]] && { main; return; }
 
   rm "${paths[$selected]}"
@@ -312,7 +312,7 @@ main() {
 
   local entries
   entries=$(read_cache) || entries=$(build_cache)
-  [[ -z "$entries" ]] && { notify-send "wm-launcher" "No applications found"; exit 1; }
+  [[ -z "$entries" ]] && { notify-send "tm-launcher" "No applications found"; exit 1; }
 
   local execs=() icons=() terminals=() paths=() names_list=() thumbs=()
   while IFS='' read -r line; do
@@ -337,8 +337,8 @@ main() {
     thumbs+=("$label")
   done <<< "$entries"
 
-  local add_svg="$HOME/.local/share/wm-launcher/icons/add.svg"
-  local remove_svg="$HOME/.local/share/wm-launcher/icons/remove.svg"
+  local add_svg="$HOME/.local/share/tm-launcher/icons/add.svg"
+  local remove_svg="$HOME/.local/share/tm-launcher/icons/remove.svg"
   local add_thumb remove_thumb
   [[ -f "$add_svg" ]] && add_thumb="Add App"$'\x1f'"$add_svg"
   [[ -f "$remove_svg" ]] && remove_thumb="Remove App"$'\x1f'"$remove_svg"
@@ -348,7 +348,7 @@ main() {
     printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
     printf '\x00%s\n' '────────────────────'
     printf '%s\n' "${thumbs[@]}"
-  } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/wmenush/theme-launcher.toml") || true
+  } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-wmenush/theme-launcher.toml") || true
   [[ -z "$selected" ]] && exit 0
 
   if [[ "$selected" -eq 0 ]]; then

@@ -1,6 +1,6 @@
 # dotfiles
 
-sway/niri + waybar + gtklock + wmenush + kanata + nvim + foot + starship.
+sway/niri + waybar + gtklock + tiny-wmenush + kanata + nvim + foot + starship.
 Catppuccin Mocha throughout.
 
 ## What's inside
@@ -11,7 +11,7 @@ Catppuccin Mocha throughout.
 | [niri](https://github.com/YaLTeR/niri) | `niri/config.kdl` — patched build support |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
 | [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `style.css` + `layout.xml` |
-| wmenush | Overlay menu (rofi replacement). Companion scripts: `wm-launcher`, `wm-volmixer`, `wm-network`, `wm-alias`, `set-wallpaper` |
+| tiny-wmenush | Overlay menu (rofi replacement). Companion scripts: `tm-launcher`, `tm-volmixer`, `tm-network`, `tm-alias`, `set-wallpaper` |
 | [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — CapsLock layer-tap keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
@@ -40,11 +40,11 @@ The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 2. **Paths** — ensures `~/.local/bin` is in PATH for login shells
 3. **Config linking** — symlinks starship, nvim, foot, sway/niri, gtklock, waybar
 4. **Kanata** — offers to download from GitHub if missing, generates systemd service
-5. **Wmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: wm-volmixer needs pactl, wm-network needs nmcli, set-wallpaper needs swaybg; wm-alias bash-only skips on fish systems)
+5. **Tiny-wmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: tm-volmixer needs pactl, tm-network needs nmcli, set-wallpaper needs swaybg; tm-alias bash-only skips on fish systems)
 6. **Wallpapers** — symlinks wallz submodule to `~/Pictures/wallpapers`
 7. **WM configs** — generates machine-specific sway/niri configs (outputs, wallpaper, keybinds)
 8. **File management** — offers to install termfilebrowser from GitHub
-9. **Proxy** — migrates old `~/.config/rofi-network` → `~/.config/wm-network`, sets up shell sourcing
+9. **Proxy** — migrates old `~/.config/rofi-network` → `~/.config/tm-network`, sets up shell sourcing
 
 Each script checks which tools are actually installed and skips configs for missing ones.
 
@@ -71,11 +71,11 @@ The bootstrap installs these companion scripts:
 
 | Script | Depends on | Description |
 |--------|-----------|-------------|
-| `wm-launcher` | — | Desktop launcher — parses `.desktop` files with icon resolution |
-| `wm-volmixer` | pactl | Audio sink/source/app volume and mute control |
-| `wm-network` | nmcli | Network manager — WiFi scan/connect, proxy config |
+| `tm-launcher` | — | Desktop launcher — parses `.desktop` files with icon resolution |
+| `tm-volmixer` | pactl | Audio sink/source/app volume and mute control |
+| `tm-network` | nmcli | Network manager — WiFi scan/connect, proxy config |
 | `set-wallpaper` | swaybg | Set wallpaper from selected image |
-| `wm-alias` | bash | Alias manager — add/edit/delete aliases via wmenush, bash only |
+| `tm-alias` | bash | Alias manager — add/edit/delete aliases via tiny-wmenush, bash only |
 
 ## Sway
 
@@ -86,9 +86,9 @@ Includes a resize mode (`$mod+r`) that temporarily highlights focused windows
 in red (`#f38ba8`). Exit with Enter or Escape.
 
 Keybinds generated at bootstrap time in `utilities.g`:
-- `$mod+d` — Application launcher (wm-launcher)
-- `$mod+Ctrl+w` — Wallpaper picker (wm-image | set-wallpaper)
-- `$mod+BackSpace` — Volume mixer (wm-volmixer)
+- `$mod+d` — Application launcher (tm-launcher)
+- `$mod+Ctrl+w` — Wallpaper picker (tm-image | set-wallpaper)
+- `$mod+BackSpace` — Volume mixer (tm-volmixer)
 - Media keys — Volume, playback, brightness (gated by pactl/playerctl/brightnessctl)
 - `$mod+r` — Resize mode
 - `$mod+Shift+e` — Exit sway (with confirmation)
@@ -157,7 +157,7 @@ bootstrap time using the detected binary path.
 
 Bootstrap offers to install termfilebrowser, a TUI file browser with Neovim
 integration (`<leader>e`, `<leader>E`). The binary is downloaded from the
-dotfiles GitHub releases, same pattern as wmenush and kanata.
+dotfiles GitHub releases, same pattern as tiny-wmenush and kanata.
 
 ## Notes
 

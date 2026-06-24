@@ -2,8 +2,8 @@
 set -u
 
 dir="$HOME/Pictures/wallpapers"
-theme="$HOME/.config/wmenush/theme-wallpaper.toml"
-mode="center"
+theme="$HOME/.config/tiny-wmenush/theme-wallpaper.toml"
+mode="fit"
 sep=$'\x1f'
 
 while getopts "d:c:m:" opt; do
@@ -54,7 +54,7 @@ while true; do
     for i in "${!ids[@]}"; do
       printf '%s\n' "${labels[$i]}"
     done
-  } | wmenush -c "$theme" -p "$(basename "$dir")")
+  } | tiny-wmenush -c "$theme" -p "$(basename "$dir")")
 
   # Escape — go up or exit at start_dir
   if [[ -z "$selected" ]]; then
@@ -77,6 +77,6 @@ while true; do
   # ------ Phase 2: Preview mode ------
   [[ ${#images[@]} -eq 0 ]] && continue
 
-  result=$(wm-preview -m "$mode" -c "$theme" -i "$action" "${images[@]}")
+  result=$(tm-preview -m "$mode" -c "$theme" -i "$action" "${images[@]}")
   [[ -n "$result" ]] && { echo "$result"; exit 0; }
 done

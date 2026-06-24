@@ -62,7 +62,7 @@ cat << EOF
    Add to /etc/sudoers for waybar power controls:
      $(whoami) ALL=(ALL) NOPASSWD: /sbin/shutdown, /sbin/reboot
 
-3. If using wm-network proxy:
+3. If using tm-network proxy:
    Add to /etc/sudoers to preserve proxy env vars:
      Defaults env_keep += "http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
                            no_proxy NO_PROXY all_proxy ALL_PROXY"

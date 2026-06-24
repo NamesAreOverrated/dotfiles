@@ -44,8 +44,8 @@
     "format-disconnected": "󰖪  offline",
     "tooltip-format-wifi": "{essid} ({signalStrength}%)  {ipaddr}\n{ifname}",
     "tooltip-format-ethernet": "{ipaddr}  {ifname}",
-    "on-click": "~/.local/bin/wm-network",
-    "on-click-right":"~/.local/bin/wm-network",
+    "on-click": "~/.local/bin/tm-network",
+    "on-click-right":"~/.local/bin/tm-network",
     "interval": 5
   },
   "disk": {
@@ -79,7 +79,7 @@
       "default": ["󰕿", "󰖀", "󰕾"]
     },
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-    "on-click-right": "~/.local/bin/wm-volmixer",
+    "on-click-right": "~/.local/bin/tm-volmixer",
     "scroll-step": 5
   },
   "pulseaudio#input": {
@@ -87,7 +87,7 @@
     "format-source": "󰍬",
     "format-source-muted": "󰍭",
     "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-    "on-click-right": "~/.local/bin/wm-volmixer",
+    "on-click-right": "~/.local/bin/tm-volmixer",
   },
   "custom/containers": {
   "format": " {}",

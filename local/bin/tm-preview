@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-theme="$HOME/.config/wmenush/theme-wallpaper.toml"
+theme="$HOME/.config/tiny-wmenush/theme-wallpaper.toml"
 init_img=""
 mode="center"
 sep=$'\x1f'
@@ -15,7 +15,7 @@ while getopts "i:c:m:" opt; do
 done
 shift $((OPTIND - 1))
 
-[[ -z "$init_img" ]] && { echo "wm-preview: -i <path> required" >&2; exit 1; }
+[[ -z "$init_img" ]] && { echo "tm-preview: -i <path> required" >&2; exit 1; }
 
 # Collect paths: remaining args, or stdin
 paths=()
@@ -38,7 +38,7 @@ done
 while true; do
   img="${paths[$current]}"
   result=$(printf '\x00\n%.0s' {1..5} \
-    | wmenush -n --key-output $'pn\n' --bg "$img" --bg-mode "$mode" -c "$theme" \
+    | tiny-wmenush -n --key-output $'pn\n' --bg "$img" --bg-mode "$mode" -c "$theme" \
         -p "$(basename "$img")")
   rc=$?
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# wm-alias — manage bash aliases via wmenush
+# tm-alias — manage bash aliases via tiny-wmenush
 set -u
 
 eval "$(~/.local/bin/config-env)"
 
-WMENUSH="wmenush"
+WMENUSH="tiny-wmenush"
 BASHRC="$HOME/.bashrc"
 
 NAMES=()
@@ -46,8 +46,8 @@ add_alias() {
   [[ -z "$cmd" ]] && return
 
   local escaped="${cmd//\'/\'\\\'\'}"
-  grep -q '^# --- wm-alias ---' "$BASHRC" 2>/dev/null || {
-    printf '\n# --- wm-alias ---\n' >> "$BASHRC"
+  grep -q '^# --- tm-alias ---' "$BASHRC" 2>/dev/null || {
+    printf '\n# --- tm-alias ---\n' >> "$BASHRC"
   }
   printf "alias %s='%s'\n" "$name" "$escaped" >> "$BASHRC"
   echo "Added: alias $name='$cmd'"

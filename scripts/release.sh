@@ -26,7 +26,7 @@ add_target() {
     fi
 }
 
-add_target "wmenush"        ~/.local/bin/wmenush
+add_target "tiny-wmenush"        ~/.local/bin/tiny-wmenush
 add_target "termfilebrowser" ~/.local/bin/termfilebrowser
 add_target "niri"           /usr/bin/niri
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WMENUSH="wmenush"
+WMENUSH="tiny-wmenush"
 
 _V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _P="󰏫"; _S="󰓡"; _B="󰑐"
 
@@ -47,7 +47,7 @@ pick_sink() {
   local prompt="${1:-Select output}"
   local sinks
   sinks=$(list_sinks)
-  [[ -z "$sinks" ]] && { notify-send "wm-volmixer" "No sinks found"; exit 1; }
+  [[ -z "$sinks" ]] && { notify-send "tm-volmixer" "No sinks found"; exit 1; }
   local default_name
   default_name=$(pactl get-default-sink 2>/dev/null)
   local items=()
@@ -76,7 +76,7 @@ pick_source() {
   local prompt="${1:-Select mic}"
   local sources
   sources=$(list_sources)
-  [[ -z "$sources" ]] && { notify-send "wm-volmixer" "No mics found"; exit 1; }
+  [[ -z "$sources" ]] && { notify-send "tm-volmixer" "No mics found"; exit 1; }
   local default_name
   default_name=$(pactl get-default-source 2>/dev/null)
   local items=()
@@ -221,7 +221,7 @@ case "$page" in
       done <<< "$app_entries"
     fi
 
-    [[ ${#ids[@]} -eq 0 ]] && { notify-send "wm-volmixer" "No audio streams"; exit 1; }
+    [[ ${#ids[@]} -eq 0 ]] && { notify-send "tm-volmixer" "No audio streams"; exit 1; }
 
     selected=$({
       printf '\x00── Devices ──\n'
