@@ -608,8 +608,10 @@ do
 	vim.api.nvim_set_hl(0, "@method", { link = "@function" })
 	vim.api.nvim_set_hl(0, "@constructor", { link = "@function" })
 	vim.api.nvim_set_hl(0, "@function.method", { link = "@function" })
+
 	vim.api.nvim_set_hl(0, "@function.method.call", { italic = true })
-	vim.api.nvim_set_hl(0, "@function.builtin", { italic = true, bold = true })
+	vim.api.nvim_set_hl(0, "@function.builtin", { italic = true })
+	vim.api.nvim_set_hl(0, "@function.macro", { italic = true })
 
 	-- yellow: strings
 	vim.api.nvim_set_hl(0, "@string", { fg = "#f5c2e7" })
@@ -635,47 +637,47 @@ do
 	vim.api.nvim_set_hl(0, "LspReferenceWrite", { bg = "#313244" })
 
 	-- C# semantic token colors
-	vim.api.nvim_create_autocmd("LspAttach", {
-		group = vim.api.nvim_create_augroup("csharp-colors", { clear = true }),
-		callback = function(ev)
-			if vim.bo[ev.buf].filetype ~= "cs" then
-				return
-			end
-			-- steel blue: class
-			-- vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#6aa0d0" })
-			vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#89b4fa" })
-			-- sky: struct
-			vim.api.nvim_set_hl(0, "@lsp.type.struct", { fg = "#89dceb" })
-			-- medium green: delegate
-			vim.api.nvim_set_hl(0, "@lsp.type.delegate", { fg = "#7ecb8e" })
-			-- yellow-green: event
-			vim.api.nvim_set_hl(0, "@lsp.type.event", { fg = "#9ece6a" })
-			-- mint: methods
-			--vim.api.nvim_set_hl(0, "@lsp.type.method", { fg = "#a6e3a1" })
-			-- green-teal: interface
-			vim.api.nvim_set_hl(0, "@lsp.type.interface", { fg = "#8edbaa" })
-			-- maroon: fields
-			vim.api.nvim_set_hl(0, "@lsp.type.field", { fg = "#fab387", italic = true })
-			vim.api.nvim_set_hl(0, "@lsp.type.fieldName", { link = "@lsp.type.field" })
-			--vim.api.nvim_set_hl(0, "@variable.member", { italic = true })
-			vim.api.nvim_set_hl(0, "@lsp.mod.static", { italic = true })
+	-- vim.api.nvim_create_autocmd("LspAttach", {
+	-- 	group = vim.api.nvim_create_augroup("csharp-colors", { clear = true }),
+	-- 	callback = function(ev)
+	-- 		if vim.bo[ev.buf].filetype ~= "cs" then
+	-- 			return
+	-- 		end
+	-- steel blue: class
+	-- vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#6aa0d0" })
+	vim.api.nvim_set_hl(0, "@lsp.type.class", { fg = "#89b4fa" })
+	-- sky: struct
+	vim.api.nvim_set_hl(0, "@lsp.type.struct", { fg = "#89dceb" })
+	-- medium green: delegate
+	vim.api.nvim_set_hl(0, "@lsp.type.delegate", { fg = "#7ecb8e" })
+	-- yellow-green: event
+	vim.api.nvim_set_hl(0, "@lsp.type.event", { fg = "#9ece6a" })
+	-- mint: methods
+	--vim.api.nvim_set_hl(0, "@lsp.type.method", { fg = "#a6e3a1" })
+	-- green-teal: interface
+	vim.api.nvim_set_hl(0, "@lsp.type.interface", { fg = "#8edbaa" })
+	-- maroon: fields
+	vim.api.nvim_set_hl(0, "@lsp.type.field", { fg = "#fab387", italic = true })
+	vim.api.nvim_set_hl(0, "@lsp.type.fieldName", { link = "@lsp.type.field" })
+	--vim.api.nvim_set_hl(0, "@variable.member", { italic = true })
+	vim.api.nvim_set_hl(0, "@lsp.mod.static", { italic = true })
 
-			-- red: globals
-			vim.api.nvim_set_hl(0, "@variable.global", { link = "@lsp.type.field" })
-			-- peach: constants
-			vim.api.nvim_set_hl(0, "@lsp.type.constant", { link = "@constant" })
-			vim.api.nvim_set_hl(0, "@lsp.type.constantName", { link = "@constant" })
-			-- lavender: parameters
-			vim.api.nvim_set_hl(0, "@lsp.type.parameter", { fg = "#eba0ac" })
-			-- light gray-blue: namespace
-			vim.api.nvim_set_hl(0, "@lsp.type.namespace", { fg = "#a9b1d6" })
-			-- pale rose: enums
-			vim.api.nvim_set_hl(0, "@lsp.type.enum", { fg = "#f5e0dc" })
-			vim.api.nvim_set_hl(0, "@lsp.type.enumMember", { fg = "#f2cdcd" })
-			-- yellow: type parameter (follows string color)
-			vim.api.nvim_set_hl(0, "@lsp.type.typeParameter", { link = "@string" })
-		end,
-	})
+	-- red: globals
+	vim.api.nvim_set_hl(0, "@variable.global", { link = "@lsp.type.field" })
+	-- peach: constants
+	vim.api.nvim_set_hl(0, "@lsp.type.constant", { link = "@constant" })
+	vim.api.nvim_set_hl(0, "@lsp.type.constantName", { link = "@constant" })
+	-- lavender: parameters
+	vim.api.nvim_set_hl(0, "@lsp.type.parameter", { fg = "#eba0ac" })
+	-- light gray-blue: namespace
+	vim.api.nvim_set_hl(0, "@lsp.type.namespace", { fg = "#a9b1d6" })
+	-- pale rose: enums
+	vim.api.nvim_set_hl(0, "@lsp.type.enum", { fg = "#f5e0dc" })
+	vim.api.nvim_set_hl(0, "@lsp.type.enumMember", { fg = "#f2cdcd" })
+	-- yellow: type parameter (follows string color)
+	vim.api.nvim_set_hl(0, "@lsp.type.typeParameter", { link = "@string" })
+	-- 	end,
+	-- })
 
 	-- Highlight todo, notes, etc in comments
 	vim.pack.add({ gh("folke/todo-comments.nvim") })
