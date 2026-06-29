@@ -263,7 +263,7 @@ do
 			local buf = vim.api.nvim_create_buf(false, true)
 			win = vim.api.nvim_open_win(buf, true, { split = "right", width = 40 })
 		end
-		local cmd = "termfilebrowser --output-file " .. outfile
+		local cmd = "termfilebrowser --step-into --output-file " .. outfile
 		if dir then
 			cmd = cmd .. " " .. vim.fn.shellescape(dir)
 		end
@@ -948,6 +948,10 @@ do
 				vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
 			end
 
+			-- Hover
+			map("grh", vim.lsp.buf.hover, "[H]over")
+			map("grs", vim.lsp.buf.signature_help, "[S]ignature_help")
+
 			-- Rename the variable under your cursor across the entire project.
 			map("grn", vim.lsp.buf.rename, "[R]e[n]ame")
 			map("<F2>", vim.lsp.buf.rename, "Rename")
@@ -1006,7 +1010,7 @@ do
 	--  See `:help lsp-config` for information about keys and how to configure
 	---@type table<string, vim.lsp.Config>
 	local servers = {
-		-- clangd = {},
+		clangd = {},
 		-- gopls = {},
 		-- pyright = {},
 		rust_analyzer = {},
