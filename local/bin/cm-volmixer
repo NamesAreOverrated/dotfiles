@@ -1,0 +1,380 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WMENUSH="tiny-cmenush"
+
+_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _P="󰏫"; _S="󰓡"; _B="󰑐"
+
+list_sinks() {
+  pactl list sinks 2>/dev/null | awk '
+    BEGIN { RS=""; FS="\n" }
+    /Sink #[0-9]+/ {
+      id=""; desc=""
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /Sink #[0-9]+/) {
+          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+        }
+        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
+          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
+        }
+      }
+      if (id != "" && desc != "")
+        print id " " desc
+    }
+  '
+}
+
+list_sources() {
+  pactl list sources 2>/dev/null | awk '
+    BEGIN { RS=""; FS="\n" }
+    /Source #[0-9]+/ {
+      id=""; desc=""
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /Source #[0-9]+/) {
+          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+        }
+        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
+          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
+        }
+      }
+      if (id != "" && desc != "" && desc !~ /Monitor/)
+        print id " " desc
+    }
+  '
+}
+
+pick_sink() {
+  local prompt="${1:-Select output}"
+  local sinks
+  sinks=$(list_sinks)
+  [[ -z "$sinks" ]] && { notify-send "cm-volmixer" "No sinks found"; exit 1; }
+  local default_name
+  default_name=$(pactl get-default-sink 2>/dev/null)
+  local items=()
+  while IFS='' read -r line; do
+    local id desc short
+    id=$(echo "$line" | awk '{print $1}')
+    desc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+    short=$(shorten_name "$desc")
+    if pactl list sinks 2>/dev/null | grep -A20 "^Sink #$id" | grep -q "Name: $default_name"; then
+      items+=("* $short")
+    else
+      items+=("  $short")
+    fi
+  done <<< "$sinks"
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "$prompt" --format i) || true
+  [[ -z "$selected" ]] && return 1
+  local idx=0
+  while IFS='' read -r line; do
+    [[ "$idx" -eq "$selected" ]] && { echo "$line" | awk '{print $1}'; break; }
+    ((idx++))
+  done <<< "$sinks"
+}
+
+pick_source() {
+  local prompt="${1:-Select mic}"
+  local sources
+  sources=$(list_sources)
+  [[ -z "$sources" ]] && { notify-send "cm-volmixer" "No mics found"; exit 1; }
+  local default_name
+  default_name=$(pactl get-default-source 2>/dev/null)
+  local items=()
+  while IFS='' read -r line; do
+    local id desc short
+    id=$(echo "$line" | awk '{print $1}')
+    desc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+    short=$(shorten_name "$desc")
+    if pactl list sources 2>/dev/null | grep -A20 "^Source #$id" | grep -q "Name: $default_name"; then
+      items+=("* $short")
+    else
+      items+=("  $short")
+    fi
+  done <<< "$sources"
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "$prompt" --format i) || true
+  [[ -z "$selected" ]] && return 1
+  local idx=0
+  while IFS='' read -r line; do
+    [[ "$idx" -eq "$selected" ]] && { echo "$line" | awk '{print $1}'; break; }
+    ((idx++))
+  done <<< "$sources"
+}
+
+shorten_name() {
+  local name="$1"
+  local short
+  short=$(echo "$name" | grep -oP '/ \K[^/]+?(?= \()' | head -1)
+  [[ -z "$short" ]] && short="$name"
+  echo "$short" | sed 's/^ *//;s/ *$//'
+}
+
+get_sink_status() {
+  local name="$1"
+  pactl list sinks 2>/dev/null | awk -v n="$name" '
+    BEGIN { RS=""; FS="\n" }
+    $0 ~ "Name: " n {
+      desc=""; vol=""; mute="no"
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
+          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
+        }
+        if ($i ~ /^[[:space:]]*Volume:/) {
+          match($i, /[0-9]+%/); vol = substr($i, RSTART, RLENGTH - 1)
+        }
+        if ($i ~ /^[[:space:]]*Mute:/) {
+          gsub(/^[[:space:]]*Mute:[[:space:]]*/, "", $i); mute=$i
+        }
+      }
+      m = (mute ~ /^yes$/) ? "MUTED" : ""
+      print desc "|" vol "|" m
+    }'
+}
+
+get_source_status() {
+  local name="$1"
+  pactl list sources 2>/dev/null | awk -v n="$name" '
+    BEGIN { RS=""; FS="\n" }
+    $0 ~ "Name: " n {
+      desc=""; vol=""; mute="no"
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /^[[:space:]]*Description:[[:space:]]/) {
+          gsub(/^[[:space:]]*Description:[[:space:]]*/, "", $i); desc=$i
+        }
+        if ($i ~ /^[[:space:]]*Volume:/) {
+          match($i, /[0-9]+%/); vol = substr($i, RSTART, RLENGTH - 1)
+        }
+        if ($i ~ /^[[:space:]]*Mute:/) {
+          gsub(/^[[:space:]]*Mute:[[:space:]]*/, "", $i); mute=$i
+        }
+      }
+      if (desc !~ /Monitor/) {
+        m = (mute ~ /^yes$/) ? "MUTED" : ""
+        print desc "|" vol "|" m
+      }
+    }'
+}
+
+custom_vol_prompt() {
+  local cur_val="${1:-}"
+  printf '\x00Current: %s\n' "$cur_val" | $WMENUSH -p "Volume % (0-100)" --input-fallback -l 1 || true
+}
+
+# ── State machine ──
+
+page="main"
+
+while true; do
+
+case "$page" in
+
+  main)
+    # ── Collect data ──
+    declare -a ids=() labels=()
+
+    def_sink_name=$(pactl get-default-sink 2>/dev/null)
+    def_sink_desc=""; def_sink_vol=""; def_sink_mute=""
+    IFS='|' read -r def_sink_desc def_sink_vol def_sink_mute <<< "$(get_sink_status "$def_sink_name")"
+    short=$(shorten_name "$def_sink_desc")
+    ids+=("__sink_menu__"); labels+=("${_V}  ${short} [${def_sink_vol}]${def_sink_mute:+  ${_X}}  ▶")
+
+    def_src_name=$(pactl get-default-source 2>/dev/null)
+    def_src_desc=""; def_src_vol=""; def_src_mute=""
+    IFS='|' read -r def_src_desc def_src_vol def_src_mute <<< "$(get_source_status "$def_src_name")"
+    short=$(shorten_name "$def_src_desc")
+    ids+=("__source_menu__"); labels+=("${_N}  ${short} [${def_src_vol}]${def_src_mute:+  ${_X}}  ▶")
+
+    declare -A sink_map
+    while IFS='' read -r line; do
+      sid=$(echo "$line" | awk '{print $1}')
+      sdesc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+      sink_map[$sid]=$(shorten_name "$sdesc")
+    done < <(list_sinks)
+
+    app_entries=$(pactl list sink-inputs 2>/dev/null | awk '
+      BEGIN { RS=""; FS="\n" }
+      /Sink Input #[0-9]+/ {
+        id=""; sink=""; name=""; vol=""; mute="no"
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /Sink Input #/) {
+            gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+          }
+          if ($i ~ /Sink:/) { gsub(/^.*Sink: */, "", $i); sink=$i }
+          if ($i ~ /application.name = ".*"/) {
+            gsub(/.*application.name = "|".*/, "", $i); name=$i
+            gsub(/^PipeWire ALSA \[|\]$/, "", name)
+          }
+          if ($i ~ /Volume:/) { match($i, /[0-9]+%/); vol=substr($i,RSTART,RLENGTH-1) }
+          if ($i ~ /Mute:/) { gsub(/^.*Mute: */, "", $i); mute=$i }
+        }
+        if (id != "" && name != "") {
+          m = (mute ~ /^yes$/) ? "MUTED" : ""
+          print id "|" sink "|" name "|" vol "|" m
+        }
+      }')
+
+    if [[ -n "$app_entries" ]]; then
+      while IFS='|' read -r id sink name app_vol app_mute; do
+        sname="${sink_map[$sink]:-$sink}"
+        ids+=("$id")
+        labels+=("${_A}  ${name} [${app_vol}]${app_mute:+  ${_X}} → ${sname}")
+      done <<< "$app_entries"
+    fi
+
+    [[ ${#ids[@]} -eq 0 ]] && { notify-send "cm-volmixer" "No audio streams"; exit 1; }
+
+    selected=$({
+      printf '\x00── Devices ──\n'
+      for i in "${!ids[@]}"; do
+        printf '%s\n' "${labels[$i]}"
+        if [[ "${ids[$i]}" == "__sink_menu__" ]]; then
+          :
+        elif [[ "${ids[$i]}" == "__source_menu__" ]]; then
+          printf '\x00── Streams ──\n'
+        fi
+      done
+    } | $WMENUSH -p "Volume") || true
+    [[ -z "$selected" ]] && exit 0
+
+    target=""
+    for i in "${!ids[@]}"; do
+      [[ "${labels[$i]}" == "$selected" ]] && { target="${ids[$i]}"; break; }
+    done
+    [[ -z "$target" ]] && continue
+
+    case "$target" in
+      __sink_menu__)   page="sink_menu"   ;;
+      __source_menu__) page="source_menu" ;;
+      *)               page="app_menu:$target" ;;
+    esac
+    ;;
+
+  sink_menu)
+    name=$(pactl get-default-sink 2>/dev/null)
+    IFS='|' read -r desc vol mute <<< "$(get_sink_status "$name")"
+    short=$(shorten_name "$desc")
+    header="${_V}  ${short} [${vol}]${mute:+  ${_X}}"
+    mute_label="${mute:+${_V}  Unmute}"; mute_label="${mute_label:-${_M}  Mute}"
+
+    sel=$(printf '%s\n' \
+      "${_S}  Switch device" \
+      "${mute_label}" \
+      "25%" \
+      "50%" \
+      "75%" \
+      "100%" \
+      "${_P}  [${vol}]" \
+      | $WMENUSH -p "$header") || true
+    [[ -z "$sel" ]] && { page="main"; continue; }
+
+    case "$sel" in
+      "${_S}  Switch device")
+        id=$(pick_sink "Switch output") || true
+        [[ -n "$id" ]] && pactl set-default-sink "$id"
+        ;;
+      "${_M}  Mute"|"${_V}  Unmute")       pactl set-sink-mute @DEFAULT_SINK@ toggle  ;;
+      "25%")            pactl set-sink-volume @DEFAULT_SINK@ 25%   ;;
+      "50%")            pactl set-sink-volume @DEFAULT_SINK@ 50%   ;;
+      "75%")            pactl set-sink-volume @DEFAULT_SINK@ 75%   ;;
+      "100%")           pactl set-sink-volume @DEFAULT_SINK@ 100%  ;;
+      "${_P}"*)
+        v=$(custom_vol_prompt "$vol") || true
+        [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-sink-volume @DEFAULT_SINK@ "${v}%"
+        ;;
+    esac
+    ;;
+
+  source_menu)
+    name=$(pactl get-default-source 2>/dev/null)
+    IFS='|' read -r desc vol mute <<< "$(get_source_status "$name")"
+    short=$(shorten_name "$desc")
+    header="${_N}  ${short} [${vol}]${mute:+  ${_X}}"
+    mute_label="${mute:+${_V}  Unmute}"; mute_label="${mute_label:-${_M}  Mute}"
+
+    sel=$(printf '%s\n' \
+      "${_S}  Switch device" \
+      "${mute_label}" \
+      "25%" \
+      "50%" \
+      "75%" \
+      "100%" \
+      "${_P}  [${vol}]" \
+      | $WMENUSH -p "$header") || true
+    [[ -z "$sel" ]] && { page="main"; continue; }
+
+    case "$sel" in
+      "${_S}  Switch device")
+        id=$(pick_source "Switch mic") || true
+        [[ -n "$id" ]] && pactl set-default-source "$id"
+        ;;
+      "${_M}  Mute"|"${_V}  Unmute")       pactl set-source-mute @DEFAULT_SOURCE@ toggle  ;;
+      "25%")            pactl set-source-volume @DEFAULT_SOURCE@ 25%   ;;
+      "50%")            pactl set-source-volume @DEFAULT_SOURCE@ 50%   ;;
+      "75%")            pactl set-source-volume @DEFAULT_SOURCE@ 75%   ;;
+      "100%")           pactl set-source-volume @DEFAULT_SOURCE@ 100%  ;;
+      "${_P}"*)
+        v=$(custom_vol_prompt "$vol") || true
+        [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-source-volume @DEFAULT_SOURCE@ "${v}%"
+        ;;
+    esac
+    ;;
+
+  app_menu:*)
+    id="${page#*:}"
+    app_info=$(pactl list sink-inputs 2>/dev/null | awk -v i="$id" '
+      BEGIN { RS=""; FS="\n" }
+      /Sink Input #[0-9]+/ {
+        cur=""; n=""; s=""; v=""; m="no"
+        for (j=1; j<=NF; j++) {
+          if ($j ~ /Sink Input #/) {
+            gsub(/.*#/, "", $j); gsub(/[^0-9].*/, "", $j); cur=$j
+          }
+          if ($j ~ /application.name = ".*"/) {
+            gsub(/.*application.name = "|".*/, "", $j); n=$j
+            gsub(/^PipeWire ALSA \[|\]$/, "", n)
+          }
+          if ($j ~ /Sink:/) { gsub(/^.*Sink: */, "", $j); s=$j }
+          if ($j ~ /Volume:/) { match($j, /[0-9]+%/); v=substr($j,RSTART,RLENGTH-1) }
+          if ($j ~ /Mute:/) { gsub(/^.*Mute: */, "", $j); m=$j }
+        }
+        if (cur == i) {
+          mu = (m ~ /^yes$/) ? "MUTED" : ""
+          print n "|" s "|" v "|" mu
+        }
+      }')
+    IFS='|' read -r app_name app_sink app_vol app_mute <<< "$app_info"
+    sname="${sink_map[$app_sink]:-$app_sink}"
+    header="${_A}  ${app_name} [${app_vol}]${app_mute:+  ${_X}} → ${sname}"
+    mute_label="${app_mute:+${_V}  Unmute}"; mute_label="${mute_label:-${_M}  Mute}"
+
+    sel=$(printf '%s\n' \
+      "${_S}  Switch device" \
+      "${mute_label}" \
+      "25%" \
+      "50%" \
+      "75%" \
+      "100%" \
+      "${_P}  [${app_vol}]" \
+      | $WMENUSH -p "$header") || true
+    [[ -z "$sel" ]] && { page="main"; continue; }
+
+    case "$sel" in
+      "${_S}  Switch device")
+        target=$(pick_sink "Move to") || true
+        [[ -n "$target" ]] && pactl move-sink-input "$id" "$target"
+        ;;
+      "${_M}  Mute"|"${_V}  Unmute")         pactl set-sink-input-mute "$id" toggle  ;;
+      "25%")              pactl set-sink-input-volume "$id" 25%   ;;
+      "50%")              pactl set-sink-input-volume "$id" 50%   ;;
+      "75%")              pactl set-sink-input-volume "$id" 75%   ;;
+      "100%")             pactl set-sink-input-volume "$id" 100%  ;;
+      "${_P}"*)
+        v=$(custom_vol_prompt "$app_vol") || true
+        [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-sink-input-volume "$id" "${v}%"
+        ;;
+    esac
+    ;;
+
+esac
+
+done

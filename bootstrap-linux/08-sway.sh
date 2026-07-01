@@ -44,7 +44,7 @@ echo "  Generated ~/.config/sway/local/wallpaper"
     fi
 
     if has swaybg && [ -x "$HOME/.local/libexec/set-wallpaper" ]; then
-        echo "bindsym \$mod+Ctrl+w exec sh -c 'tm-image -m cover | ~/.local/libexec/set-wallpaper'"
+        echo "bindsym \$mod+Ctrl+w exec sh -c 'cm-image -m cover | ~/.local/libexec/set-wallpaper'"
     fi
 
     if has pactl; then
@@ -54,12 +54,12 @@ echo "  Generated ~/.config/sway/local/wallpaper"
         echo "bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle"
     fi
 
-    if has tm-volmixer; then
-        echo "bindsym \$mod+BackSpace exec ~/.local/bin/tm-volmixer"
+    if has cm-volmixer; then
+        echo "bindsym \$mod+BackSpace exec ~/.local/bin/cm-volmixer"
     fi
 
-    if has tm-alias; then
-        echo "bindsym \$mod+a exec ~/.local/bin/tm-alias"
+    if has cm-alias; then
+        echo "bindsym \$mod+a exec ~/.local/bin/cm-alias"
     fi
 
     if has swayidle && has powerctl; then

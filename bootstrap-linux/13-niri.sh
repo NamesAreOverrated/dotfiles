@@ -73,8 +73,8 @@ fi
         echo "    Mod+Return hotkey-overlay-title=\"Open a Terminal\" { spawn \"$TERMINAL\"; }"
     fi
 
-    if has tm-launcher; then
-        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "tm-launcher"; }'
+    if has cm-launcher; then
+        echo '    Mod+D hotkey-overlay-title="Run an Application" { spawn "cm-launcher"; }'
     fi
 
     if has powerctl; then
@@ -105,15 +105,15 @@ fi
     fi
 
     if has swaybg && [ -x "$HOME/.local/libexec/set-wallpaper" ]; then
-        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn-sh "tm-image -m cover | ~/.local/libexec/set-wallpaper"; }'
+        echo '    Mod+Ctrl+W hotkey-overlay-title="Change Wallpaper" { spawn-sh "cm-image -m cover | ~/.local/libexec/set-wallpaper"; }'
     fi
 
-    if has tm-volmixer; then
-        echo '    Mod+BackSpace hotkey-overlay-title="Volume Mixer" { spawn "tm-volmixer"; }'
+    if has cm-volmixer; then
+        echo '    Mod+BackSpace hotkey-overlay-title="Volume Mixer" { spawn "cm-volmixer"; }'
     fi
 
-    if has tm-alias; then
-        echo '    Mod+A hotkey-overlay-title="Manage Aliases" { spawn "tm-alias"; }'
+    if has cm-alias; then
+        echo '    Mod+A hotkey-overlay-title="Manage Aliases" { spawn "cm-alias"; }'
     fi
 
     echo "}"

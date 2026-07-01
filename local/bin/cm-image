@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -u
+
+dir="$HOME/Pictures/wallpapers"
+theme="$HOME/.config/tiny-cmenush/wallpaper.theme"
+mode="fit"
+sep=$'\x1f'
+
+while getopts "d:c:m:" opt; do
+  case $opt in
+    d) dir="$OPTARG" ;;
+    c) theme="$OPTARG" ;;
+    m) mode="$OPTARG" ;;
+  esac
+done
+shift $((OPTIND - 1))
+[[ $# -gt 0 ]] && dir="$1"
+start_dir="$dir"
+
+while true; do
+  ids=() labels=() images=()
+
+  # Subdirectories (first image as thumbnail)
+  for f in "$dir"/*/; do
+    [ -d "$f" ] || continue
+    name=$(basename "$f")
+    first=$(find "$f" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) 2>/dev/null | head -1)
+    [ -z "$first" ] && continue
+    ids+=("$f")
+    labels+=(" 󰉋 $name 󰅂${sep}$first")
+  done
+
+  # Image files
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+    case "${name##*.}" in
+      png|jpg|jpeg|PNG|JPG|JPEG)
+        ids+=("$f")
+        labels+=(" 󰋩 $name${sep}$f")
+        images+=("$f")
+        ;;
+    esac
+  done
+
+  # Empty dir — go up if possible
+  if [[ ${#ids[@]} -eq 0 ]]; then
+    [[ "$dir" == "$start_dir" ]] && exit 0
+    dir="$(dirname "$dir")"
+    continue
+  fi
+
+  selected=$({
+    for i in "${!ids[@]}"; do
+      printf '%s\n' "${labels[$i]}"
+    done
+  } | tiny-cmenush -c "$theme" -p "$(basename "$dir")")
+
+  # Escape — go up or exit at start_dir
+  if [[ -z "$selected" ]]; then
+    [[ "$dir" == "$start_dir" ]] && exit 0
+    dir="$(dirname "$dir")"
+    continue
+  fi
+
+  # Match label back to full path
+  action=""
+  for i in "${!labels[@]}"; do
+    label="${labels[$i]%%$sep*}"
+    [[ "$label" == "$selected" ]] && { action="${ids[$i]}"; break; }
+  done
+  [[ -z "$action" ]] && continue
+
+  # Directory — go deeper
+  [ -d "$action" ] && { dir="$action"; continue; }
+
+  # ------ Phase 2: Preview mode ------
+  [[ ${#images[@]} -eq 0 ]] && continue
+
+  result=$(cm-preview -m "$mode" -c "$theme" -i "$action" "${images[@]}")
+  [[ -n "$result" ]] && { echo "$result"; exit 0; }
+done

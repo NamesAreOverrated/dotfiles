@@ -1,63 +1,63 @@
 #!/usr/bin/env bash
 
-# ── tiny-wmenush binary ──
+# ── tiny-cmenush binary ──
 
-if has tiny-wmenush; then
-    echo "  tiny-wmenush already installed"
+if has tiny-cmenush; then
+    echo "  tiny-cmenush already installed"
 else
-    printf "  Install tiny-wmenush? [y/N] "
+    printf "  Install tiny-cmenush? [y/N] "
     read -r ans
     if [[ "$ans" =~ ^[yY] ]]; then
         need curl || return
         mkdir -p "$HOME/.local/bin"
         if [ "$IS_MUSL" = 1 ]; then
-            ASSET="tiny-wmenush-musl"
+            ASSET="tiny-cmenush-musl"
         else
-            ASSET="tiny-wmenush-glibc"
+            ASSET="tiny-cmenush-glibc"
         fi
-        URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/tiny-wmenush-latest/$ASSET"
+        URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/tiny-cmenush-latest/$ASSET"
         echo "  Downloading $ASSET ..."
-        if curl -fsSL "$URL" -o "$HOME/.local/bin/tiny-wmenush"; then
-            chmod +x "$HOME/.local/bin/tiny-wmenush"
-            echo "  Downloaded to ~/.local/bin/tiny-wmenush"
+        if curl -fsSL "$URL" -o "$HOME/.local/bin/tiny-cmenush"; then
+            chmod +x "$HOME/.local/bin/tiny-cmenush"
+            echo "  Downloaded to ~/.local/bin/tiny-cmenush"
         else
             echo "  Download failed — release not yet available"
             echo "  Build from source:"
-            echo "    cd ~/Projects/tiny-wmenush && cargo build --release"
-            echo "    cp target/release/tiny-wmenush ~/.local/bin/"
+            echo "    cd ~/Projects/tiny-cmenush && ./build"
+            echo "    cp tiny-cmenush ~/.local/bin/"
         fi
     fi
 fi
 
 # ── Theme configs ──
 
-if [ -d "$DOTFILES/tiny-wmenush" ]; then
-    mkdir -p "$HOME/.config/tiny-wmenush"
-    for f in theme.toml theme-wallpaper.toml theme-launcher.toml; do
-        link "$DOTFILES/tiny-wmenush/$f" "$HOME/.config/tiny-wmenush/$f"
+if [ -d "$DOTFILES/tiny-cmenush" ]; then
+    mkdir -p "$HOME/.config/tiny-cmenush"
+    for f in default.theme wallpaper.theme launcher.theme; do
+        link "$DOTFILES/tiny-cmenush/$f" "$HOME/.config/tiny-cmenush/$f"
     done
 fi
 
 # ── Wrapper scripts ──
 
-link "$DOTFILES/local/bin/tm-launcher" "$HOME/.local/bin/tm-launcher"
-link "$DOTFILES/local/bin/tm-image" "$HOME/.local/bin/tm-image"
-link "$DOTFILES/local/bin/tm-preview" "$HOME/.local/bin/tm-preview"
+link "$DOTFILES/local/bin/cm-launcher" "$HOME/.local/bin/cm-launcher"
+link "$DOTFILES/local/bin/cm-image" "$HOME/.local/bin/cm-image"
+link "$DOTFILES/local/bin/cm-preview" "$HOME/.local/bin/cm-preview"
 
 # ── Launcher icons ──
 
-link "$DOTFILES/local/share/tm-launcher/icons" "$HOME/.local/share/tm-launcher/icons"
+link "$DOTFILES/local/share/cm-launcher/icons" "$HOME/.local/share/cm-launcher/icons"
 
 if has pactl; then
-    link "$DOTFILES/local/bin/tm-volmixer" "$HOME/.local/bin/tm-volmixer"
+    link "$DOTFILES/local/bin/cm-volmixer" "$HOME/.local/bin/cm-volmixer"
 else
-    echo "  Skipping tm-volmixer (pactl not found)"
+    echo "  Skipping cm-volmixer (pactl not found)"
 fi
 
 if has nmcli; then
-    link "$DOTFILES/local/bin/tm-network" "$HOME/.local/bin/tm-network"
+    link "$DOTFILES/local/bin/cm-network" "$HOME/.local/bin/cm-network"
 else
-    echo "  Skipping tm-network (nmcli not found)"
+    echo "  Skipping cm-network (nmcli not found)"
 fi
 
 if has swaybg; then
@@ -67,26 +67,32 @@ else
 fi
 
 if has fish; then
-    echo "  Skipping tm-alias (bash-only tool)"
+    echo "  Skipping cm-alias (bash-only tool)"
 else
-    link "$DOTFILES/local/bin/tm-alias" "$HOME/.local/bin/tm-alias"
+    link "$DOTFILES/local/bin/cm-alias" "$HOME/.local/bin/cm-alias"
 fi
 
 link "$DOTFILES/local/bin/config-env" "$HOME/.local/bin/config-env"
 
 # ── Proxy config ──
 
-CFG="$HOME/.config/tm-network"
+CFG="$HOME/.config/cm-network"
 
 # Migrate old rofi-network config
 if [ -f "$HOME/.config/rofi-network" ]; then
     if [ ! -f "$CFG" ]; then
         mv "$HOME/.config/rofi-network" "$CFG"
-        echo "  Migrated ~/.config/rofi-network → ~/.config/tm-network"
+        echo "  Migrated ~/.config/rofi-network → ~/.config/cm-network"
     else
         rm "$HOME/.config/rofi-network"
         echo "  Removed old ~/.config/rofi-network"
     fi
+fi
+
+# Migrate old tm-network config
+if [ -f "$HOME/.config/tm-network" ] && [ ! -f "$CFG" ]; then
+    mv "$HOME/.config/tm-network" "$CFG"
+    echo "  Migrated ~/.config/tm-network → ~/.config/cm-network"
 fi
 
 # Create default proxy config if none exists
@@ -131,8 +137,8 @@ fi
 # Migrate old rofi-network variable names in bashrc (if fish user ever had rofi)
 if [ -f "$HOME/.bashrc" ]; then
     sed -i \
-        -e 's|# Proxy config (managed by rofi-network)|# Proxy config (managed by tm-network)|' \
-        -e 's|ROFI_NET_CFG="$HOME/.config/rofi-network"|PROXY_CFG="$HOME/.config/tm-network"|' \
+        -e 's|# Proxy config (managed by rofi-network)|# Proxy config (managed by cm-network)|' \
+        -e 's|ROFI_NET_CFG="$HOME/.config/rofi-network"|PROXY_CFG="$HOME/.config/cm-network"|' \
         -e 's|if \[ -f "$ROFI_NET_CFG" \] && \[ "$(sed -n '\''2p'\'' "$ROFI_NET_CFG")" = "1" \];|if [ -f "$PROXY_CFG" ] \&\& [ "$(sed -n '\''2p'\'' "$PROXY_CFG")" = "1" ];|' \
         -e 's|PROXY="http://$(sed -n '\''1p'\'' "$ROFI_NET_CFG")"|PROXY="http://$(sed -n '\''1p'\'' "$PROXY_CFG")"|' \
         -e 's|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$ROFI_NET_CFG")"|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$PROXY_CFG")"|' \

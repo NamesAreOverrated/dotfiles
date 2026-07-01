@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -u
+
+theme="$HOME/.config/tiny-cmenush/wallpaper.theme"
+init_img=""
+mode="center"
+sep=$'\x1f'
+
+while getopts "i:c:m:" opt; do
+  case $opt in
+    i) init_img="$OPTARG" ;;
+    c) theme="$OPTARG" ;;
+    m) mode="$OPTARG" ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+[[ -z "$init_img" ]] && { echo "cm-preview: -i <path> required" >&2; exit 1; }
+
+# Collect paths: remaining args, or stdin
+paths=()
+if [[ $# -gt 0 ]]; then
+  paths=("$@")
+else
+  while IFS= read -r line; do
+    paths+=("$line")
+  done
+fi
+
+total=${#paths[@]}
+[[ $total -eq 0 ]] && exit 1
+
+current=0
+for i in "${!paths[@]}"; do
+  [[ "${paths[$i]}" == "$init_img" ]] && { current=$i; break; }
+done
+
+while true; do
+  img="${paths[$current]}"
+  result=$(printf '\x00\n%.0s' {1..5} \
+    | tiny-cmenush -n --key-output $'pn\n' --bg "$img" --bg-mode "$mode" -c "$theme" \
+        -p "$(basename "$img")")
+  rc=$?
+
+  case "$result" in
+    p) current=$(( (current - 1 + total) % total )) ;;
+    n) current=$(( (current + 1) % total )) ;;
+    '')
+      if [[ $rc -eq 0 ]]; then
+        echo "${paths[$current]}"
+        exit 0
+      fi
+      exit 1 ;;
+  esac
+done

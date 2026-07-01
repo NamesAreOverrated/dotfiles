@@ -24,7 +24,7 @@ path_line() {
 
 # ── Proxy ──
 proxy_lines() {
-  local cfg="$HOME/.config/tm-network"
+  local cfg="$HOME/.config/cm-network"
   [ -f "$cfg" ] || return
   [ "$(sed -n '2p' "$cfg")" = "1" ] || return
   local host no_proxy_val

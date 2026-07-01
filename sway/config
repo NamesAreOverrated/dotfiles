@@ -6,7 +6,7 @@ set $down j
 set $up k
 set $right l
 include ~/.config/sway/local/terminal.g
-set $menu tm-launcher
+set $menu cm-launcher
 
 # Gaps
 gaps inner 12
