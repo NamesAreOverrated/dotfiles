@@ -270,7 +270,8 @@ do
 		if opts.root then
 			cmd = cmd .. " --root " .. vim.fn.shellescape(opts.root) .. " --strict"
 		end
-		vim.fn.termopen(cmd, {
+		vim.fn.jobstart(cmd, {
+			term = true,
 			on_exit = function()
 				local f = io.open(outfile, "r")
 				if f then
@@ -424,8 +425,6 @@ do
 		vim.opt.spell = not vim.opt.spell:get()
 		vim.notify("Spell check: " .. tostring(vim.opt.spell:get()))
 	end, { desc = "[T]oggle Spell [O]n" })
-
-	-- Toggle comment (gcc/gc)
 
 	-- [[ Basic Autocommands ]]
 	--  See `:help lua-guide-autocommands`
@@ -683,9 +682,18 @@ do
 	vim.pack.add({ gh("folke/todo-comments.nvim") })
 	require("todo-comments").setup({ signs = false })
 
-	-- Toggle comments (Ctrl+/ in VS Code style)
+	-- Toggle comments
 	vim.pack.add({ gh("folke/ts-comments.nvim") })
 	require("ts-comments").setup()
+
+	vim.pack.add({ gh("danymat/neogen") })
+
+	require("neogen").setup({
+		enabled = true,
+	})
+	local opts = { noremap = true, silent = true }
+	vim.keymap.set({ "n", "v" }, "///", ":lua require('neogen').generate()<CR>", opts)
+	vim.keymap.set({ "n", "v" }, "gca", ":lua require('neogen').generate()<CR>", opts)
 
 	-- [[ mini.nvim ]]
 	--  A collection of various small independent plugins/modules
@@ -712,25 +720,6 @@ do
 	-- - sd'   - [S]urround [D]elete [']quotes
 	-- - sr)'  - [S]urround [R]eplace [)] [']
 	require("mini.surround").setup()
-
-	vim.pack.add({ gh("smoka7/hop.nvim") })
-	require("hop").setup({})
-
-	local hop = require("hop")
-	local directions = require("hop.hint").HintDirection
-
-	vim.keymap.set("", "f", function()
-		hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true })
-	end, { remap = true })
-	vim.keymap.set("", "F", function()
-		hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true })
-	end, { remap = true })
-	vim.keymap.set("", "t", function()
-		hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true, hint_offset = -1 })
-	end, { remap = true })
-	vim.keymap.set("", "T", function()
-		hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true, hint_offset = 1 })
-	end, { remap = true })
 
 	-- Simple and easy statusline.
 	--  You could remove this setup call if you don't like it,
@@ -1121,6 +1110,79 @@ do
 	})
 end
 
+local handler = function(virtText, lnum, endLnum, width, truncate)
+	local newVirtText = {}
+	local suffix = (" 󰁂 %d "):format(endLnum - lnum)
+	local sufWidth = vim.fn.strdisplaywidth(suffix)
+	local targetWidth = width - sufWidth
+	local curWidth = 0
+	for _, chunk in ipairs(virtText) do
+		local chunkText = chunk[1]
+		local chunkWidth = vim.fn.strdisplaywidth(chunkText)
+		if targetWidth > curWidth + chunkWidth then
+			table.insert(newVirtText, chunk)
+		else
+			chunkText = truncate(chunkText, targetWidth - curWidth)
+			local hlGroup = chunk[2]
+			table.insert(newVirtText, { chunkText, hlGroup })
+			chunkWidth = vim.fn.strdisplaywidth(chunkText)
+			-- str width returned from truncate() may less than 2nd argument, need padding
+			if curWidth + chunkWidth < targetWidth then
+				suffix = suffix .. (" "):rep(targetWidth - curWidth - chunkWidth)
+			end
+			break
+		end
+		curWidth = curWidth + chunkWidth
+	end
+	table.insert(newVirtText, { suffix, "UfoFoldedEllipsis" })
+	return newVirtText
+end
+do
+	vim.pack.add({ gh("kevinhwang91/nvim-ufo") })
+	vim.pack.add({ gh("kevinhwang91/promise-async") })
+
+	vim.o.foldcolumn = "0" -- '0' is not bad
+	vim.o.foldlevel = 99 -- Using ufo provider need a large value, feel free to decrease the value
+	vim.o.foldlevelstart = 99
+	--vim.o.foldenable = true
+	vim.cmd("hi Folded gui=none guifg=NONE guibg=NONE")
+	vim.opt.foldopen = "search,tag,undo,mark,percent,quickfix"
+
+	-- Using ufo provider need remap `zR` and `zM`. If Neovim is 0.6.1, remap yourself
+	vim.keymap.set("n", "zR", require("ufo").openAllFolds)
+	vim.keymap.set("n", "zM", require("ufo").closeAllFolds)
+	vim.keymap.set("n", "zr", require("ufo").openFoldsExceptKinds)
+	vim.keymap.set("n", "zm", require("ufo").closeFoldsWith) -- closeAllFolds == closeFoldsWith(0)
+	vim.keymap.set("n", "zk", function()
+		local winid = require("ufo").peekFoldedLinesUnderCursor()
+		if not winid then
+			vim.lsp.buf.hover()
+		end
+	end)
+
+	-- Option 3: treesitter as a main provider instead
+	-- (Note: the `nvim-treesitter` plugin is *not* needed.)
+	-- ufo uses the same query files for folding (queries/<lang>/folds.scm)
+	-- performance and stability are better than `foldmethod=nvim_treesitter#foldexpr()`
+	require("ufo").setup({
+		provider_selector = function(bufnr, filetype, buftype)
+			return { "treesitter", "indent" }
+		end,
+		open_fold_hl_timeout = 0,
+		fold_virt_text_handler = handler,
+
+		preview = {
+			mappings = {
+				scrollU = "{",
+				scrollD = "}",
+				switch = "",
+				trace = "i",
+				close = "<Esc>",
+			},
+		},
+	})
+end
+
 -- ============================================================
 -- SECTION 7: AUTOCOMPLETE & SNIPPETS
 -- blink.cmp and luasnip setup
@@ -1233,8 +1295,9 @@ do
 
 		-- Enable treesitter based folds
 		-- For more info on folds see `:help folds`
-		-- vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-		-- vim.wo.foldmethod = 'expr'
+		-- vim.wo.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+		-- vim.wo.foldmethod = "expr"
+		-- vim.wo.foldlevel = 99
 
 		-- Check if treesitter indentation is available for this language, and if so enable it
 		-- in case there is no indent query, the indentexpr will fallback to the vim's built in one
