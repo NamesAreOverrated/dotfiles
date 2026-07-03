@@ -92,16 +92,18 @@ resolve_icon() {
 }
 
 # ── Parse a .desktop file ──
-# Returns: path|name|exec|icon|terminal
+# Returns: path|name|exec|icon|terminal|action_ids
 parse_desktop() {
-  local file="$1" name exec icon terminal nodisplay
+  local file="$1" name exec icon terminal nodisplay actions
   name=$(sed -n '/^Name=/{s/^Name=//p;q}' "$file" 2>/dev/null)
   exec=$(sed -n '/^Exec=/{s/^Exec=//p;q}' "$file" 2>/dev/null)
   icon=$(sed -n '/^Icon=/{s/^Icon=//p;q}' "$file" 2>/dev/null)
   terminal=$(sed -n '/^Terminal=/{s/^Terminal=//p;q}' "$file" 2>/dev/null)
   nodisplay=$(sed -n '/^NoDisplay=/{s/^NoDisplay=//p;q}' "$file" 2>/dev/null)
+  actions=$(sed -n '/^Actions=/{s/^Actions=//p;q}' "$file" 2>/dev/null)
+  actions="${actions%;}"
   [[ -z "$name" || "$nodisplay" == "true" || -z "$exec" ]] && return 1
-  echo "$file|$name|$exec|$icon|$terminal"
+  echo "$file|$name|$exec|$icon|$terminal|$actions"
 }
 
 # ── Process Exec field ──
@@ -234,7 +236,8 @@ do_add() {
       _path="${parsed%%|*}"; rest="${parsed#*|}"
       name="${rest%%|*}"; rest="${rest#*|}"
       exec="${rest%%|*}"; rest="${rest#*|}"
-      icon="${rest%%|*}"; terminal="${rest#*|}"
+      icon="${rest%%|*}"; rest="${rest#*|}"
+      terminal="${rest%%|*}"
 
       thumb=""
       if [[ -n "$icon" ]]; then
@@ -248,24 +251,22 @@ do_add() {
 
   if [[ ${#items[@]} -eq 0 ]]; then
     notify-send "cm-launcher" "All system apps already added"
-    main
     return
   fi
 
   local selected
   selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
-  [[ -z "$selected" ]] && { main; return; }
+  [[ -z "$selected" ]] && return
 
   ln -s "${paths[$selected]}" "$local_dir/"
   build_cache > /dev/null 2>&1 || true
-  main
 }
 
 # ── Remove mode: unlink symlinked apps ──
 do_remove() {
   local local_dir items=() paths=()
   local_dir=$(get_local_app_dirs | head -1)
-    [[ -d "$local_dir" ]] || { notify-send "cm-launcher" "No local apps directory"; main; return; }
+    [[ -d "$local_dir" ]] || { notify-send "cm-launcher" "No local apps directory"; return; }
 
   for file in "$local_dir"/*.desktop; do
     [[ -f "$file" ]] || continue
@@ -275,10 +276,10 @@ do_remove() {
     _path="${parsed%%|*}"; rest="${parsed#*|}"
     name="${rest%%|*}"; rest="${rest#*|}"
     exec="${rest%%|*}"; rest="${rest#*|}"
-    icon="${rest%%|*}"; terminal="${rest#*|}"
+    icon="${rest%%|*}"; rest="${rest#*|}"
+    terminal="${rest%%|*}"
 
-    local indicator=" "
-    [[ -L "$file" ]] && indicator=" "
+    local indicator=""
     local label="$name$indicator"
     if [[ -n "$icon" ]]; then
       ico_path=$(resolve_icon "$icon")
@@ -290,95 +291,180 @@ do_remove() {
 
   if [[ ${#items[@]} -eq 0 ]]; then
     notify-send "cm-launcher" "No symlinked apps to remove"
-    main
     return
   fi
 
   local selected
   selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
-  [[ -z "$selected" ]] && { main; return; }
+  [[ -z "$selected" ]] && return
 
   rm "${paths[$selected]}"
   build_cache > /dev/null 2>&1 || true
-  main
+}
+
+# ── Show actions submenu (cm-image-style submenu) ──
+# Returns 0 if launched, 1 if user pressed Escape (back to main)
+show_actions_submenu() {
+  local desktop_path="$1" parent_name="$2" parent_icon="$3" parent_exec="$4" parent_terminal="$5"
+  local actions action_ids=()
+
+  actions=$(sed -n '/^Actions=/{s/^Actions=//p;q}' "$desktop_path" 2>/dev/null)
+  actions="${actions%;}"
+  [[ -z "$actions" ]] && return 1
+  IFS=';' read -ra action_ids <<< "$actions"
+
+  local items=() names=() execs=() icons=() terminals=()
+
+  local launch_thumb=""
+  if [[ -n "$parent_icon" ]]; then
+    local launch_ico
+    launch_ico=$(resolve_icon "$parent_icon")
+    [[ -n "$launch_ico" ]] && launch_thumb="Launch $parent_name"$'\x1f'"$launch_ico"
+  fi
+  items+=("${launch_thumb:-Launch $parent_name}")
+  names+=("$parent_name")
+  execs+=("$parent_exec")
+  icons+=("$parent_icon")
+  terminals+=("$parent_terminal")
+
+  for action_id in "${action_ids[@]}"; do
+    [[ -z "$action_id" ]] && continue
+    local a_name a_exec a_icon a_terminal ico_path thumb
+    a_name=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Name=/{s/^Name=//p;q}}" "$desktop_path" 2>/dev/null)
+    a_exec=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Exec=/{s/^Exec=//p;q}}" "$desktop_path" 2>/dev/null)
+    a_icon=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Icon=/{s/^Icon=//p;q}}" "$desktop_path" 2>/dev/null)
+    a_terminal=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Terminal=/{s/^Terminal=//p;q}}" "$desktop_path" 2>/dev/null)
+
+    [[ -z "$a_name" ]] && a_name="$action_id"
+    [[ -z "$a_icon" ]] && a_icon="$parent_icon"
+    [[ -z "$a_terminal" ]] && a_terminal="$parent_terminal"
+    [[ -z "$a_exec" ]] && continue
+
+    thumb=""
+    if [[ -n "$a_icon" ]]; then
+      ico_path=$(resolve_icon "$a_icon")
+      [[ -n "$ico_path" ]] && thumb="$a_name"$'\x1f'"$ico_path"
+    fi
+    items+=("${thumb:-$a_name}")
+    names+=("$a_name")
+    execs+=("$a_exec")
+    icons+=("$a_icon")
+    terminals+=("$a_terminal")
+  done
+
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" \
+    | $WMENUSH -p "$parent_name" --format i \
+        -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+  [[ -z "$selected" ]] && return 1
+
+  local idx="$selected"
+  local processed
+  processed=$(process_exec "${execs[$idx]}" "${icons[$idx]}" "${names[$idx]}" "$desktop_path")
+  [[ -z "$processed" ]] && return 1
+
+  local args=()
+  while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
+  [[ ${#args[@]} -eq 0 ]] && return 1
+
+  if [[ "${terminals[$idx]}" == "true" ]]; then
+    launch_terminal "${args[@]}"
+  else
+    exec "${args[@]}" || exit 1
+  fi
 }
 
 # ── Main ──
 main() {
-  # One-time migration: invalidate old cache with system entries
-  if [[ -f "$LAUNCHER_CACHE" ]] && grep -q '/usr/' "$LAUNCHER_CACHE" 2>/dev/null; then
-    rm -f "$LAUNCHER_CACHE"
-  fi
-
-  local entries
-  entries=$(read_cache) || entries=$(build_cache)
-  [[ -z "$entries" ]] && { notify-send "cm-launcher" "No applications found"; exit 1; }
-
-  local execs=() icons=() terminals=() paths=() names_list=() thumbs=()
-  while IFS='' read -r line; do
-    [[ -z "$line" ]] && continue
-    local path name exec icon terminal tail ico_path thumb
-    path="${line%%|*}"; tail="${line#*|}"
-    name="${tail%%|*}"; tail="${tail#*|}"
-    exec="${tail%%|*}"; tail="${tail#*|}"
-    icon="${tail%%|*}"; terminal="${tail#*|}"
-    paths+=("$path")
-    names_list+=("$name")
-    execs+=("$exec")
-    icons+=("$icon")
-    terminals+=("$terminal")
-    local indicator=" "
-    [[ -L "$path" ]] && indicator=" "
-    local label="$name$indicator"
-    if [[ -n "$icon" ]]; then
-      ico_path=$(resolve_icon "$icon")
-      [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
+  # One-time migration: invalidate old cache format
+  if [[ -f "$LAUNCHER_CACHE" ]]; then
+    if grep -q '/usr/' "$LAUNCHER_CACHE" 2>/dev/null; then
+      rm -f "$LAUNCHER_CACHE"
+    elif [[ $(head -1 "$LAUNCHER_CACHE" | tr -cd '|' | wc -c) -eq 5 ]]; then
+      rm -f "$LAUNCHER_CACHE"
     fi
-    thumbs+=("$label")
-  done <<< "$entries"
-
-  local add_svg="$HOME/.local/share/cm-launcher/icons/add.svg"
-  local remove_svg="$HOME/.local/share/cm-launcher/icons/remove.svg"
-  local add_thumb remove_thumb
-  [[ -f "$add_svg" ]] && add_thumb="Add App"$'\x1f'"$add_svg"
-  [[ -f "$remove_svg" ]] && remove_thumb="Remove App"$'\x1f'"$remove_svg"
-
-  local selected
-  selected=$({
-    printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
-    printf '\x00%s\n' '────────────────────'
-    printf '%s\n' "${thumbs[@]}"
-  } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
-  [[ -z "$selected" ]] && exit 0
-
-  if [[ "$selected" -eq 0 ]]; then
-    do_add
-    return
-  elif [[ "$selected" -eq 1 ]]; then
-    do_remove
-    return
   fi
 
-  local idx=$((selected - 3))
-  local exec="${execs[$idx]}"
-  local icon_name="${icons[$idx]}"
-  local name="${names_list[$idx]}"
-  local path="${paths[$idx]}"
-  local terminal="${terminals[$idx]}"
+  while true; do
+    local entries
+    entries=$(read_cache) || entries=$(build_cache)
+    [[ -z "$entries" ]] && { notify-send "cm-launcher" "No applications found"; exit 1; }
 
-  local processed
-  processed=$(process_exec "$exec" "$icon_name" "$name" "$path")
-  [[ -z "$processed" ]] && exit 1
+    local execs=() icons=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
+    while IFS='' read -r line; do
+      [[ -z "$line" ]] && continue
+      local path name exec icon terminal actions tail ico_path thumb
+      path="${line%%|*}"; tail="${line#*|}"
+      name="${tail%%|*}"; tail="${tail#*|}"
+      exec="${tail%%|*}"; tail="${tail#*|}"
+      icon="${tail%%|*}"; tail="${tail#*|}"
+      terminal="${tail%%|*}"; tail="${tail#*|}"
+      actions="${tail%%|*}"
+      paths+=("$path")
+      names_list+=("$name")
+      execs+=("$exec")
+      icons+=("$icon")
+      terminals+=("$terminal")
+      action_ids_list+=("$actions")
+      local indicator=""
+      [[ -n "$actions" ]] && indicator=" 󰅂"
+      local label="$name$indicator"
+      if [[ -n "$icon" ]]; then
+        ico_path=$(resolve_icon "$icon")
+        [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
+      fi
+      thumbs+=("$label")
+    done <<< "$entries"
 
-  local args=()
-  while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
-  [[ ${#args[@]} -eq 0 ]] && exit 1
+    local add_svg="$HOME/.local/share/cm-launcher/icons/add.svg"
+    local remove_svg="$HOME/.local/share/cm-launcher/icons/remove.svg"
+    local add_thumb remove_thumb
+    [[ -f "$add_svg" ]] && add_thumb="Add App"$'\x1f'"$add_svg"
+    [[ -f "$remove_svg" ]] && remove_thumb="Remove App"$'\x1f'"$remove_svg"
 
-  if [[ "$terminal" == "true" ]]; then
-    launch_terminal "${args[@]}"
-  else
-    exec "${args[@]}"
-  fi
+    local selected
+    selected=$({
+      printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
+      printf '\x00%s\n' '────────────────────'
+      printf '%s\n' "${thumbs[@]}"
+    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+    [[ -z "$selected" ]] && exit 0
+
+    if [[ "$selected" -eq 0 ]]; then
+      do_add
+      continue
+    elif [[ "$selected" -eq 1 ]]; then
+      do_remove
+      continue
+    fi
+
+    local idx=$((selected - 3))
+    local exec="${execs[$idx]}"
+    local icon_name="${icons[$idx]}"
+    local name="${names_list[$idx]}"
+    local path="${paths[$idx]}"
+    local terminal="${terminals[$idx]}"
+    local actions="${action_ids_list[$idx]}"
+
+    if [[ -n "$actions" ]]; then
+      show_actions_submenu "$path" "$name" "$icon_name" "$exec" "$terminal"
+      continue
+    fi
+
+    local processed
+    processed=$(process_exec "$exec" "$icon_name" "$name" "$path")
+    [[ -z "$processed" ]] && exit 1
+
+    local args=()
+    while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
+    [[ ${#args[@]} -eq 0 ]] && exit 1
+
+    if [[ "$terminal" == "true" ]]; then
+      launch_terminal "${args[@]}"
+    else
+      exec "${args[@]}" || exit 1
+    fi
+  done
 }
 
 main "$@"
