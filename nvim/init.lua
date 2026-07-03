@@ -172,7 +172,7 @@ do
 	vim.o.scrolloff = 10
 
 	-- Enable spell check by default
-	vim.o.spell = true
+	vim.o.spell = false
 
 	-- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 	-- instead raise a dialog asking if you wish to save the current file(s)
@@ -937,6 +937,17 @@ do
 				vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
 			end
 
+			-- Alloc/Free
+			map("grf", function()
+				local word = vim.fn.expand("<cword>")
+				require("telescope.builtin").live_grep({
+					default_text = "@a " .. word .. "|@f " .. word,
+					layout_config = {
+						preview_width = 0.7,
+					},
+				})
+			end, "[F]ind alloc/free pair")
+
 			-- Hover
 			map("grh", vim.lsp.buf.hover, "[H]over")
 			map("grs", vim.lsp.buf.signature_help, "[S]ignature_help")
@@ -1004,6 +1015,7 @@ do
 		-- pyright = {},
 		rust_analyzer = {},
 		roslyn_ls = {},
+		typos_lsp = {},
 		--
 		-- Some languages (like typescript) have entire language plugins that can be useful:
 		--    https://github.com/pmizio/typescript-tools.nvim
