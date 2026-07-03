@@ -1008,6 +1008,16 @@ do
 	-- Enable the following language servers
 	--  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
 	--  See `:help lsp-config` for information about keys and how to configure
+	local function is_musl()
+		local f = io.popen("ldd --version 2>&1")
+		if f then
+			local out = f:read("*a")
+			f:close()
+			return out:find("musl") ~= nil
+		end
+		return false
+	end
+
 	---@type table<string, vim.lsp.Config>
 	local servers = {
 		clangd = {},
@@ -1075,6 +1085,12 @@ do
 	-- Automatically install LSPs and related tools to stdpath for Neovim
 	require("mason").setup({})
 
+	-- Remove servers incompatible with musl
+	if is_musl() then
+		servers.roslyn_ls = nil
+		servers.lua_ls = nil
+	end
+
 	-- Ensure the servers and tools above are installed
 	--
 	-- To check the current status of installed tools and/or manually install
@@ -1086,6 +1102,13 @@ do
 	vim.list_extend(ensure_installed, {
 		-- You can add other tools here that you want Mason to install
 	})
+
+	-- On musl, clangd is installed separately via system package manager
+	if is_musl() then
+		ensure_installed = vim.tbl_filter(function(name)
+			return name ~= "clangd"
+		end, ensure_installed)
+	end
 
 	require("mason-tool-installer").setup({ ensure_installed = ensure_installed })
 
