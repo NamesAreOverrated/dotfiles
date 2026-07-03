@@ -1,7 +1,7 @@
 #!/bin/bash
 SOCKET="/run/user/$(id -u)/ncm-socket"
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/ncm-daemon"
-COVER="/tmp/ncm-daemon-cover.jpg"
+NCM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/cm-media/ncm-daemon"
+COVER="/tmp/cm-media-cover.jpg"
 AVATAR_PATH="/tmp/ncm-daemon-avatar.jpg"
 QR_IMG="/tmp/ncm-daemon-qr.png"
 
@@ -12,9 +12,61 @@ sock_send() {
 }
 
 MENU="tiny-cmenush"
-if ! command -v "$MENU" >/dev/null 2>&1; then
-    die "$MENU not found"
-fi
+command -v "$MENU" >/dev/null 2>&1 || die "$MENU not found"
+
+# ── MPRIS helpers ──
+
+mpris_detect() {
+    local names
+    names=$(gdbus call --session \
+        --dest org.freedesktop.DBus \
+        --object-path /org/freedesktop/DBus \
+        --method org.freedesktop.DBus.ListNames 2>/dev/null)
+    if echo "$names" | grep -q "org.mpris.MediaPlayer2.ncm"; then
+        echo "ncm"; return
+    fi
+    echo "$names" | grep -oP "org\.mpris\.MediaPlayer2\.\K[a-z0-9.]+" | head -1
+}
+
+mpris_get_prop() {
+    gdbus call --session \
+        --dest "org.mpris.MediaPlayer2.$1" \
+        --object-path /org/mpris/MediaPlayer2 \
+        --method org.freedesktop.DBus.Properties.Get \
+        org.mpris.MediaPlayer2.Player "$2" 2>/dev/null
+}
+
+mpris_call() {
+    gdbus call --session \
+        --dest "org.mpris.MediaPlayer2.$1" \
+        --object-path /org/mpris/MediaPlayer2 \
+        --method "org.mpris.MediaPlayer2.Player.$2" 2>/dev/null
+}
+
+mpris_meta_str() {
+    local meta
+    meta=$(mpris_get_prop "$1" "Metadata")
+    echo "$meta" | sed "s/.*'$2': <'//;s/'>.*//" 2>/dev/null
+}
+
+mpris_meta_arr() {
+    local meta
+    meta=$(mpris_get_prop "$1" "Metadata")
+    echo "$meta" | sed "s/.*'$2': <\[//;s/\].*>.*//;s/'//g" 2>/dev/null
+}
+
+mpris_get_cover() {
+    local url
+    url=$(mpris_meta_str "$1" "mpris:artUrl")
+    case "$url" in
+        file://*) echo "${url#file://}" ;;
+        https://*) curl -sL "$url" -o "$COVER" 2>/dev/null && echo "$COVER" ;;
+    esac
+}
+
+# ── NetEase helpers ──
+
+ncm_online() { [ -S "$SOCKET" ]; }
 
 qr_login() {
     resp=$(sock_send '{"cmd":"exec","args":{"operation":"qr_login"}}')
@@ -31,7 +83,7 @@ qr_login() {
             | timeout 3 $MENU --no-input --format i -p "QR Login" \
                 --bg "$QR_IMG" --bg-mode fit --bg-tint "#00000088" 2>/dev/null)
         if [ $? -ne 124 ] && [ -z "$sel" ]; then
-            break  # Escape — cancel
+            break
         fi
 
         code=$(sock_send "$(jq -n --arg uk "$unikey" \
@@ -63,74 +115,116 @@ search() {
     ok=$(echo "$json" | jq '.ok')
     [ "$ok" = "true" ] || die "search failed: $(echo "$json" | jq -r '.error // "unknown"')"
 
-    mkdir -p "$CACHE"
-    echo "$json" | jq -r '.data[] | [.id, "\(.title) - \(.artist)", .cover_url] | @tsv' > "$CACHE/results.txt"
-    [ -s "$CACHE/results.txt" ] || { echo "no results"; return; }
+    mkdir -p "$NCM_CACHE"
+    echo "$json" | jq -r '.data[] | [.id, "\(.title) - \(.artist)", .cover_url] | @tsv' > "$NCM_CACHE/results.txt"
+    [ -s "$NCM_CACHE/results.txt" ] || { echo "no results"; return; }
 
-    sel=$(cut -f2 "$CACHE/results.txt" | $MENU -p "Results: $query" --format i)
+    sel=$(cut -f2 "$NCM_CACHE/results.txt" | $MENU -p "Results: $query" --format i)
     [ -n "$sel" ] || return
 
-    line=$(sed -n "$((sel+1))p" "$CACHE/results.txt")
+    line=$(sed -n "$((sel+1))p" "$NCM_CACHE/results.txt")
     id=$(echo "$line" | cut -f1)
     name=$(echo "$line" | cut -f2)
     sock_send "$(jq -n --argjson id "$id" '{"cmd":"exec","args":{"operation":"play","song_id":$id,"level":"standard"}}')" > /dev/null
-    echo "Playing: $name"
 }
 
-while true; do
-    status=$(sock_send '{"cmd":"query","args":{"operation":"status"}}')
-    state=$(echo "$status" | jq -r '.state')
+# ── Main loop ──
 
-    header="♫ ncm-daemon"
+while true; do
+    MPRIS_PLAYER=$(mpris_detect)
+
+    state=""
+    title=""
+    artist=""
     bg=""
-    if [ "$state" = "playing" ] || [ "$state" = "paused" ]; then
-        song=$(sock_send '{"cmd":"query","args":{"operation":"current_song"}}')
-        title=$(echo "$song" | jq -r '.data[0].title // empty')
-        artist=$(echo "$song" | jq -r '.data[0].artist // empty')
-        [ -n "$title" ] && header="♫ $title"
-        [ -n "$artist" ] && header="$header — $artist"
-        [ -f "$COVER" ] && bg="--bg $COVER --bg-mode cover --bg-tint #00000088"
+    if [ -n "$MPRIS_PLAYER" ]; then
+        raw_status=$(mpris_get_prop "$MPRIS_PLAYER" "PlaybackStatus")
+        case "$raw_status" in *Playing*) state="playing" ;; *Paused*) state="paused" ;; *) state="stopped" ;; esac
+        title=$(mpris_meta_str "$MPRIS_PLAYER" "xesam:title")
+        artist=$(mpris_meta_arr "$MPRIS_PLAYER" "xesam:artist")
+        cover_path=$(mpris_get_cover "$MPRIS_PLAYER")
+        [ -n "$cover_path" ] && [ -f "$cover_path" ] && bg="--bg $cover_path --bg-mode cover --bg-tint #00000088"
     fi
 
+    # Build menu items (stable indices: 0–7)
     sel=$({
-        printf '\x00%s\x1c#b4befe\n' "$header"
-        if [ "$state" = "playing" ]; then
-            echo "Pause"
-            echo "Stop"
-        elif [ "$state" = "paused" ]; then
-            echo "Resume"
-            echo "Stop"
-        else
-            printf '\x00Resume\x1d\n'
-            printf '\x00Stop\x1d\n'
-        fi
-        printf '\x00─────\n'
-        echo "Search"
-        acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
-        nickname=$(echo "$acct" | jq -r '.nickname // empty')
-        if [ -n "$nickname" ]; then
-            if [ -s "$AVATAR_PATH" ]; then
-                printf '%s\x1f%s\x1c#a6e3a1\n' "$nickname" "$AVATAR_PATH"
+        if [ -n "$title" ]; then
+            printf '\x00♫ %s\x1c#b4befe\n' "$title"
+            if [ -n "$artist" ]; then
+                printf '\x00╰ %s\x1c#9399b2\n' "$artist"
             else
-                printf '%s\x1c#a6e3a1\n' "$nickname"
+                printf '\x00\n'
             fi
         else
-            printf 'Login\x1c#a6e3a1\n'
+            printf '\x00♫\n'
+            printf '\x00\n'
         fi
-    } | $MENU --no-input --format i -p "ncm-daemon" $bg --thumb-width 32)
+
+        if [ -z "$MPRIS_PLAYER" ]; then
+            printf '\x00Pause/Resume\x1d\n'
+        elif [ "$state" = "playing" ]; then
+            echo "Pause"
+        elif [ "$state" = "paused" ] || [ "$state" = "stopped" ]; then
+            echo "Play"
+        else
+            printf '\x00Pause/Resume\x1d\n'
+        fi
+
+        if [ -z "$MPRIS_PLAYER" ]; then
+            printf '\x00Next\x1d\n'
+        else
+            echo "Next"
+        fi
+
+        if [ -z "$MPRIS_PLAYER" ]; then
+            printf '\x00Previous\x1d\n'
+        else
+            echo "Previous"
+        fi
+
+        printf '\x00─── ncm ───\x1c#585b70\n'
+
+        if ncm_online; then
+            echo "Search"
+            acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
+            nickname=$(echo "$acct" | jq -r '.nickname // empty')
+            if [ -n "$nickname" ]; then
+                if [ -s "$AVATAR_PATH" ]; then
+                    printf '%s\x1f%s\x1c#a6e3a1\n' "$nickname" "$AVATAR_PATH"
+                else
+                    printf '%s\x1c#a6e3a1\n' "$nickname"
+                fi
+            else
+                printf 'Login\x1c#a6e3a1\n'
+            fi
+        else
+            printf '\x00Search\x1d\n'
+            printf '\x00Login\x1d\n'
+        fi
+    } | $MENU --no-input --format i -p "cm-media" $bg --thumb-width 32)
 
     [ -z "$sel" ] && exit 0
 
     case "$sel" in
-        0) ;;
-        1) if [ "$state" = "playing" ]; then
-               sock_send '{"cmd":"exec","args":{"operation":"pause"}}'
-           elif [ "$state" = "paused" ]; then
-               sock_send '{"cmd":"exec","args":{"operation":"resume"}}'
-           fi ;;
-        2) sock_send '{"cmd":"exec","args":{"operation":"stop"}}' ;;
-        3) ;;
-        4) search ;;
-        5) qr_login ;;
+        0|1) ;;
+        2) [ -n "$MPRIS_PLAYER" ] || continue
+            if [ "$state" = "playing" ]; then
+                mpris_call "$MPRIS_PLAYER" Pause
+            else
+                mpris_call "$MPRIS_PLAYER" Play
+            fi ;;
+        3) [ -n "$MPRIS_PLAYER" ] || continue
+            mpris_call "$MPRIS_PLAYER" Next ;;
+        4) [ -n "$MPRIS_PLAYER" ] || continue
+            mpris_call "$MPRIS_PLAYER" Previous ;;
+        5) ;;
+        6) ncm_online || continue; search ;;
+        7) ncm_online || continue
+            nickname=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}' | jq -r '.nickname // empty')
+            if [ -n "$nickname" ]; then
+                true
+            else
+                qr_login
+            fi ;;
     esac
 done
