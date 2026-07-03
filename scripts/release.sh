@@ -26,7 +26,7 @@ add_target() {
     fi
 }
 
-add_target "tiny-cmenush"        ~/Projects/tiny-cmenush/tiny-cmenush
+add_target "tiny-cmenush"        ~/.local/bin/tiny-cmenush
 add_target "termfilebrowser" ~/.local/bin/termfilebrowser
 add_target "niri"           /usr/bin/niri
 
