@@ -1,0 +1,136 @@
+#!/bin/bash
+SOCKET="/run/user/$(id -u)/ncm-socket"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/ncm-daemon"
+COVER="/tmp/ncm-daemon-cover.jpg"
+AVATAR_PATH="/tmp/ncm-daemon-avatar.jpg"
+QR_IMG="/tmp/ncm-daemon-qr.png"
+
+die() { echo "$1" >&2; exit 1; }
+
+sock_send() {
+    echo "$1" | socat "UNIX-CONNECT:$SOCKET" -
+}
+
+MENU="tiny-cmenush"
+if ! command -v "$MENU" >/dev/null 2>&1; then
+    die "$MENU not found"
+fi
+
+qr_login() {
+    resp=$(sock_send '{"cmd":"exec","args":{"operation":"qr_login"}}')
+    ok=$(echo "$resp" | jq -r '.ok')
+    [ "$ok" = "true" ] || return
+
+    unikey=$(echo "$resp" | jq -r '.unikey')
+    url="https://music.163.com/login?codekey=$unikey"
+    curl -s "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=$url" -o "$QR_IMG"
+
+    status_msg="Scan QR with NetEase app"
+    while true; do
+        sel=$(printf '\x00%s\n' "$status_msg" \
+            | timeout 3 $MENU --no-input --format i -p "QR Login" \
+                --bg "$QR_IMG" --bg-mode fit --bg-tint "#00000088" 2>/dev/null)
+        if [ $? -ne 124 ] && [ -z "$sel" ]; then
+            break  # Escape — cancel
+        fi
+
+        code=$(sock_send "$(jq -n --arg uk "$unikey" \
+            '{"cmd":"query","args":{"operation":"qr_status","unikey":$uk}}')" \
+            | jq -r '.code // empty')
+
+        [ -z "$code" ] && continue
+
+        case "$code" in
+            801) status_msg="Scan QR with NetEase app" ;;
+            802) status_msg="Confirm on your phone..." ;;
+            803) sock_send '{"cmd":"exec","args":{"operation":"refresh_useraccount"}}' >/dev/null
+                 break ;;
+            800) status_msg="Expired"
+                 timeout 2 $MENU --no-input -p "Expired" \
+                     --bg "$QR_IMG" --bg-mode fit --bg-tint "#00000088" 2>/dev/null || true
+                 break ;;
+        esac
+    done
+
+    rm -f "$QR_IMG"
+}
+
+search() {
+    query=$(printf '\x00Type a search query\n' | $MENU --input-fallback -p "Search" 2>/dev/null)
+    [ -n "$query" ] || return
+
+    json=$(sock_send "$(jq -n --arg kw "$query" '{"cmd":"query","args":{"operation":"search","keywords":$kw,"limit":20,"offset":0}}')")
+    ok=$(echo "$json" | jq '.ok')
+    [ "$ok" = "true" ] || die "search failed: $(echo "$json" | jq -r '.error // "unknown"')"
+
+    mkdir -p "$CACHE"
+    echo "$json" | jq -r '.data[] | [.id, "\(.title) - \(.artist)", .cover_url] | @tsv' > "$CACHE/results.txt"
+    [ -s "$CACHE/results.txt" ] || { echo "no results"; return; }
+
+    sel=$(cut -f2 "$CACHE/results.txt" | $MENU -p "Results: $query" --format i)
+    [ -n "$sel" ] || return
+
+    line=$(sed -n "$((sel+1))p" "$CACHE/results.txt")
+    id=$(echo "$line" | cut -f1)
+    name=$(echo "$line" | cut -f2)
+    sock_send "$(jq -n --argjson id "$id" '{"cmd":"exec","args":{"operation":"play","song_id":$id,"level":"standard"}}')" > /dev/null
+    echo "Playing: $name"
+}
+
+while true; do
+    status=$(sock_send '{"cmd":"query","args":{"operation":"status"}}')
+    state=$(echo "$status" | jq -r '.state')
+
+    header="♫ ncm-daemon"
+    bg=""
+    if [ "$state" = "playing" ] || [ "$state" = "paused" ]; then
+        song=$(sock_send '{"cmd":"query","args":{"operation":"current_song"}}')
+        title=$(echo "$song" | jq -r '.data[0].title // empty')
+        artist=$(echo "$song" | jq -r '.data[0].artist // empty')
+        [ -n "$title" ] && header="♫ $title"
+        [ -n "$artist" ] && header="$header — $artist"
+        [ -f "$COVER" ] && bg="--bg $COVER --bg-mode cover --bg-tint #00000088"
+    fi
+
+    sel=$({
+        printf '\x00%s\x1c#b4befe\n' "$header"
+        if [ "$state" = "playing" ]; then
+            echo "Pause"
+            echo "Stop"
+        elif [ "$state" = "paused" ]; then
+            echo "Resume"
+            echo "Stop"
+        else
+            printf '\x00Resume\x1d\n'
+            printf '\x00Stop\x1d\n'
+        fi
+        printf '\x00─────\n'
+        echo "Search"
+        acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
+        nickname=$(echo "$acct" | jq -r '.nickname // empty')
+        if [ -n "$nickname" ]; then
+            if [ -s "$AVATAR_PATH" ]; then
+                printf '%s\x1f%s\x1c#a6e3a1\n' "$nickname" "$AVATAR_PATH"
+            else
+                printf '%s\x1c#a6e3a1\n' "$nickname"
+            fi
+        else
+            printf 'Login\x1c#a6e3a1\n'
+        fi
+    } | $MENU --no-input --format i -p "ncm-daemon" $bg --thumb-width 32)
+
+    [ -z "$sel" ] && exit 0
+
+    case "$sel" in
+        0) ;;
+        1) if [ "$state" = "playing" ]; then
+               sock_send '{"cmd":"exec","args":{"operation":"pause"}}'
+           elif [ "$state" = "paused" ]; then
+               sock_send '{"cmd":"exec","args":{"operation":"resume"}}'
+           fi ;;
+        2) sock_send '{"cmd":"exec","args":{"operation":"stop"}}' ;;
+        3) ;;
+        4) search ;;
+        5) qr_login ;;
+    esac
+done
