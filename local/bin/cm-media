@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -u
-SOCKET="/run/user/$(id -u)/ncm-socket"
+SOCKET="${XDG_RUNTIME_DIR:-/var/run/$(id -u)}/ncm-socket"
 NCM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/cm-media/ncm-daemon"
 COVER="/tmp/cm-media-cover.jpg"
 AVATAR_PATH="/tmp/ncm-daemon-avatar.jpg"
@@ -348,25 +348,36 @@ while true; do
             printf '\uf002 Search\n'
             printf '\uf00b Playlists\n'
             printf '\uf07c Local\n'
+            if [ "$fm_enabled" = "true" ]; then
+                printf '\uf1eb FM On\n'
+            else
+                printf '\uf1eb FM Off\n'
+            fi
+            case "$playlist_mode" in
+                loop)    printf '\uf01e Loop\n' ;;
+                shuffle) printf '\uf074 Shuffle\n' ;;
+                repeat)  printf '\uf2f9 Repeat\n' ;;
+                *)       printf 'Normal\n' ;;
+            esac
         else
             printf '\x00\uf090 Login\x1d\n'
             printf '\x00\uf002 Search\x1d\n'
             printf '\x00\uf00b Playlists\x1d\n'
             printf '\x00\uf07c Local\x1d\n'
-        fi
 
-        if [ "$fm_enabled" = "true" ]; then
-            printf '\uf1eb FM On\n'
-        else
-            printf '\uf1eb FM Off\n'
-        fi
+            if [ "$fm_enabled" = "true" ]; then
+                printf '\x00\uf1eb FM On\n'
+            else
+                printf '\x00\uf1eb FM Off\n'
+            fi
 
-        case "$playlist_mode" in
-            loop)    printf '\uf01e Loop\n' ;;
-            shuffle) printf '\uf074 Shuffle\n' ;;
-            repeat)  printf '\uf2f9 Repeat\n' ;;
-            *)       printf 'Normal\n' ;;
-        esac
+            case "$playlist_mode" in
+                loop)    printf '\x00\uf01e Loop\n' ;;
+                shuffle) printf '\x00\uf074 Shuffle\n' ;;
+                repeat)  printf '\x00\uf2f9 Repeat\n' ;;
+                *)       printf '\x00Normal\n' ;;
+            esac
+        fi
 
         if [ -n "$ncm_liked" ]; then
             if [ "$ncm_liked" = "true" ]; then
