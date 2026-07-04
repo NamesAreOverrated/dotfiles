@@ -8,11 +8,11 @@ QR_IMG="/tmp/ncm-daemon-qr.png"
 die() { echo "$1" >&2; exit 1; }
 
 sock_send() {
-    echo "$1" | socat "UNIX-CONNECT:$SOCKET" -
+    echo "$1" | socat -t 10 "UNIX-CONNECT:$SOCKET" -
 }
 
-MENU="tiny-cmenush"
-command -v "$MENU" >/dev/null 2>&1 || die "$MENU not found"
+MENU="tiny-cmenush -c $HOME/.config/tiny-cmenush/media.theme"
+command -v tiny-cmenush >/dev/null 2>&1 || die "tiny-cmenush not found"
 
 # ── MPRIS helpers ──
 
@@ -111,21 +111,74 @@ search() {
     query=$(printf '\x00Type a search query\n' | $MENU --input-fallback -p "Search" 2>/dev/null)
     [ -n "$query" ] || return
 
-    json=$(sock_send "$(jq -n --arg kw "$query" '{"cmd":"query","args":{"operation":"search","keywords":$kw,"limit":20,"offset":0}}')")
-    ok=$(echo "$json" | jq '.ok')
-    [ "$ok" = "true" ] || die "search failed: $(echo "$json" | jq -r '.error // "unknown"')"
+    json=""
+    for _ in 1 2 3; do
+        json=$(sock_send "$(jq -n --arg kw "$query" '{"cmd":"query","args":{"operation":"search","keywords":$kw,"limit":20,"offset":0}}')")
+        ok=$(echo "$json" | jq '.ok')
+        [ "$ok" = "true" ] && break
+        sleep 1
+    done
+    if [ "$ok" != "true" ]; then
+        err=$(echo "$json" | jq -r '.error // "unknown"')
+        printf '\x00%s\n' "Search: $err" | timeout 1.5 $MENU --no-input -p "Error" 2>/dev/null || true
+        return
+    fi
 
     mkdir -p "$NCM_CACHE"
-    echo "$json" | jq -r '.data[] | [.id, "\(.title) - \(.artist)", .cover_url] | @tsv' > "$NCM_CACHE/results.txt"
+    echo "$json" | jq -r '.data[] | [.trackid, "\(.title) - \(.artist | join(" / "))", .art_url] | @tsv' > "$NCM_CACHE/results.txt"
     [ -s "$NCM_CACHE/results.txt" ] || { echo "no results"; return; }
 
-    sel=$(cut -f2 "$NCM_CACHE/results.txt" | $MENU -p "Results: $query" --format i)
-    [ -n "$sel" ] || return
+    while true; do
+        sel=$(cut -f2 "$NCM_CACHE/results.txt" | $MENU -p "Results: $query" --format i)
+        [ -n "$sel" ] || return
 
-    line=$(sed -n "$((sel+1))p" "$NCM_CACHE/results.txt")
-    id=$(echo "$line" | cut -f1)
-    name=$(echo "$line" | cut -f2)
-    sock_send "$(jq -n --argjson id "$id" '{"cmd":"exec","args":{"operation":"play","song_id":$id,"level":"standard"}}')" > /dev/null
+        line=$(sed -n "$((sel+1))p" "$NCM_CACHE/results.txt")
+        id=$(echo "$line" | cut -f1)
+        name=$(echo "$line" | cut -f2)
+        resp=$(sock_send "$(jq -n --arg id "$id" '{"cmd":"exec","args":{"operation":"queue_add","trackid":$id}}')")
+        idx=$(echo "$resp" | jq '.index')
+        sock_send "$(jq -n --argjson i "$idx" '{"cmd":"exec","args":{"operation":"queue_play","index":$i}}')" > /dev/null
+    done
+}
+
+playlists() {
+    acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
+    uid=$(echo "$acct" | jq -r '.userId // empty')
+    [ -n "$uid" ] && [ "$uid" != "0" ] || return
+
+    resp=$(sock_send "$(jq -n --argjson u "$uid" \
+        '{"cmd":"query","args":{"operation":"user_playlists","uid":$u}}')")
+    ok=$(echo "$resp" | jq -r '.ok // false')
+    [ "$ok" = "true" ] || return
+
+    mkdir -p "$NCM_CACHE"
+    echo "$resp" | jq -r '.data[] | [.id, "\(.name) (\(.trackCount))"] | @tsv' > "$NCM_CACHE/playlists.txt"
+    [ -s "$NCM_CACHE/playlists.txt" ] || return
+
+    while true; do
+        sel=$(cut -f2 "$NCM_CACHE/playlists.txt" | $MENU -p "Playlists" --format i)
+        [ -n "$sel" ] || return
+
+        line=$(sed -n "$((sel+1))p" "$NCM_CACHE/playlists.txt")
+        pid=$(echo "$line" | cut -f1)
+
+        action=$(printf '▶ Play\n▶ Play (Shuffle)\n➕ Add\n➕ Add (shuffle)' \
+            | $MENU -p "Action" --format i)
+        [ -n "$action" ] || continue
+
+        case "$action" in
+            0) sock_send "$(jq -n --argjson id "$pid" \
+                '{"cmd":"exec","args":{"operation":"queue_add_playlist","id":$id,"replace":true,"shuffle":false}}')" > /dev/null
+               sock_send '{"cmd":"exec","args":{"operation":"queue_play","index":0}}' > /dev/null ;;
+            1) sock_send "$(jq -n --argjson id "$pid" \
+                '{"cmd":"exec","args":{"operation":"queue_add_playlist","id":$id,"replace":true,"shuffle":true}}')" > /dev/null
+               sock_send '{"cmd":"exec","args":{"operation":"queue_play","index":0}}' > /dev/null ;;
+            2) sock_send "$(jq -n --argjson id "$pid" \
+                '{"cmd":"exec","args":{"operation":"queue_add_playlist","id":$id,"replace":false,"shuffle":false}}')" > /dev/null ;;
+            3) sock_send "$(jq -n --argjson id "$pid" \
+                '{"cmd":"exec","args":{"operation":"queue_add_playlist","id":$id,"replace":false,"shuffle":true}}')" > /dev/null ;;
+        esac
+    done
 }
 
 # ── Main loop ──
@@ -146,48 +199,74 @@ while true; do
         [ -n "$cover_path" ] && [ -f "$cover_path" ] && bg="--bg $cover_path --bg-mode cover --bg-tint #00000088"
     fi
 
-    # Build menu items (stable indices: 0–7)
+    # Query current ncm song for Like/Trash and mode
+    ncm_trackid=""
+    ncm_liked=""
+    playlist_mode="normal"
+    nickname=""
+    if ncm_online; then
+        cur=$(sock_send '{"cmd":"query","args":{"operation":"current_song"}}')
+        ncm_trackid=$(echo "$cur" | jq -r '.data[0].trackid // empty')
+        if [[ "$ncm_trackid" == ncm/* ]]; then
+            ncm_liked=$(sock_send "$(jq -n --arg tid "$ncm_trackid" '{"cmd":"query","args":{"operation":"liked","trackid":$tid}}')" | jq -r '.liked // false')
+        fi
+        meta=$(sock_send '{"cmd":"query","args":{"operation":"playlist_meta"}}')
+        playlist_mode=$(echo "$meta" | jq -r '.mode // "normal"')
+        fm_enabled=$(echo "$meta" | jq -r '.fm // false')
+        acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
+        nickname=$(echo "$acct" | jq -r '.nickname // empty')
+    fi
+
+    # Build menu items (stable indices: 0=title, 1=artist, 2=PlayPause, 3=Next, 4=Prev, 5=Queue, 6=separator, 7=Login, 8=Search, 9=Playlists, 10=FM, 11=Mode, 12=Like, 13=Trash)
     sel=$({
         if [ -n "$title" ]; then
-            printf '\x00♫ %s\x1c#b4befe\n' "$title"
+            printf '\x00\uf001 %s\x1c#b4befe\n' "$title"
             if [ -n "$artist" ]; then
                 printf '\x00╰ %s\x1c#9399b2\n' "$artist"
             else
                 printf '\x00\n'
             fi
         else
-            printf '\x00♫\n'
+            printf '\x00\uf001\n'
             printf '\x00\n'
         fi
 
         if [ -z "$MPRIS_PLAYER" ]; then
-            printf '\x00Pause/Resume\x1d\n'
+            printf '\x00\uf04c\uf04b\x1d\n'
         elif [ "$state" = "playing" ]; then
-            echo "Pause"
+            printf '\uf04c Pause\n'
         elif [ "$state" = "paused" ] || [ "$state" = "stopped" ]; then
-            echo "Play"
+            printf '\uf04b Play\n'
         else
-            printf '\x00Pause/Resume\x1d\n'
+            printf '\x00\uf04c\uf04b\x1d\n'
         fi
 
         if [ -z "$MPRIS_PLAYER" ]; then
-            printf '\x00Next\x1d\n'
+            printf '\x00\uf04e Next\x1d\n'
         else
-            echo "Next"
+            printf '\uf04e Next\n'
         fi
 
         if [ -z "$MPRIS_PLAYER" ]; then
-            printf '\x00Previous\x1d\n'
+            printf '\x00\uf04a Prev\x1d\n'
         else
-            echo "Previous"
+            printf '\uf04a Prev\n'
+        fi
+
+        if ncm_online; then
+            qcount=$(sock_send '{"cmd":"query","args":{"operation":"playlist_medias","start":0,"end":0}}' | jq '.count // 0')
+            if [ "$qcount" -gt 0 ] 2>/dev/null; then
+                printf "\uf0ca Queue ($qcount)\n"
+            else
+                printf '\uf0ca Queue\n'
+            fi
+        else
+            printf '\x00\uf0ca Queue\x1d\n'
         fi
 
         printf '\x00─── ncm ───\x1c#585b70\n'
 
         if ncm_online; then
-            echo "Search"
-            acct=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}')
-            nickname=$(echo "$acct" | jq -r '.nickname // empty')
             if [ -n "$nickname" ]; then
                 if [ -s "$AVATAR_PATH" ]; then
                     printf '%s\x1f%s\x1c#a6e3a1\n' "$nickname" "$AVATAR_PATH"
@@ -195,11 +274,39 @@ while true; do
                     printf '%s\x1c#a6e3a1\n' "$nickname"
                 fi
             else
-                printf 'Login\x1c#a6e3a1\n'
+                printf '\uf090 Login\x1c#a6e3a1\n'
             fi
+            printf '\uf002 Search\n'
+            printf '\uf00b Playlists\n'
         else
-            printf '\x00Search\x1d\n'
-            printf '\x00Login\x1d\n'
+            printf '\x00\uf090 Login\x1d\n'
+            printf '\x00\uf002 Search\x1d\n'
+            printf '\x00\uf00b Playlists\x1d\n'
+        fi
+
+        if [ "$fm_enabled" = "true" ]; then
+            printf '\uf1eb FM On\n'
+        else
+            printf '\uf1eb FM Off\n'
+        fi
+
+        case "$playlist_mode" in
+            loop)    printf '\uf01e Loop\n' ;;
+            shuffle) printf '\uf074 Shuffle\n' ;;
+            repeat)  printf '\uf2f9 Repeat\n' ;;
+            *)       printf 'Normal\n' ;;
+        esac
+
+        if [ -n "$ncm_liked" ]; then
+            if [ "$ncm_liked" = "true" ]; then
+                printf '\uf004 Unlike\n'
+            else
+                printf '\uf08a Like\n'
+            fi
+            printf '\uf1f8 Trash\n'
+        else
+            printf '\x00\uf08a Like\x1d\n'
+            printf '\x00\uf1f8 Trash\x1d\n'
         fi
     } | $MENU --no-input --format i -p "cm-media" $bg --thumb-width 32)
 
@@ -213,18 +320,42 @@ while true; do
             else
                 mpris_call "$MPRIS_PLAYER" Play
             fi ;;
-        3) [ -n "$MPRIS_PLAYER" ] || continue
-            mpris_call "$MPRIS_PLAYER" Next ;;
-        4) [ -n "$MPRIS_PLAYER" ] || continue
-            mpris_call "$MPRIS_PLAYER" Previous ;;
-        5) ;;
-        6) ncm_online || continue; search ;;
+        3) ncm_online || continue
+            sock_send '{"cmd":"exec","args":{"operation":"next_song"}}' > /dev/null ;;
+        4) ncm_online || continue
+            sock_send '{"cmd":"exec","args":{"operation":"prev_song"}}' > /dev/null ;;
+        5) ncm_online || continue
+            json=$(sock_send '{"cmd":"query","args":{"operation":"playlist_medias","start":0,"end":50}}')
+            echo "$json" | jq -r '.data[] | [.trackid, "\(.title) - \(.artist | join(" / "))", .art_url] | @tsv' > "$NCM_CACHE/queue.txt"
+            [ -s "$NCM_CACHE/queue.txt" ] || continue
+            qsel=$(cut -f2 "$NCM_CACHE/queue.txt" | $MENU -p "Queue" --format i)
+            [ -n "$qsel" ] || continue
+            sock_send "$(jq -n --argjson i "$qsel" '{"cmd":"exec","args":{"operation":"queue_play","index":$i}}')" > /dev/null ;;
+        6) ;; # separator
         7) ncm_online || continue
-            nickname=$(sock_send '{"cmd":"query","args":{"operation":"user_account"}}' | jq -r '.nickname // empty')
-            if [ -n "$nickname" ]; then
-                true
-            else
+            if [ -z "$nickname" ]; then
                 qr_login
             fi ;;
+        8) ncm_online || continue; search ;;
+        9) ncm_online || continue; playlists ;;
+        10) ncm_online || continue
+            sock_send '{"cmd":"exec","args":{"operation":"set_fm"}}' > /dev/null ;;
+        11) ncm_online || continue
+            case "$playlist_mode" in
+                normal)  next="loop" ;;
+                loop)    next="shuffle" ;;
+                shuffle) next="repeat" ;;
+                repeat)  next="normal" ;;
+            esac
+            sock_send "$(jq -n --arg m "$next" '{"cmd":"exec","args":{"operation":"set_mode","mode":$m}}')" > /dev/null ;;
+        12) ncm_online || continue
+            [ -z "$ncm_trackid" ] && continue
+            if [ "$ncm_liked" = "true" ]; then
+                sock_send "$(jq -n --arg tid "$ncm_trackid" '{"cmd":"exec","args":{"operation":"like","trackid":$tid,"liked":false}}')" > /dev/null
+            else
+                sock_send "$(jq -n --arg tid "$ncm_trackid" '{"cmd":"exec","args":{"operation":"like","trackid":$tid,"liked":true}}')" > /dev/null
+            fi ;;
+        13) ncm_online || continue
+            sock_send '{"cmd":"exec","args":{"operation":"fm_trash"}}' > /dev/null ;;
     esac
 done
