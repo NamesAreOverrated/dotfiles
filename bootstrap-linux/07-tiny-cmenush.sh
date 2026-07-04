@@ -33,7 +33,7 @@ fi
 
 if [ -d "$DOTFILES/tiny-cmenush" ]; then
     mkdir -p "$HOME/.config/tiny-cmenush"
-    for f in default.theme wallpaper.theme launcher.theme; do
+    for f in default.theme wallpaper.theme launcher.theme media.theme; do
         link "$DOTFILES/tiny-cmenush/$f" "$HOME/.config/tiny-cmenush/$f"
     done
 fi
