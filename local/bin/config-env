@@ -31,7 +31,7 @@ proxy_lines() {
   host=$(sed -n '1p' "$cfg")
   no_proxy_val=$(sed -n '3p' "$cfg")
   [ -z "$host" ] && return
-  local no_proxy="${no_proxy_val:-localhost,127.0.0.1,::1}"
+  local no_proxy="${no_proxy_val:-localhost,127.0.0.1,::1,.163.com,.music.126.net}"
   if [ "$MODE" = "fish" ]; then
     cat << FISH
 set -gx http_proxy "http://$host"

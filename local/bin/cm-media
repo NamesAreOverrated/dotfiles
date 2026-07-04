@@ -1,9 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -u
 SOCKET="/run/user/$(id -u)/ncm-socket"
 NCM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/cm-media/ncm-daemon"
 COVER="/tmp/cm-media-cover.jpg"
 AVATAR_PATH="/tmp/ncm-daemon-avatar.jpg"
 QR_IMG="/tmp/ncm-daemon-qr.png"
+LOCAL_DIR="${1:-$HOME/Music}"
 
 die() { echo "$1" >&2; exit 1; }
 
@@ -22,9 +24,9 @@ mpris_detect() {
         --dest org.freedesktop.DBus \
         --object-path /org/freedesktop/DBus \
         --method org.freedesktop.DBus.ListNames 2>/dev/null)
-    if echo "$names" | grep -q "org.mpris.MediaPlayer2.ncm"; then
-        echo "ncm"; return
-    fi
+    for name in $(echo "$names" | grep -oP "org\.mpris\.MediaPlayer2\.\K[a-z0-9.]+"); do
+        case $(mpris_get_prop "$name" PlaybackStatus 2>/dev/null) in *Playing*) echo "$name"; return ;; esac
+    done
     echo "$names" | grep -oP "org\.mpris\.MediaPlayer2\.\K[a-z0-9.]+" | head -1
 }
 
@@ -60,7 +62,7 @@ mpris_get_cover() {
     url=$(mpris_meta_str "$1" "mpris:artUrl")
     case "$url" in
         file://*) echo "${url#file://}" ;;
-        https://*) curl -sL "$url" -o "$COVER" 2>/dev/null && echo "$COVER" ;;
+        https://*) curl -sL --max-time 1 "$url" -o "$COVER" 2>/dev/null && echo "$COVER" ;;
     esac
 }
 
@@ -181,7 +183,73 @@ playlists() {
     done
 }
 
+# ── Local file browser ──
+
+queue_add_local() {
+    sock_send "$(jq -n --arg tid "local://$1" --arg t "$(basename "$1")" \
+        '{"cmd":"exec","args":{"operation":"queue_add","trackid":$tid,"title":$t}}')" >/dev/null
+}
+
+local_play_file() {
+    local resp idx
+    resp=$(sock_send "$(jq -n --arg tid "local://$1" --arg t "$(basename "$1")" \
+        '{"cmd":"exec","args":{"operation":"queue_add","trackid":$tid,"title":$t}}')")
+    idx=$(echo "$resp" | jq '.index')
+    [ -n "$idx" ] && [ "$idx" != "null" ] && \
+        sock_send "$(jq -n --argjson i "$idx" '{"cmd":"exec","args":{"operation":"queue_play","index":$i}}')" >/dev/null
+}
+
+local_browser() {
+    local dir="$1" start_dir="$dir"
+
+    while true; do
+        local ids=() labels=() files=()
+
+        for f in "$dir"/*/; do
+            [ -d "$f" ] || continue
+            ids+=("$f")
+            labels+=(" 󰉋 $(basename "$f") 󰅂")
+        done
+
+        for f in "$dir"/*; do
+            [ -f "$f" ] || continue
+            case "${f,,}" in *.mp3|*.flac|*.wav|*.aac)
+                ids+=("$f")
+                labels+=(" 󰎈 $(basename "$f")")
+                files+=("$f") ;;
+            esac
+        done
+
+        if [[ ${#ids[@]} -eq 0 ]]; then
+            [[ "$dir" == "$start_dir" ]] && return
+            dir="$(dirname "$dir")"; continue
+        fi
+
+        sel=$({
+            if [[ ${#files[@]} -gt 0 ]]; then
+                printf '󰐚 Add all\n'
+            fi
+            for label in "${labels[@]}"; do printf '%s\n' "$label"; done
+        } | $MENU -p "$(basename "$dir")")
+
+        [[ -z "$sel" ]] && { [[ "$dir" == "$start_dir" ]] && return; dir="$(dirname "$dir")"; continue; }
+
+        [[ "$sel" == '󰐚 Add all' ]] && { for f in "${files[@]}"; do queue_add_local "$f"; done; continue; }
+
+        local action=""
+        for i in "${!labels[@]}"; do
+            [[ "${labels[$i]}" == "$sel" ]] && { action="${ids[$i]}"; break; }
+        done
+        [[ -z "$action" ]] && continue
+
+        [[ -d "$action" ]] && { dir="$action"; continue; }
+        [[ -f "$action" ]] && { local_play_file "$action"; }
+    done
+}
+
 # ── Main loop ──
+
+[[ -n "${1:-}" ]] && { ncm_online || die "ncm-daemon not running"; local_browser "$LOCAL_DIR"; exit 0; }
 
 while true; do
     MPRIS_PLAYER=$(mpris_detect)
@@ -203,6 +271,7 @@ while true; do
     ncm_trackid=""
     ncm_liked=""
     playlist_mode="normal"
+    fm_enabled="false"
     nickname=""
     if ncm_online; then
         cur=$(sock_send '{"cmd":"query","args":{"operation":"current_song"}}')
@@ -217,7 +286,7 @@ while true; do
         nickname=$(echo "$acct" | jq -r '.nickname // empty')
     fi
 
-    # Build menu items (stable indices: 0=title, 1=artist, 2=PlayPause, 3=Next, 4=Prev, 5=Queue, 6=separator, 7=Login, 8=Search, 9=Playlists, 10=FM, 11=Mode, 12=Like, 13=Trash)
+    # Build menu items (stable indices: 0=title, 1=artist, 2=PlayPause, 3=Next, 4=Prev, 5=Queue, 6=separator, 7=Login, 8=Search, 9=Playlists, 10=Local, 11=FM, 12=Mode, 13=Like, 14=Trash)
     sel=$({
         if [ -n "$title" ]; then
             printf '\x00\uf001 %s\x1c#b4befe\n' "$title"
@@ -264,7 +333,7 @@ while true; do
             printf '\x00\uf0ca Queue\x1d\n'
         fi
 
-        printf '\x00─── ncm ───\x1c#585b70\n'
+        printf '\x00─── ncm ───\x1c#eba0ac\n'
 
         if ncm_online; then
             if [ -n "$nickname" ]; then
@@ -278,10 +347,12 @@ while true; do
             fi
             printf '\uf002 Search\n'
             printf '\uf00b Playlists\n'
+            printf '\uf07c Local\n'
         else
             printf '\x00\uf090 Login\x1d\n'
             printf '\x00\uf002 Search\x1d\n'
             printf '\x00\uf00b Playlists\x1d\n'
+            printf '\x00\uf07c Local\x1d\n'
         fi
 
         if [ "$fm_enabled" = "true" ]; then
@@ -325,11 +396,12 @@ while true; do
         4) ncm_online || continue
             sock_send '{"cmd":"exec","args":{"operation":"prev_song"}}' > /dev/null ;;
         5) ncm_online || continue
-            json=$(sock_send '{"cmd":"query","args":{"operation":"playlist_medias","start":0,"end":50}}')
-            echo "$json" | jq -r '.data[] | [.trackid, "\(.title) - \(.artist | join(" / "))", .art_url] | @tsv' > "$NCM_CACHE/queue.txt"
+            json=$(sock_send '{"cmd":"query","args":{"operation":"playlist_medias","start":0,"end":9999}}')
+            total=$(echo "$json" | jq '.count // 0')
+            echo "$json" | jq -r '.data | to_entries[] | [.key, .value.trackid, "\(.value.title) - \(.value.artist // ["?"] | join("/"))"] | @tsv' > "$NCM_CACHE/queue.txt"
             [ -s "$NCM_CACHE/queue.txt" ] || continue
-            qsel=$(cut -f2 "$NCM_CACHE/queue.txt" | $MENU -p "Queue" --format i)
-            [ -n "$qsel" ] || continue
+            qsel=$(cut -f3 "$NCM_CACHE/queue.txt" | $MENU -p "Queue" --format i)
+            [ -z "$qsel" ] && continue
             sock_send "$(jq -n --argjson i "$qsel" '{"cmd":"exec","args":{"operation":"queue_play","index":$i}}')" > /dev/null ;;
         6) ;; # separator
         7) ncm_online || continue
@@ -338,9 +410,10 @@ while true; do
             fi ;;
         8) ncm_online || continue; search ;;
         9) ncm_online || continue; playlists ;;
-        10) ncm_online || continue
-            sock_send '{"cmd":"exec","args":{"operation":"set_fm"}}' > /dev/null ;;
+        10) ncm_online || continue; local_browser "$HOME/Music" ;;
         11) ncm_online || continue
+            sock_send '{"cmd":"exec","args":{"operation":"set_fm"}}' > /dev/null ;;
+        12) ncm_online || continue
             case "$playlist_mode" in
                 normal)  next="loop" ;;
                 loop)    next="shuffle" ;;
@@ -348,14 +421,14 @@ while true; do
                 repeat)  next="normal" ;;
             esac
             sock_send "$(jq -n --arg m "$next" '{"cmd":"exec","args":{"operation":"set_mode","mode":$m}}')" > /dev/null ;;
-        12) ncm_online || continue
+        13) ncm_online || continue
             [ -z "$ncm_trackid" ] && continue
             if [ "$ncm_liked" = "true" ]; then
                 sock_send "$(jq -n --arg tid "$ncm_trackid" '{"cmd":"exec","args":{"operation":"like","trackid":$tid,"liked":false}}')" > /dev/null
             else
                 sock_send "$(jq -n --arg tid "$ncm_trackid" '{"cmd":"exec","args":{"operation":"like","trackid":$tid,"liked":true}}')" > /dev/null
             fi ;;
-        13) ncm_online || continue
+        14) ncm_online || continue
             sock_send '{"cmd":"exec","args":{"operation":"fm_trash"}}' > /dev/null ;;
     esac
 done

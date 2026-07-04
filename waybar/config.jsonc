@@ -7,8 +7,15 @@
   "margin-left": 0,
   "margin-right": 0,
   "modules-left": ["niri/workspaces","sway/workspaces", "custom/lock", "custom/reboot", "custom/shutdown"],
-  "modules-center": [],
-  "modules-right": ["tray","custom/containers", "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
+  "modules-center": [ "mpris"],
+  "modules-right": [ "tray","custom/containers" , "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
+  "mpris": {
+    "format": "󰎈  {dynamic}",
+    "format-paused": "󰏤  {dynamic}",
+    "tooltip-format": "󰎈  {title}\n󰻋  {artist}\n󰉊  {album}\n⏱  {dynamic}\n  {player}",
+    "dynamic-order": ["title", "artist", "position", "length"],
+    "interval": 1
+  },
   "niri/workspaces": {
     "format": "{icon}",
     "on-click": "activate",

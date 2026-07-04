@@ -116,6 +116,10 @@ fi
         echo '    Mod+A hotkey-overlay-title="Manage Aliases" { spawn "cm-alias"; }'
     fi
 
+    if has cm-media; then
+        echo '    Mod+M hotkey-overlay-title="Media Controller" { spawn "cm-media"; }'
+    fi
+
     echo "}"
 } > "$HOME/.config/niri/local/autostart.kdl"
 echo "  Generated ~/.config/niri/local/autostart.kdl"

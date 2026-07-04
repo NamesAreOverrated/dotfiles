@@ -30,7 +30,7 @@ proxy_write() {
   state=$(sed -n '2p' "$HOME/.config/cm-network" 2>/dev/null)
   no_proxy_val=$(sed -n '3p' "$HOME/.config/cm-network" 2>/dev/null)
   [[ -z "$state" ]] && state="0"
-  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
+   [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1,.163.com,.music.126.net"
   printf '%s\n%s\n%s\n' "$host:$port" "$state" "$no_proxy_val" > "$HOME/.config/cm-network"
 }
 proxy_toggle() {
@@ -40,7 +40,7 @@ proxy_toggle() {
   state=$(sed -n '2p' "$HOME/.config/cm-network" 2>/dev/null)
   no_proxy_val=$(sed -n '3p' "$HOME/.config/cm-network" 2>/dev/null)
   [[ -z "$addr" ]] && addr="localhost:10808"
-  [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1"
+   [[ -z "$no_proxy_val" ]] && no_proxy_val="localhost,127.0.0.1,::1,.163.com,.music.126.net"
   if [[ "$state" == "1" ]]; then
     printf '%s\n0\n%s\n' "$addr" "$no_proxy_val" > "$HOME/.config/cm-network"
   else

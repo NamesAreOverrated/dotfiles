@@ -95,6 +95,32 @@ window#waybar {
 
 #custom-containers { color: #fab387; }
 
+
+@keyframes mpris-color {
+  0%   { color: #a6e3a1; }
+  25%  { color: #89b4fa; }
+  50%  { color: #cba6f7; }
+  75%  { color: #f9e2af; }
+  100% { color: #a6e3a1; }
+
+}
+
+#mpris {
+  margin: 2px 4px;
+  padding: 0px 24px;
+  min-height: 24px;
+  border-radius: 32px;
+  color: #585b70;
+  transition: all 0.3s ease;
+  text-shadow: 1px 1px 2px black;
+}
+#mpris.playing {
+  color: #a6e3a1;
+  animation: mpris-color 36s ease-in-out infinite;
+}
+#mpris.paused {
+  color: #f9e2af;
+}
 #custom-lock     { color: #cba6f7; }
 #custom-reboot   { color: #f9e2af; }
 #custom-shutdown { color: #f38ba8; }

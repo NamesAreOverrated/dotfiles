@@ -43,6 +43,7 @@ fi
 link "$DOTFILES/local/bin/cm-launcher" "$HOME/.local/bin/cm-launcher"
 link "$DOTFILES/local/bin/cm-image" "$HOME/.local/bin/cm-image"
 link "$DOTFILES/local/bin/cm-preview" "$HOME/.local/bin/cm-preview"
+link "$DOTFILES/local/bin/cm-media" "$HOME/.local/bin/cm-media"
 
 # ── Launcher icons ──
 
@@ -98,7 +99,7 @@ fi
 # Create default proxy config if none exists
 if [ ! -f "$CFG" ]; then
     mkdir -p "$HOME/.config"
-    printf '%s\n0\n%s\n' "localhost:10808" "localhost,127.0.0.1,::1" > "$CFG"
+    printf '%s\n0\n%s\n' "localhost:10808" "localhost,127.0.0.1,::1,.163.com,.music.126.net" > "$CFG"
     echo "  Created default proxy config (disabled)"
 fi
 
