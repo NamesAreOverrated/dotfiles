@@ -48,7 +48,7 @@ mpris_call() {
 mpris_meta_str() {
     local meta
     meta=$(mpris_get_prop "$1" "Metadata")
-    echo "$meta" | sed "s/.*'$2': <'//;s/'>.*//" 2>/dev/null
+    echo "$meta" | sed -n "s/.*'$2': <'\([^']*\)'>.*/\1/p; s/.*'$2': <\"\([^\"]*\)\">.*/\1/p" 2>/dev/null
 }
 
 mpris_meta_arr() {
