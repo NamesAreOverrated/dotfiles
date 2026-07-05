@@ -286,19 +286,18 @@ while true; do
         nickname=$(echo "$acct" | jq -r '.nickname // empty')
     fi
 
-    # Build menu items (stable indices: 0=title, 1=artist, 2=PlayPause, 3=Next, 4=Prev, 5=Queue, 6=separator, 7=Login, 8=Search, 9=Playlists, 10=Local, 11=FM, 12=Mode, 13=Like, 14=Trash)
+    # Build menu items (stable indices: 0=artist+title, 1=Audio, 2=PlayPause, 3=Next, 4=Prev, 5=Queue, 6=separator, 7=Login, 8=Search, 9=Playlists, 10=Local, 11=FM, 12=Mode, 13=Like, 14=Trash)
     sel=$({
         if [ -n "$title" ]; then
-            printf '\x00\uf001 %s\x1c#b4befe\n' "$title"
             if [ -n "$artist" ]; then
-                printf '\x00╰ %s\x1c#9399b2\n' "$artist"
+                printf '\x00%s — %s\x1c#b4befe\n' "$artist" "$title"
             else
-                printf '\x00\n'
+                printf '\x00%s\x1c#b4befe\n' "$title"
             fi
         else
-            printf '\x00\uf001\n'
             printf '\x00\n'
         fi
+        printf '󰕾 Audio\n'
 
         if [ -z "$MPRIS_PLAYER" ]; then
             printf '\x00\uf04c\uf04b\x1d\n'
@@ -357,7 +356,7 @@ while true; do
                 loop)    printf '\uf01e Loop\n' ;;
                 shuffle) printf '\uf074 Shuffle\n' ;;
                 repeat)  printf '\uf2f9 Repeat\n' ;;
-                *)       printf 'Normal\n' ;;
+                *)       printf '󰕥 Normal\n' ;;
             esac
         else
             printf '\x00\uf090 Login\x1d\n'
@@ -375,7 +374,7 @@ while true; do
                 loop)    printf '\x00\uf01e Loop\n' ;;
                 shuffle) printf '\x00\uf074 Shuffle\n' ;;
                 repeat)  printf '\x00\uf2f9 Repeat\n' ;;
-                *)       printf '\x00Normal\n' ;;
+                *)       printf '\x00󰕥 Normal\n' ;;
             esac
         fi
 
@@ -395,7 +394,8 @@ while true; do
     [ -z "$sel" ] && exit 0
 
     case "$sel" in
-        0|1) ;;
+        0) ;;
+        1) cm-volmixer & exit 0 ;;
         2) [ -n "$MPRIS_PLAYER" ] || continue
             if [ "$state" = "playing" ]; then
                 mpris_call "$MPRIS_PLAYER" Pause
