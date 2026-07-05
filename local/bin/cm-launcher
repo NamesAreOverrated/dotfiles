@@ -42,20 +42,28 @@ get_icon_theme() {
 get_theme_dirs() {
   local theme="$1" depth="${2:-0}"
   (( depth > 8 )) && return
-  local base
-  for base in "$HOME/.icons" /usr/share/icons /usr/local/share/icons; do
+  local base first_match="" matched=0
+  for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
     local dir="$base/$theme"
     if [[ -d "$dir" ]]; then
       echo "$dir"
-      local inherit
-      inherit=$(sed -n 's/^Inherits=\s*//p' "$dir/index.theme" 2>/dev/null | head -1)
-      if [[ -n "$inherit" ]]; then
-        get_theme_dirs "$inherit" $((depth + 1))
-      fi
-      return
+      matched=1
+      [[ -z "$first_match" ]] && first_match="$dir"
     fi
   done
-  [[ "$theme" != "hicolor" ]] && get_theme_dirs "hicolor" $((depth + 1))
+  if (( matched )); then
+    local inherit
+    inherit=$(sed -n 's/^Inherits=\s*//p' "$first_match/index.theme" 2>/dev/null | head -1)
+    if [[ -n "$inherit" ]]; then
+      local IFS=','
+      for t in $inherit; do
+        t="${t#"${t%%[! ]*}"}"; t="${t%"${t##*[! ]}"}"
+        get_theme_dirs "$t" $((depth + 1))
+      done
+    fi
+  else
+    [[ "$theme" != "hicolor" ]] && get_theme_dirs "hicolor" $((depth + 1))
+  fi
 }
 
 # ── Resolve icon path ──
@@ -67,7 +75,7 @@ resolve_icon() {
   # Strip file extension if icon name includes one (e.g. "godot-mono.svg")
   [[ "$name" == *.* ]] && name="${name%.*}"
   local theme_dirs=()
-  while IFS='' read -r dir; do theme_dirs+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)")
+  while IFS='' read -r dir; do theme_dirs+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
   local sizes=(256 128 64 48 32 24 22 16)
   for td in "${theme_dirs[@]}"; do
     for sz in "${sizes[@]}"; do
@@ -83,6 +91,14 @@ resolve_icon() {
     local p="$td/scalable/apps/${name}.svg"
     [[ -f "$p" ]] && { echo "$p"; return; }
   done
+  # Fallback: icon directly in icon base dir (e.g. ~/.local/share/icons/something.png)
+  for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
+    [[ -d "$base" ]] || continue
+    p="$base/${name}.png"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="$base/${name}.svg"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+  done
     local p="/usr/share/pixmaps/${name}.png"
     [[ -f "$p" ]] && { echo "$p"; return; }
     p="/usr/share/pixmaps/${name}.svg"
@@ -90,7 +106,6 @@ resolve_icon() {
     p="/usr/share/pixmaps/${name}.xpm"
     [[ -f "$p" ]] && { echo "$p"; return; }
 }
-
 # ── Parse a .desktop file ──
 # Returns: path|name|exec|icon|terminal|action_ids
 parse_desktop() {
@@ -183,14 +198,16 @@ build_cache() {
     done
   done
   mv "$tmpf" "$LAUNCHER_CACHE"
-  cat "$LAUNCHER_CACHE"
+  sed 's/^[^|]*|//' "$LAUNCHER_CACHE"
 }
 
 # ── Read cache ──
 read_cache() {
   [[ -f "$LAUNCHER_CACHE" ]] || return 1
+  local cache_count=0
   while IFS='' read -r line; do
     [[ -z "$line" ]] && continue
+    cache_count=$((cache_count + 1))
     local mtime file rest
     mtime="${line%%|*}"; rest="${line#*|}"
     file="${rest%%|*}"; rest="${rest#*|}"
@@ -199,6 +216,15 @@ read_cache() {
     [[ "$curr_mtime" != "$mtime" ]] && return 1
     echo "$file|$rest"
   done < "$LAUNCHER_CACHE"
+  # Invalidate if .desktop file count differs (additions/deletions)
+  local dir_count=0
+  for dir in $(get_local_app_dirs); do
+    [[ -d "$dir" ]] || continue
+    for f in "$dir"/*.desktop; do
+      [[ -f "$f" ]] && dir_count=$((dir_count + 1))
+    done
+  done
+  [[ "$dir_count" -ne "$cache_count" ]] && return 1
 }
 
 # ── Launch with terminal ──
