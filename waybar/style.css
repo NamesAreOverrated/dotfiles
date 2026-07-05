@@ -106,20 +106,22 @@ window#waybar {
 }
 
 #mpris {
+  padding: 0px 12px;
   margin: 2px 4px;
-  padding: 0px 24px;
   min-height: 24px;
   border-radius: 32px;
   color: #585b70;
-  transition: all 0.3s ease;
   text-shadow: 1px 1px 2px black;
+  background: #1e1e2e;
 }
 #mpris.playing {
   color: #a6e3a1;
-  animation: mpris-color 36s ease-in-out infinite;
+  background:linear-gradient(180deg,rgba(166,227,161,0)0%, rgba(166,227,161,0)85%,rgba(166,227,161,1)95%,rgba(30,30,46,1)100%);
 }
 #mpris.paused {
   color: #f9e2af;
+
+  background:linear-gradient(180deg,rgba(249,226,175,0)0%, rgba(249,226,175,0)85%,rgba(249,226,175,1)95%,rgba(30,30,46,1)100%);
 }
 #custom-lock     { color: #cba6f7; }
 #custom-reboot   { color: #f9e2af; }

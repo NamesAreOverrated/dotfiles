@@ -6,9 +6,9 @@
   "margin-top": 2,
   "margin-left": 0,
   "margin-right": 0,
-  "modules-left": ["niri/workspaces","sway/workspaces", "custom/lock", "custom/reboot", "custom/shutdown"],
-  "modules-center": [ "mpris"],
-  "modules-right": [ "tray","custom/containers" , "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
+  "modules-left": ["niri/workspaces","sway/workspaces", "custom/lock", "custom/reboot", "custom/shutdown", "tray"],
+  "modules-center": [ ],
+  "modules-right": [ "mpris","custom/containers" , "pulseaudio#input", "pulseaudio#output", "network", "disk", "memory", "cpu", "clock"],
   "mpris": {
     "format": "󰎈  {dynamic}",
     "format-paused": "󰏤  {dynamic}",
