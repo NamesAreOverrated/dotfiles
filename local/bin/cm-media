@@ -332,24 +332,17 @@ while true; do
             else
                 printf '\uf04b Play\n'
             fi
-        elif ncm_online; then
-            s=$(sock_send '{"cmd":"query","args":{"operation":"status"}}' | jq -r '.state')
-            if [ "$s" = "playing" ]; then
-                printf '\uf04c Pause\n'
-            else
-                printf '\uf04b Play\n'
-            fi
         else
             printf '\x00\uf04c\uf04b\x1d\n'
         fi
 
-        if [ -n "$MPRIS_PLAYER" ] || ncm_online; then
+        if [ -n "$MPRIS_PLAYER" ]; then
             printf '\uf04e Next\n'
         else
             printf '\x00\uf04e Next\x1d\n'
         fi
 
-        if [ -n "$MPRIS_PLAYER" ] || ncm_online; then
+        if [ -n "$MPRIS_PLAYER" ]; then
             printf '\uf04a Prev\n'
         else
             printf '\x00\uf04a Prev\x1d\n'
@@ -441,24 +434,9 @@ while true; do
                 else
                     mpris_call "$MPRIS_PLAYER" Play
                 fi
-            elif ncm_online; then
-                s=$(sock_send '{"cmd":"query","args":{"operation":"status"}}' | jq -r '.state')
-                if [ "$s" = "playing" ]; then
-                    sock_send '{"cmd":"exec","args":{"operation":"pause"}}' > /dev/null
-                else
-                    sock_send '{"cmd":"exec","args":{"operation":"resume"}}' > /dev/null
-                fi
             fi ;;
-        2) if [ -n "$MPRIS_PLAYER" ]; then
-                mpris_call "$MPRIS_PLAYER" Next
-            elif ncm_online; then
-                sock_send '{"cmd":"exec","args":{"operation":"next_song"}}' > /dev/null
-            fi ;;
-        3) if [ -n "$MPRIS_PLAYER" ]; then
-                mpris_call "$MPRIS_PLAYER" Previous
-            elif ncm_online; then
-                sock_send '{"cmd":"exec","args":{"operation":"prev_song"}}' > /dev/null
-            fi ;;
+        2) [ -n "$MPRIS_PLAYER" ] && mpris_call "$MPRIS_PLAYER" Next ;;
+        3) [ -n "$MPRIS_PLAYER" ] && mpris_call "$MPRIS_PLAYER" Previous ;;
         4) players=$(mpris_players)
             [ -z "$players" ] && continue
             items=$(echo "$players" | while IFS= read -r p; do
