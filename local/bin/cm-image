@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -u
 
+source "$HOME/.local/libexec/cm-common.sh"
+
 dir="$HOME/Pictures/wallpapers"
 theme="$HOME/.config/tiny-cmenush/wallpaper.theme"
 mode="fit"
@@ -14,73 +16,27 @@ while getopts "d:c:m:" opt; do
 done
 shift $((OPTIND - 1))
 [[ $# -gt 0 ]] && dir="$1"
-start_dir="$dir"
-select_idx=""
 
-while true; do
-  ids=() labels=() images=()
+browse_ext_filter="png jpg jpeg PNG JPG JPEG"
+browse_label_dir=' 󰉋 %s 󰅂'
+browse_label_file=' 󰋩 %s'
+browse_use_thumbs=true
 
-  # Subdirectories (first image as thumbnail)
-  for f in "$dir"/*/; do
-    [ -d "$f" ] || continue
-    name=$(basename "$f")
-    first=$(find "$f" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) 2>/dev/null | head -1)
-    [ -z "$first" ] && continue
-    ids+=("$f")
-    labels+=(" 󰉋 $name 󰅂"$'\x1f'"$first")
-  done
-
-  # Image files
-  for f in "$dir"/*; do
-    [ -f "$f" ] || continue
-    name=$(basename "$f")
-    case "${name##*.}" in
-      png|jpg|jpeg|PNG|JPG|JPEG)
-        ids+=("$f")
-        labels+=(" 󰋩 $name"$'\x1f'"$f")
-        images+=("$f")
-        ;;
-    esac
-  done
-
-  # Empty dir — go up if possible
-  if [[ ${#ids[@]} -eq 0 ]]; then
-    [[ "$dir" == "$start_dir" ]] && exit 0
-    dir="$(dirname "$dir")"
-    continue
-  fi
-
-  sel=$({
-    for i in "${!ids[@]}"; do
-      printf '%s\n' "${labels[$i]}"
-    done
-  } | tiny-cmenush -c "$theme" -p "$(basename "$dir")" --format i ${select_idx:+--select $select_idx})
-  select_idx=""
-
-  # Escape — go up or exit at start_dir
-  if [[ -z "$sel" ]]; then
-    [[ "$dir" == "$start_dir" ]] && exit 0
-    dir="$(dirname "$dir")"
-    continue
-  fi
-
-  action="${ids[$sel]}"
-  [[ -z "$action" ]] && continue
-
-  # Directory — go deeper
-  [ -d "$action" ] && { dir="$action"; continue; }
-
-  # ------ Phase 2: Preview mode ------
-  [[ ${#images[@]} -eq 0 ]] && continue
-
-  result=$(cm-preview -m "$mode" -c "$theme" -i "$action" "${images[@]}")
+browse_on_file() {
+  local path="$1"
+  shift
+  local all_files=("$@")
+  result=$(cm-preview -m "$mode" -c "$theme" -i "$path" "${all_files[@]}")
   rc=$?
   if [ $rc -eq 0 ] && [ -n "$result" ]; then
-    echo "$result"; exit 0
+    echo "$result"
+    exit 0
   fi
   if [ $rc -eq 2 ] && [ -n "$result" ]; then
-    for idx in "${!ids[@]}"; do
-      [ "${ids[$idx]}" = "$result" ] && { select_idx="$idx"; break; }
-    done
+    browse_select_path="$result"
+    return 2
   fi
-done
+  return 0
+}
+
+browse_nav "$dir" "$theme" || exit 0

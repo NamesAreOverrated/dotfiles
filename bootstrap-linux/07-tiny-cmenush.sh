@@ -44,6 +44,7 @@ link "$DOTFILES/local/bin/cm-launcher" "$HOME/.local/bin/cm-launcher"
 link "$DOTFILES/local/bin/cm-image" "$HOME/.local/bin/cm-image"
 link "$DOTFILES/local/bin/cm-preview" "$HOME/.local/bin/cm-preview"
 link "$DOTFILES/local/bin/cm-media" "$HOME/.local/bin/cm-media"
+link "$DOTFILES/local/libexec/cm-common.sh" "$HOME/.local/libexec/cm-common.sh"
 
 # ── Launcher icons ──
 
