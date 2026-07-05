@@ -394,7 +394,7 @@ show_actions_submenu() {
   [[ ${#args[@]} -eq 0 ]] && return 1
 
   if [[ "${terminals[$idx]}" == "true" ]]; then
-    launch_terminal "${args[@]}"
+    launch_terminal "${args[@]}" || exit 1
   else
     exec "${args[@]}" || exit 1
   fi
