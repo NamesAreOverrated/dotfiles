@@ -486,10 +486,11 @@ main() {
     [[ ${#args[@]} -eq 0 ]] && exit 1
 
     if [[ "$terminal" == "true" ]]; then
-      launch_terminal "${args[@]}"
+      launch_terminal "${args[@]}" &
     else
-      exec "${args[@]}" || exit 1
+      "${args[@]}" &
     fi
+    exit 0
   done
 }
 
