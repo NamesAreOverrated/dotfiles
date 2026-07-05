@@ -112,7 +112,8 @@ window#waybar {
   border-radius: 32px;
   color: #585b70;
   text-shadow: 1px 1px 2px black;
-  background: #1e1e2e;
+  border: none;
+  background: transparent;
 }
 #mpris.playing {
   color: #a6e3a1;
