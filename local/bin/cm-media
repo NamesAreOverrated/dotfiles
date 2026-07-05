@@ -319,7 +319,7 @@ while true; do
     sel=$({
         if [ -n "$title" ]; then
             if [ -n "$artist" ]; then
-                printf '\x00%s — %s\x1c#b4befe\n' "$artist" "$title"
+                printf '\x00%s — %s\x1c#b4befe\n' "$title" "$artist"
             else
                 printf '\x00%s\x1c#b4befe\n' "$title"
             fi
