@@ -12,7 +12,7 @@
   "mpris": {
     "format": "󰎈  {dynamic}",
     "format-paused": "󰏤  {dynamic}",
-    "tooltip-format": "󰎈  {title}\n󰻋  {artist}\n󰉊  {album}\n⏱  {dynamic}\n  {player}",
+    "tooltip-format": "󰎈  {title}\n󰻋  {artist}\n󰉊  {album}\n⏱  {position}/{length}\n  {player}",
     "dynamic-order": ["title", "artist", "position", "length"],
     "interval": 1
   },

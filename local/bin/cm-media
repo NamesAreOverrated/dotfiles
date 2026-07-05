@@ -254,16 +254,16 @@ local_browser() {
                 printf '󰐚 Add all\n'
             fi
             for label in "${labels[@]}"; do printf '%s\n' "$label"; done
-        } | $MENU -p "$(basename "$dir")")
+        } | $MENU -p "$(basename "$dir")" --format i)
 
         [[ -z "$sel" ]] && { [[ "$dir" == "$start_dir" ]] && return; dir="$(dirname "$dir")"; continue; }
 
-        [[ "$sel" == '󰐚 Add all' ]] && { for f in "${files[@]}"; do queue_add_local "$f"; done; continue; }
+        if [[ ${#files[@]} -gt 0 && "$sel" -eq 0 ]]; then
+            for f in "${files[@]}"; do queue_add_local "$f"; done; continue
+        fi
 
-        local action=""
-        for i in "${!labels[@]}"; do
-            [[ "${labels[$i]}" == "$sel" ]] && { action="${ids[$i]}"; break; }
-        done
+        local adj=$(( ${#files[@]} > 0 ? sel - 1 : sel ))
+        local action="${ids[$adj]:-}"
         [[ -z "$action" ]] && continue
 
         [[ -d "$action" ]] && { dir="$action"; continue; }
@@ -428,9 +428,10 @@ while true; do
             printf '\x00\uf08a Like\x1d\n'
             printf '\x00\uf1f8 Trash\x1d\n'
         fi
-    } | $MENU --no-input --format i -p "cm-media" $bg --thumb-width 32)
+    } | $MENU --no-input --format i -p "cm-media" $bg --thumb-width 32 ${select_idx:+--select $select_idx})
 
     [ -z "$sel" ] && exit 0
+    select_idx="$sel"
 
     case "$sel" in
         0) ;;
@@ -466,7 +467,8 @@ while true; do
             sel=$(printf 'Auto (detect)\n%s' "$items" | $MENU --format i -p "Players")
             [ -z "$sel" ] && continue
             if [ "$sel" = "0" ]; then
-                SELECTED_PLAYER=""
+SELECTED_PLAYER=""
+select_idx=""
             else
                 idx=0
                 while IFS= read -r p; do

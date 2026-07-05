@@ -38,18 +38,14 @@ done
 while true; do
   img="${paths[$current]}"
   result=$(printf '\x00\n%.0s' {1..5} \
-    | tiny-cmenush -n --key-output $'pn\n' --bg "$img" --bg-mode "$mode" -c "$theme" \
+    | tiny-cmenush -n --key-output $'pn\x1a\x1b' --bg "$img" --bg-mode "$mode" -c "$theme" \
         -p "$(basename "$img")")
-  rc=$?
 
   case "$result" in
     p) current=$(( (current - 1 + total) % total )) ;;
     n) current=$(( (current + 1) % total )) ;;
-    '')
-      if [[ $rc -eq 0 ]]; then
-        echo "${paths[$current]}"
-        exit 0
-      fi
-      exit 1 ;;
+    $'\x1a') echo "${paths[$current]}"; exit 0 ;;
+    $'\x1b')  echo "${paths[$current]}"; exit 2 ;;
+    '') exit 1 ;;
   esac
 done

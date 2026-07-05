@@ -411,6 +411,8 @@ main() {
     fi
   fi
 
+  local select_idx=""
+
   while true; do
     local entries
     entries=$(read_cache) || entries=$(build_cache)
@@ -451,10 +453,11 @@ main() {
     local selected
     selected=$({
       printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
-      printf '\x00%s\n' '────────────────────'
+      printf '\x00%s\n' '──── Apps ────'
       printf '%s\n' "${thumbs[@]}"
-    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme" ${select_idx:+--select $select_idx}) || true
     [[ -z "$selected" ]] && exit 0
+    select_idx="$selected"
 
     if [[ "$selected" -eq 0 ]]; then
       do_add

@@ -120,6 +120,11 @@ fi
         echo '    Mod+M hotkey-overlay-title="Media Controller" { spawn "cm-media"; }'
     fi
 
+    if has cm-network; then
+        echo '    Mod+N hotkey-overlay-title="Network Controller" { spawn "cm-network"; }'
+    fi
+
+
     echo "}"
 } > "$HOME/.config/niri/local/autostart.kdl"
 echo "  Generated ~/.config/niri/local/autostart.kdl"

@@ -32,17 +32,17 @@ parse_aliases() {
 
 add_alias() {
   local name cmd
-  name=$(printf '\x00\n' | $WMENUSH -p "Alias name:" --input-fallback) || true
+  name=$(printf '\x00\n' | $WMENUSH -p "Alias name:" --input-fallback --lines 0) || true
   [[ -z "$name" ]] && return
 
   for n in "${NAMES[@]}"; do
     if [[ "$n" == "$name" ]]; then
-      printf '\x00\n' | $WMENUSH -p "Alias '$name' already exists!" --input-fallback >/dev/null || true
+      printf '\x00\n' | $WMENUSH -p "Alias '$name' already exists!" --input-fallback --lines 0 >/dev/null || true
       return
     fi
   done
 
-  cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "cd $PWD" --input-fallback) || true
+  cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "cd $PWD" --input-fallback --lines 0) || true
   [[ -z "$cmd" ]] && return
 
   local escaped="${cmd//\'/\'\\\'\'}"
@@ -58,7 +58,7 @@ edit_alias() {
   local idx="$1"
   local name="${NAMES[$idx]}" old_cmd="${CMDS[$idx]}"
   local new_cmd
-  new_cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "$old_cmd" --input-fallback) || true
+  new_cmd=$(printf '\x00\n' | $WMENUSH -p "Alias $name =" --pfill "$old_cmd" --input-fallback --lines 0) || true
   [[ -z "$new_cmd" || "$new_cmd" == "$old_cmd" ]] && return
 
   local escaped="${new_cmd//\'/\'\\\'\'}"
@@ -80,6 +80,8 @@ delete_alias() {
 main() {
   [[ -f "$BASHRC" ]] || touch "$BASHRC"
 
+  local select_idx=""
+
   while true; do
     NAMES=(); CMDS=(); LINENOS=()
     parse_aliases
@@ -90,15 +92,16 @@ main() {
         printf '󰩈 Add new\n'
         printf '󰎞 Edit .bashrc\n'
         printf '󰎞 Edit .bash_profile\n'
-        printf '\x00──────────────────────\n'
+        printf '\x00──── Aliases ────\n'
         for i in "${!NAMES[@]}"; do
           local label="${NAMES[$i]} 󰅂 ${CMDS[$i]}"
           [[ ${#label} -gt 72 ]] && label="${label:0:69}..."
           printf '%s\n' "$label"
         done
-      } | $WMENUSH -p "Aliases" --format i
+      } | $WMENUSH -p "Aliases" --format i ${select_idx:+--select $select_idx}
     ) || true
     [[ -z "$selected" ]] && exit 0
+    select_idx="$selected"
 
     local idx="$selected"
 
@@ -110,7 +113,7 @@ main() {
       if [[ -f "$HOME/.bash_profile" ]]; then
         "${TERMINAL:-foot}" -e "${EDITOR:-nvim}" "$HOME/.bash_profile"
       else
-        printf '\x00\n' | $WMENUSH -p "~/.bash_profile does not exist" --input-fallback >/dev/null || true
+        printf '\x00\n' | $WMENUSH -p "~/.bash_profile does not exist" --input-fallback --lines 0 >/dev/null || true
       fi
     elif [[ "$idx" -eq 3 ]]; then
       continue
