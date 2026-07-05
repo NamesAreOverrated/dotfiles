@@ -455,8 +455,44 @@ main() {
       printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
       printf '\x00%s\n' '──── Apps ────'
       printf '%s\n' "${thumbs[@]}"
-    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme" ${select_idx:+--select $select_idx}) || true
+    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme" --input-fallback ${select_idx:+--select $select_idx}) || true
     [[ -z "$selected" ]] && exit 0
+
+    # input-fallback → math evaluation loop
+    if ! [[ "$selected" =~ ^-?[0-9]+$ ]]; then
+      local calc_input="$selected"
+      select_idx=""
+      while true; do
+        local calc_result=""
+        [ -n "$calc_input" ] && command -v qalc &>/dev/null && \
+          calc_result=$(qalc -t "$calc_input" 2>/dev/null) && \
+          [ "$calc_result" != "$calc_input" ] || calc_result=""
+
+        local choice
+        if [ -n "$calc_result" ]; then
+          choice=$(printf ' %s = %s\n' "$calc_input" "$calc_result" \
+            | $WMENUSH -p "Result" --format i --lines 1 --input-fallback \
+                -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+        else
+          choice=$(printf '\x00Type expression...\n' \
+            | $WMENUSH -p "Calc" --format i --lines 1 --input-fallback \
+                -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+        fi
+
+        [ -z "$choice" ] && break
+
+        if [ -n "$calc_result" ] && [ "$choice" = "0" ]; then
+          echo -n "$calc_result" | wl-copy 2>/dev/null || \
+          echo -n "$calc_result" | xclip -sel c 2>/dev/null || \
+          echo "$calc_result"
+          exit 0
+        fi
+
+        calc_input="$choice"
+      done
+      continue
+    fi
+
     select_idx="$selected"
 
     if [[ "$selected" -eq 0 ]]; then
@@ -468,6 +504,7 @@ main() {
     fi
 
     local idx=$((selected - 3))
+    [[ "$idx" -ge 0 && "$idx" -lt ${#execs[@]} ]] || continue
     local exec="${execs[$idx]}"
     local icon_name="${icons[$idx]}"
     local name="${names_list[$idx]}"
