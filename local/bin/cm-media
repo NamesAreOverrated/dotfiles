@@ -265,10 +265,12 @@ while true; do
     if [ -n "$MPRIS_PLAYER" ]; then
         raw_status=$(mpris_get_prop "$MPRIS_PLAYER" "PlaybackStatus")
         case "$raw_status" in *Playing*) state="playing" ;; *Paused*) state="paused" ;; *) state="stopped" ;; esac
-        title=$(mpris_meta_str "$MPRIS_PLAYER" "xesam:title")
-        artist=$(mpris_meta_arr "$MPRIS_PLAYER" "xesam:artist")
-        cover_path=$(mpris_get_cover "$MPRIS_PLAYER")
-        [ -n "$cover_path" ] && [ -f "$cover_path" ] && bg="--bg $cover_path --bg-mode cover --bg-tint #00000088"
+        if [ "$state" != "stopped" ]; then
+            title=$(mpris_meta_str "$MPRIS_PLAYER" "xesam:title")
+            artist=$(mpris_meta_arr "$MPRIS_PLAYER" "xesam:artist")
+            cover_path=$(mpris_get_cover "$MPRIS_PLAYER")
+            [ -n "$cover_path" ] && [ -f "$cover_path" ] && bg="--bg $cover_path --bg-mode cover --bg-tint #00000088"
+        fi
     fi
 
     # Query current ncm song for Like/Trash and mode
