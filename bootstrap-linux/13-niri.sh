@@ -124,6 +124,9 @@ fi
         echo '    Mod+N hotkey-overlay-title="Network Controller" { spawn "cm-network"; }'
     fi
 
+    if has waybar; then
+        echo '    Mod+Shift+W hotkey-overlay-title="Toggle Waybar" { spawn "sh" "-c" "pkill waybar || waybar"; }'
+    fi
 
     echo "}"
 } > "$HOME/.config/niri/local/autostart.kdl"
