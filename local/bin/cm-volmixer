@@ -3,7 +3,7 @@ set -u
 
 WMENUSH="tiny-cmenush"
 
-_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _P="󰏫"; _S="󰓡"; _B="󰑐"
+_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _APPREC="󰍵"; _P="󰏫"; _S="󰓡"; _B="󰑐"
 
 list_sinks() {
   pactl list sinks 2>/dev/null | awk '
@@ -192,6 +192,14 @@ case "$page" in
       sink_map[$sid]=$(shorten_name "$sdesc")
     done < <(list_sinks)
 
+    declare -A source_map
+    while IFS='' read -r line; do
+      sid=$(echo "$line" | awk '{print $1}')
+      sdesc=$(echo "$line" | awk '{$1=""; print $0}' | sed 's/^ //')
+      source_map[$sid]=$(shorten_name "$sdesc")
+    done < <(list_sources)
+
+    # ── sink-inputs ──
     app_entries=$(pactl list sink-inputs 2>/dev/null | awk '
       BEGIN { RS=""; FS="\n" }
       /Sink Input #[0-9]+/ {
@@ -217,32 +225,92 @@ case "$page" in
     if [[ -n "$app_entries" ]]; then
       while IFS='|' read -r id sink name app_vol app_mute; do
         sname="${sink_map[$sink]:-$sink}"
-        ids+=("$id")
+        ids+=("play:$id")
         labels+=("${_A}  ${name} [${app_vol}]${app_mute:+  ${_X}} → ${sname}")
       done <<< "$app_entries"
     fi
 
-    [[ ${#ids[@]} -eq 0 ]] && { notify-send "cm-volmixer" "No audio streams"; exit 1; }
+    # ── source-outputs ──
+    rec_entries=$(pactl list source-outputs 2>/dev/null | awk '
+      BEGIN { RS=""; FS="\n" }
+      /Source Output #[0-9]+/ {
+        id=""; source=""; name=""; vol=""; mute="no"
+        for (i=1; i<=NF; i++) {
+          if ($i ~ /Source Output #/) {
+            gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+          }
+          if ($i ~ /Source:/) { gsub(/^.*Source: */, "", $i); source=$i }
+          if ($i ~ /application.name = ".*"/) {
+            gsub(/.*application.name = "|".*/, "", $i); name=$i
+            gsub(/^PipeWire ALSA \[|\]$/, "", name)
+          }
+          if ($i ~ /Volume:/) { match($i, /[0-9]+%/); vol=substr($i,RSTART,RLENGTH-1) }
+          if ($i ~ /Mute:/) { gsub(/^.*Mute: */, "", $i); mute=$i }
+        }
+        if (id != "" && name != "") {
+          m = (mute ~ /^yes$/) ? "MUTED" : ""
+          print id "|" source "|" name "|" vol "|" m
+        }
+      }')
+
+    if [[ -n "$rec_entries" ]]; then
+      while IFS='|' read -r id source name rec_vol rec_mute; do
+        sname="${source_map[$source]:-$source}"
+        ids+=("rec:$id")
+        labels+=("${_APPREC}  ${name} [${rec_vol}]${rec_mute:+  ${_X}} ← ${sname}")
+      done <<< "$rec_entries"
+    fi
+
+    # ── Build menu with line-to-ID mapping ──
+    declare -a menu_texts=()
+    declare -a menu_ids=()
+
+    menu_texts+=('── Devices ──');   menu_ids+=('__HEADER__')
+    menu_texts+=("${labels[0]}");    menu_ids+=('__sink_menu__')
+    menu_texts+=("${labels[1]}");    menu_ids+=('__source_menu__')
+
+    has_play=0
+    for i in "${!ids[@]}"; do
+      if [[ "${ids[$i]}" == play:* ]]; then
+        if (( has_play == 0 )); then
+          menu_texts+=('── Playing Streams ──'); menu_ids+=('__HEADER__')
+          has_play=1
+        fi
+        menu_texts+=("${labels[$i]}"); menu_ids+=("${ids[$i]}")
+      fi
+    done
+
+    has_rec=0
+    for i in "${!ids[@]}"; do
+      if [[ "${ids[$i]}" == rec:* ]]; then
+        if (( has_rec == 0 )); then
+          menu_texts+=('── Recording Streams ──'); menu_ids+=('__HEADER__')
+          has_rec=1
+        fi
+        menu_texts+=("${labels[$i]}"); menu_ids+=("${ids[$i]}")
+      fi
+    done
 
     sel=$({
-      printf '\x00── Devices ──\n'
-      for i in "${!ids[@]}"; do
-        printf '%s\n' "${labels[$i]}"
-        if [[ "${ids[$i]}" == "__sink_menu__" ]]; then
-          :
-        elif [[ "${ids[$i]}" == "__source_menu__" ]]; then
-          printf '\x00── Streams ──\n'
+      for idx in "${!menu_texts[@]}"; do
+        if [[ "${menu_ids[$idx]}" == "__HEADER__" ]]; then
+          printf '\x00%s\n' "${menu_texts[$idx]}"
+        else
+          printf '%s\n' "${menu_texts[$idx]}"
         fi
       done
     } | $WMENUSH -p "Volume" --format i ${select_idx:+--select $select_idx}) || true
     [[ -z "$sel" ]] && exit 0
     select_idx="$sel"
 
-    case "$sel" in
-      0|3) continue ;;
-      1)   page="sink_menu"   ;;
-      2)   page="source_menu" ;;
-      *)   page="app_menu:${ids[$((sel - 2))]}" ;;
+    selected_id="${menu_ids[$sel]:-}"
+    [[ -z "$selected_id" || "$selected_id" == "__HEADER__" ]] && continue
+
+    case "$selected_id" in
+      __sink_menu__)   page="sink_menu"   ;;
+      __source_menu__) page="source_menu" ;;
+      play:*)          page="app_menu:${selected_id#play:}" ;;
+      rec:*)           page="rec_app_menu:${selected_id#rec:}" ;;
     esac
     ;;
 
@@ -356,6 +424,58 @@ case "$page" in
       5) pactl set-sink-input-volume "$id" 100%  ;;
       6) v=$(custom_vol_prompt "$app_vol") || true
          [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-sink-input-volume "$id" "${v}%"
+         ;;
+    esac
+    ;;
+
+  rec_app_menu:*)
+    id="${page#*:}"
+    app_info=$(pactl list source-outputs 2>/dev/null | awk -v i="$id" '
+      BEGIN { RS=""; FS="\n" }
+      /Source Output #[0-9]+/ {
+        cur=""; n=""; s=""; v=""; m="no"
+        for (j=1; j<=NF; j++) {
+          if ($j ~ /Source Output #/) {
+            gsub(/.*#/, "", $j); gsub(/[^0-9].*/, "", $j); cur=$j
+          }
+          if ($j ~ /application.name = ".*"/) {
+            gsub(/.*application.name = "|".*/, "", $j); n=$j
+            gsub(/^PipeWire ALSA \[|\]$/, "", n)
+          }
+          if ($j ~ /Source:/) { gsub(/^.*Source: */, "", $j); s=$j }
+          if ($j ~ /Volume:/) { match($j, /[0-9]+%/); v=substr($j,RSTART,RLENGTH-1) }
+          if ($j ~ /Mute:/) { gsub(/^.*Mute: */, "", $j); m=$j }
+        }
+        if (cur == i) {
+          mu = (m ~ /^yes$/) ? "MUTED" : ""
+          print n "|" s "|" v "|" mu
+        }
+      }')
+    IFS='|' read -r app_name app_source app_vol app_mute <<< "$app_info"
+    sname="${source_map[$app_source]:-$app_source}"
+    header="${_APPREC}  ${app_name} [${app_vol}]${app_mute:+  ${_X}} ← ${sname}"
+
+    sel=$(printf '%s\n' \
+      "${_S}  Switch mic" \
+      "${app_mute:+${_V}  Unmute}${app_mute:-${_M}  Mute}" \
+      "25%" \
+      "50%" \
+      "75%" \
+      "100%" \
+      "${_P}  [${app_vol}]" \
+      | $WMENUSH -p "$header" --format i) || true
+    [[ -z "$sel" ]] && { page="main"; continue; }
+
+    case "$sel" in
+      0) target=$(pick_source "Move to") || true
+         [[ -n "$target" ]] && pactl move-source-output "$id" "$target" ;;
+      1) pactl set-source-output-mute "$id" toggle ;;
+      2) pactl set-source-output-volume "$id" 25%   ;;
+      3) pactl set-source-output-volume "$id" 50%   ;;
+      4) pactl set-source-output-volume "$id" 75%   ;;
+      5) pactl set-source-output-volume "$id" 100%  ;;
+      6) v=$(custom_vol_prompt "$app_vol") || true
+         [[ -n "$v" && "$v" -ge 0 && "$v" -le 100 ]] 2>/dev/null && pactl set-source-output-volume "$id" "${v}%"
          ;;
     esac
     ;;
