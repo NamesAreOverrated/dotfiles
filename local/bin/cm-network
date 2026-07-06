@@ -95,17 +95,65 @@ proxy_noproxy_menu() {
   done
 }
 
+wifi_submenu() {
+  local wifi_device connected_ssid
+  wifi_device=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -1)
+  [[ -z "$wifi_device" ]] && return
+
+  while true; do
+    local -a sub_ids=() sub_labels=()
+    local sel act
+    connected_ssid=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null | grep '^\*' | cut -d: -f2 | head -1)
+
+    while IFS=$'\n' read -r line; do
+      [[ -z "$line" || "$line" == *"SSID"* ]] && continue
+      inuse=$(echo "$line" | cut -d: -f1)
+      ssid=$(echo "$line" | cut -d: -f2)
+      signal=$(echo "$line" | cut -d: -f3)
+      sec=$(echo "$line" | cut -d: -f4-)
+      [[ -z "$ssid" ]] && continue
+      bars=$(signal_bars "$signal")
+      mark="  "; [[ "$inuse" == "*" ]] && mark="󰗠 "
+      lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
+      sub_ids+=("net:$ssid"); sub_labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
+    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
+    sub_ids+=("__rescan__"); sub_labels+=("󰑐  Rescan")
+
+    sel=$(for i in "${!sub_ids[@]}"; do printf '%s\n' "${sub_labels[$i]}"; done \
+      | $_WM -p "WiFi" --format i)
+    [[ -z "$sel" ]] && return
+
+    act="${sub_ids[$sel]:-}"
+    [[ -z "$act" ]] && continue
+
+    case "$act" in
+      __rescan__)
+        nmcli device wifi rescan 2>/dev/null || true
+        sleep 2
+        ;;
+      net:*)
+        ssid="${act#net:}"
+        [[ "$ssid" == "$connected_ssid" ]] && continue
+        sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
+        sec="${sec#:}"
+        if [[ -z "$sec" || "$sec" == "--" ]]; then
+          nmcli device wifi connect "$ssid" 2>/dev/null || notify-send "cm-network" "Failed to connect"
+        else
+          pw=$(printf '\x00Enter password\n' | $_WM -p "Password for ${ssid}" -P --input-fallback --lines 0)
+          [[ -z "$pw" ]] && continue
+          nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || notify-send "cm-network" "Wrong password or connection failed"
+        fi
+        ;;
+    esac
+  done
+}
+
 select_idx=""
 while true; do
   ids=() labels=()
 
   # ── Networking info ──
   wifi_device=$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -1)
-
-  connected_ssid=""
-  if [[ -n "$wifi_device" ]]; then
-    connected_ssid=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null | grep '^\*' | cut -d: -f2 | head -1)
-  fi
 
   net_on=$(nmcli networking 2>/dev/null)
 
@@ -123,24 +171,16 @@ while true; do
 
   # ── WiFi ──
   if [[ -n "$wifi_device" ]]; then
-    while IFS=$'\n' read -r line; do
-      [[ -z "$line" || "$line" == *"SSID"* ]] && continue
-      inuse=$(echo "$line" | cut -d: -f1)
-      ssid=$(echo "$line" | cut -d: -f2)
-      signal=$(echo "$line" | cut -d: -f3)
-      sec=$(echo "$line" | cut -d: -f4-)
-      [[ -z "$ssid" ]] && continue
-      bars=$(signal_bars "$signal")
-      mark="  "; [[ "$inuse" == "*" ]] && mark="󰗠 "
-      lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
-      ids+=("net:$ssid"); labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
-    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
-    ids+=("__rescan__"); labels+=("󰑐  Rescan")
+    wifi_count=$(nmcli -t -f SSID dev wifi 2>/dev/null | grep -cv '^$' || echo 0)
+    ids+=("__wifi__"); labels+=("󰖩  WiFi [${wifi_count}]")
   fi
 
   # ── Proxy ──
   ph=$(proxy_host); pp=$(proxy_port); np=$(sed -n '3p' "$HOME/.config/cm-network" 2>/dev/null)
   ids+=("__proxy_header__"); labels+=("")
+  if command -v cm-singbox >/dev/null 2>&1; then
+    ids+=("__singbox__"); labels+=("󰅟  Sing-box")
+  fi
   ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰔡  Proxy ON' || echo '󰔢  Proxy OFF')")
   ids+=("__proxy_edit_host__"); labels+=("󰏫  Edit address   (${ph})")
   ids+=("__proxy_edit_port__"); labels+=("󰏫  Edit port       (${pp})")
@@ -164,9 +204,12 @@ while true; do
       if [[ "$net_on" == "enabled" ]]; then nmcli networking off; else nmcli networking on; fi
       ;;
 
-    __rescan__)
-      nmcli device wifi rescan 2>/dev/null || true
-      sleep 2
+    __singbox__)
+      cm-singbox
+      ;;
+
+    __wifi__)
+      wifi_submenu
       ;;
 
     __proxy_edit_host__)
@@ -189,18 +232,6 @@ while true; do
       proxy_toggle
       ;;
 
-    net:*)
-      ssid="${action#net:}"
-      [[ "$ssid" == "$connected_ssid" ]] && continue
-      sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
-      sec="${sec#:}"
-      if [[ -z "$sec" || "$sec" == "--" ]]; then
-        nmcli device wifi connect "$ssid" 2>/dev/null || notify-send "cm-network" "Failed to connect"
-      else
-        pw=$(printf '\x00Enter password\n' | $_WM -p "Password for ${ssid}" -P --input-fallback --lines 0)
-        [[ -z "$pw" ]] && continue
-        nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || notify-send "cm-network" "Wrong password or connection failed"
-      fi
-      ;;
+
   esac
 done

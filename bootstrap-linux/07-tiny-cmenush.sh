@@ -62,6 +62,16 @@ else
     echo "  Skipping cm-network (nmcli not found)"
 fi
 
+if has sing-box && has cm-network; then
+    link "$DOTFILES/local/bin/cm-singbox" "$HOME/.local/bin/cm-singbox"
+    echo ""
+    echo "  ── cm-singbox ──"
+    echo "  Add sudo NOPASSWD for sing-box:"
+    echo "    echo \"$USER ALL=(root) NOPASSWD: /usr/sbin/sing-box\" | sudo tee /etc/sudoers.d/cm-singbox"
+else
+    echo "  Skipping cm-singbox (sing-box or cm-network not found)"
+fi
+
 if has swaybg; then
     link "$DOTFILES/local/libexec/set-wallpaper" "$HOME/.local/libexec/set-wallpaper"
 else

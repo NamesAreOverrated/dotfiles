@@ -26,11 +26,24 @@ path_line() {
 proxy_lines() {
   local cfg="$HOME/.config/cm-network"
   [ -f "$cfg" ] || return
-  [ "$(sed -n '2p' "$cfg")" = "1" ] || return
-  local host no_proxy_val
+  local host
   host=$(sed -n '1p' "$cfg")
-  no_proxy_val=$(sed -n '3p' "$cfg")
   [ -z "$host" ] && return
+  # Always unset proxy vars first
+  if [ "$MODE" = "fish" ]; then
+    cat << FISH
+set -e http_proxy; set -e https_proxy; set -e HTTP_PROXY; set -e HTTPS_PROXY
+set -e all_proxy; set -e ALL_PROXY; set -e no_proxy; set -e NO_PROXY
+FISH
+  else
+    cat << UNSET
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY
+UNSET
+  fi
+  # Only re-export if state is 1
+  [ "$(sed -n '2p' "$cfg")" = "1" ] || return
+  local no_proxy_val
+  no_proxy_val=$(sed -n '3p' "$cfg")
   local no_proxy="${no_proxy_val:-localhost,127.0.0.1,::1,.163.com,.music.126.net}"
   if [ "$MODE" = "fish" ]; then
     cat << FISH
