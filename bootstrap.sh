@@ -67,4 +67,15 @@ cat << EOF
      Defaults env_keep += "http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
                            no_proxy NO_PROXY all_proxy ALL_PROXY"
 
+4. For ncm-daemon on non-systemd system:
+   //Example custom.kdl                     
+   spawn-at-startup "pipewire"              
+   spawn-at-startup "pipewire-pulse"        
+   spawn-at-startup "wireplumber"           
+   environment {                            
+   	PIPEWIRE_LATENCY "2048/48000"           
+   }                                        
+   spawn-at-startup "ncm-daemon" "daemon"   
+   spawn-at-startup "fcitx5"                
+
 EOF
