@@ -178,9 +178,6 @@ while true; do
   # ── Proxy ──
   ph=$(proxy_host); pp=$(proxy_port); np=$(sed -n '3p' "$HOME/.config/cm-network" 2>/dev/null)
   ids+=("__proxy_header__"); labels+=("")
-  if command -v cm-singbox >/dev/null 2>&1; then
-    ids+=("__singbox__"); labels+=("󰅟  Sing-box")
-  fi
   ids+=("__proxy_toggle__"); labels+=("$(proxy_on && echo '󰔡  Proxy ON' || echo '󰔢  Proxy OFF')")
   ids+=("__proxy_edit_host__"); labels+=("󰏫  Edit address   (${ph})")
   ids+=("__proxy_edit_port__"); labels+=("󰏫  Edit port       (${pp})")
@@ -202,10 +199,6 @@ while true; do
 
     __airplane__)
       if [[ "$net_on" == "enabled" ]]; then nmcli networking off; else nmcli networking on; fi
-      ;;
-
-    __singbox__)
-      cm-singbox
       ;;
 
     __wifi__)

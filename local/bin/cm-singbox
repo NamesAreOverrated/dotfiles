@@ -65,7 +65,7 @@ parse_vmess() {
   [[ -z "$addr" ]] && return 1
   [[ -z "$port" ]] && port="443"
 
-  local name="${ps%% *}"
+  local name="${ps%%@*}"
   local tag_out="${name}-${tag}@${addr}:${port}"
   jq -n --arg tag "$tag_out" --arg server "$addr" --argjson port "$((port))" \
     --arg uuid "$(echo "$json" | jq -r '.id // empty')" \
@@ -74,28 +74,33 @@ parse_vmess() {
 }
 
 parse_ss() {
-  local raw b64_info rest info tag
+  local raw b64_info fragment info tag
   raw="${1#ss://}"
   tag="$2"
 
-  b64_info="${raw%%@*}"
-  rest="${raw#*@}"
+  b64_info="${raw%%#*}"
+  fragment="${raw#*#}"
 
   info=$(b64d "$b64_info") || return 1
 
-  local method password host port name_number host_port
-  method="${info%%:*}"
-  password="${info#*:}"
-  host_port="${rest%%#*}"
-  name_number="${rest#*#}"
-  host="${host_port%%:*}"
-  port="${host_port##*:}"
+  local auth_part addr_part method password host port name_number
+  auth_part="${info%%@*}"
+  addr_part="${info#*@}"
 
-  [[ -z "$host" || -z "$port" ]] && return 1
+  method="${auth_part%%:*}"
+  password="${auth_part#*:}"
 
-  local tag_out="${name_number}@${host}:${port}"
+  host="${addr_part%%:*}"
+  port="${addr_part##*:}"
+
+  name_number="${fragment%%@*}"
+
+  [[ -z "$host" || -z "$port" || -z "$name_number" ]] && return 1
+
+  local tag_out="${fragment}"
   jq -n --arg tag "$tag_out" --arg server "$host" --argjson port "$((port))" \
-    '{type: "shadowsocks", tag: $tag, server: $server, server_port: $port, method: null, password: null}'
+    --arg method "$method" --arg password "$password" \
+    '{type: "shadowsocks", tag: $tag, server: $server, server_port: $port, method: $method, password: $password}'
 }
 
 parse_trojan() {
@@ -180,7 +185,14 @@ fetch_sub() {
   local idx="$1" name="$2" url="$3"
   local raw
   raw=$(curl -sf "$url" 2>/dev/null) || { e "Failed to fetch $name"; return 1; }
-  e "$raw" > "$CACHE_DIR/$idx.raw"
+  echo "$raw" > "$CACHE_DIR/$idx.raw"
+
+  if ! grep -qE '^(vmess|ss|trojan|hysteria2)://' "$CACHE_DIR/$idx.raw" 2>/dev/null; then
+    local decoded
+    decoded=$(b64d "$raw" 2>/dev/null) && {
+      echo "$decoded" > "$CACHE_DIR/$idx.raw"
+    }
+  fi
 
   local nodes_json=""
   while IFS= read -r line; do
@@ -200,9 +212,9 @@ fetch_sub() {
     return 1
   fi
 
-  e "[$nodes_json]" > "$CACHE_DIR/$idx.nodes"
-  e "[$nodes_json]" | jq -r '.[] | "\(.tag)|\(.type)"' > "$CACHE_DIR/$idx.tags"
-  e "OK: $(wc -l < "$CACHE_DIR/$idx.tags") nodes from $name"
+  echo "[$nodes_json]" > "$CACHE_DIR/$idx.nodes"
+  local node_count; node_count=$(echo "[$nodes_json]" | jq length)
+  e "OK: $node_count nodes from $name"
 }
 
 apply_sub() {
@@ -214,46 +226,62 @@ apply_sub() {
   obs=$(cat "$node_file" | build_outbounds) || return 1
   apply_outbounds "$obs" || return 1
 
-  local count; count=$(wc -l < "$CACHE_DIR/$idx.tags")
+  local count; count=$(jq length "$CACHE_DIR/$idx.nodes" 2>/dev/null || echo 0)
   e "Applied $count nodes from $name"
 }
 
 node_count() {
-  local count=0 f
-  for f in "$CACHE_DIR"/*.tags; do
-    [[ -f "$f" ]] || continue
-    while IFS='|' read -r t _; do [[ -n "$t" ]] && count=$((count + 1)); done < "$f"
-  done
-  echo "$count"
+  sb_pid >/dev/null || { echo 0; return; }
+  api_get "/proxies/$SELECTOR_TAG" | jq '.all | length' 2>/dev/null || echo 0
+}
+
+refetch_all() {
+  [[ -f "$SUBS_FILE" ]] || { e "No subscriptions"; return; }
+  local c=0
+  while IFS='|' read -r name format url; do
+    [[ -z "$name" ]] && continue
+    local idx
+    idx=$(echo "$name" | md5sum 2>/dev/null | cut -c1-8)
+    [[ -z "$idx" ]] && idx=$(echo "$name" | cksum | cut -d' ' -f1)
+    fetch_sub "$idx" "$name" "$url" && apply_sub "$idx" "$name" && c=$((c + 1))
+  done < "$SUBS_FILE"
+  (( c > 0 )) && sb_pid >/dev/null && sb_restart
+  e "Refetched $c subscriptions"
 }
 
 sb_start() {
   sb_pid >/dev/null && { e "Already running"; return; }
+  sudo -v || return 1
   sudo sing-box run -c "$SB_CONFIG" -D "$(dirname "$SB_CONFIG")" >/dev/null 2>&1 &
-  sleep 0.5
-  local p; p=$(pgrep -x sing-box 2>/dev/null | tail -1)
-  [[ -n "$p" ]] && { e "$p" > "$PIDFILE"; e "Started"; } || { e "Failed to start"; return 1; }
+  local i=0
+  while (( i < 30 )); do
+    sleep 0.2; i=$((i + 1))
+    sb_pid >/dev/null && { e "$(sb_pid)" > "$PIDFILE"; e "Started"; return; }
+  done
+  e "Failed to start"; return 1
 }
 
 sb_stop() {
   sb_pid >/dev/null || { e "Not running"; return; }
-  pkill -x sing-box 2>/dev/null; rm -f "$PIDFILE"
-  sleep 0.3
+  sudo -v || return 1
+  sudo pkill -x sing-box 2>/dev/null; rm -f "$PIDFILE"
+  local i=0
+  while sb_pid >/dev/null && (( i < 30 )); do
+    sleep 0.2; i=$((i + 1))
+  done
   sb_pid >/dev/null && { e "Failed to stop"; return 1; }
   e "Stopped"
 }
 
-sb_restart() { sb_stop && sleep 0.5 && sb_start; }
+sb_restart() { sb_stop; sleep 0.5; sb_start; }
 
 sub_menu() {
   local idx="$1" name="$2" url="$3"
   while true; do
     local ids=() labels=()
-    ids+=("__apply__");    labels+=("Fetch & apply nodes")
-    ids+=("__refetch__");  labels+=("Refetch (cache only)")
-    ids+=("__edit_url__"); labels+=("Edit URL")
-    ids+=("__edit_name__"); labels+=("Edit name")
-    ids+=("__forget__");   labels+=("Forget subscription")
+    ids+=("__apply__");    labels+=("󰓦  Fetch & apply nodes")
+    ids+=("__edit_url__"); labels+=("󰏫  Edit URL")
+    ids+=("__edit_name__"); labels+=("󰏫  Edit name")
 
     local sel
     sel=$(for i in "${!labels[@]}"; do printf '%s\n' "${labels[$i]}"; done \
@@ -265,38 +293,33 @@ sub_menu() {
 
     case "$act" in
       __apply__)
-        fetch_sub "$idx" "$name" "$url" && apply_sub "$idx" "$name"
+        fetch_sub "$idx" "$name" "$url" && {
+          apply_sub "$idx" "$name"
+          sb_pid >/dev/null && sb_restart
+        }
         local count; count=$(node_count)
         e "Total nodes: $count"
-        ;;
-      __refetch__)
-        fetch_sub "$idx" "$name" "$url"
         ;;
       __edit_url__)
         local new
         new=$(printf '\x00%s\n' "$url" | $_WM -p "URL" --pfill "$url" --input-fallback --lines 0)
         [[ -z "$new" ]] && continue
+        awk -F'|' -v n="$name" -v u="$new" 'BEGIN{OFS="|"} $1==n {$3=u}1' "$SUBS_FILE" > "${SUBS_FILE}.tmp" && mv "${SUBS_FILE}.tmp" "$SUBS_FILE"
         url="$new"
-        sed -i "s|^${name}|.*|;s|^[^|]*|[&]|" "$SUBS_FILE" 2>/dev/null || true
         ;;
       __edit_name__)
         local new
         new=$(printf '\x00%s\n' "$name" | $_WM -p "Name" --pfill "$name" --input-fallback --lines 0)
         [[ -z "$new" ]] && continue
-        sed -i "s/^${name}|/${new}|/" "$SUBS_FILE" 2>/dev/null || true
+        local new_idx
+        new_idx=$(echo "$new" | md5sum 2>/dev/null | cut -c1-8)
+        [[ -z "$new_idx" ]] && new_idx=$(echo "$new" | cksum | cut -d' ' -f1)
+        for f in "$CACHE_DIR/$idx".*; do
+          [[ -f "$f" ]] && mv "$f" "$CACHE_DIR/$new_idx.${f##*.}"
+        done
+        awk -F'|' -v o="$name" -v n="$new" 'BEGIN{OFS="|"} $1==o {$1=n}1' "$SUBS_FILE" > "${SUBS_FILE}.tmp" && mv "${SUBS_FILE}.tmp" "$SUBS_FILE"
+        idx="$new_idx"
         name="$new"
-        ;;
-      __forget__)
-        local resp
-        resp=$(printf 'Yes\nNo' | $_WM -p "Forget $name?" --format i)
-        [[ -z "$resp" || "$resp" != "0" ]] && continue
-        rm -f "$CACHE_DIR/$idx.raw" "$CACHE_DIR/$idx.nodes" "$CACHE_DIR/$idx.tags"
-        sed -i "/^${name}|/d" "$SUBS_FILE"
-        local obs
-        obs=$(jq -n '[{type: "direct", tag: "direct"}, {type: "block", tag: "block"}]')
-        apply_outbounds "$obs"
-        e "Forgot $name"
-        return
         ;;
     esac
   done
@@ -342,8 +365,8 @@ lan_submenu() {
     local port; port=$(lan_config | grep ^port= | cut -d= -f2)
     [[ -z "$port" ]] && port=1080
 
-    ids+=("__toggle__"); labels+=("LAN proxy: $state_str")
-    ids+=("__port__");   labels+=("Port: $port")
+    ids+=("__toggle__"); labels+=("🌐  LAN proxy: $state_str")
+    ids+=("__port__");   labels+=("🔧  Port: $port")
 
     local sel
     sel=$(for i in "${!labels[@]}"; do printf '%s\n' "${labels[$i]}"; done \
@@ -365,7 +388,7 @@ lan_submenu() {
         [[ "$state" == "1" ]] && state=0 || state=1
         printf 'state=%s\nport=%s\n' "$state" "$port" > "$CONFIG_DIR/lan"
         lan_apply
-        sb_pid >/dev/null && { e "Restart sing-box to apply LAN change"; }
+        sb_pid >/dev/null && sb_restart
         ;;
       __port__)
         local new
@@ -375,7 +398,7 @@ lan_submenu() {
         state=$(lan_config | grep ^state= | cut -d= -f2)
         printf 'state=%s\nport=%s\n' "${state:-0}" "$new" > "$CONFIG_DIR/lan"
         lan_apply
-        sb_pid >/dev/null && { e "Restart sing-box to apply LAN change"; }
+        sb_pid >/dev/null && sb_restart
         ;;
     esac
   done
@@ -384,12 +407,20 @@ lan_submenu() {
 nodes_submenu() {
   while true; do
     local ids=() labels=()
-    for f in "$CACHE_DIR"/*.tags; do
+    local current=""
+    sb_pid >/dev/null && current=$(current_node)
+    for f in "$CACHE_DIR"/*.nodes; do
       [[ -f "$f" ]] || continue
-      while IFS='|' read -r tag type; do
+      while IFS= read -r node; do
+        [[ -z "$node" ]] && continue
+        local tag type
+        tag=$(echo "$node" | jq -r '.tag // empty' 2>/dev/null)
+        type=$(echo "$node" | jq -r '.type // empty' 2>/dev/null)
         [[ -z "$tag" ]] && continue
-        ids+=("node:$tag"); labels+=("$tag  ($type)")
-      done < "$f"
+        local mark="  "
+        [[ "$tag" == "$current" ]] && mark="󰗠 "
+        ids+=("node:$tag"); labels+=("${mark}${type}  $tag")
+      done < <(jq -c '.[]' "$f" 2>/dev/null)
     done
 
     local sel
@@ -427,7 +458,7 @@ nodes_submenu() {
 subs_submenu() {
   while true; do
     local ids=() labels=()
-    ids+=("__import__"); labels+=("Import subscription")
+    ids+=("__import__"); labels+=("󰐚  Import subscription")
 
     if [[ -f "$SUBS_FILE" ]]; then
       while IFS='|' read -r name format url; do
@@ -435,7 +466,7 @@ subs_submenu() {
         local idx; idx=$(echo "$name" | md5sum 2>/dev/null | cut -c1-8)
         [[ -z "$idx" ]] && idx=$(echo "$name" | cksum | cut -d' ' -f1)
         local count=0
-        [[ -f "$CACHE_DIR/$idx.tags" ]] && count=$(wc -l < "$CACHE_DIR/$idx.tags")
+        [[ -f "$CACHE_DIR/$idx.nodes" ]] && count=$(jq length "$CACHE_DIR/$idx.nodes" 2>/dev/null || echo 0)
         ids+=("sub:$idx:$name"); labels+=("$name  ($count nodes)")
       done < "$SUBS_FILE"
     fi
@@ -450,14 +481,12 @@ subs_submenu() {
 
     case "$act" in
       __import__)
-        local new
-        new=$(printf '\x00name|format|url\n' | $_WM -p "Import sub" --input-fallback --lines 0)
-        [[ -z "$new" ]] && continue
-        local name format url
-        IFS='|' read -r name format url <<< "$new"
-        [[ -z "$name" || -z "$url" ]] && continue
-        [[ -z "$format" ]] && format="auto"
-        echo "$name|$format|$url" >> "$SUBS_FILE"
+        local name url
+        name=$(printf '\x00\n' | $_WM -p "Sub name" --input-fallback --lines 0)
+        [[ -z "$name" ]] && continue
+        url=$(printf '\x00https://\n' | $_WM -p "Sub URL" --pfill "https://" --input-fallback --lines 0)
+        [[ -z "$url" ]] && continue
+        echo "$name|auto|$url" >> "$SUBS_FILE"
         chmod 600 "$SUBS_FILE"
         e "Imported $name"
         ;;
@@ -478,21 +507,38 @@ select_idx=""
 while true; do
   ids=() labels=()
 
-  local count; count=$(node_count)
-  local current=""; sb_pid >/dev/null && current=$(current_node)
-  [[ -z "$current" ]] && current="stopped"
+  running=""; sb_pid >/dev/null && running=1
+  count=$(node_count 2>/dev/null || echo 0)
+  sub_count=0
+  [[ -f "$SUBS_FILE" ]] && sub_count=$(wc -l < "$SUBS_FILE")
+  current=""
+  [[ -n "$running" ]] && current=$(current_node)
+  [[ -z "$current" ]] && current="Stopped"
 
-  ids+=("__info__"); labels+=("Sing-box  —  $current")
-  ids+=("__start__");  labels+=("Start")
-  ids+=("__stop__");   labels+=("Stop")
-  ids+=("__restart__"); labels+=("Restart")
-  ids+=("__subs__");   labels+=("Subscriptions")
-  ids+=("__nodes__");  labels+=("Nodes ($count)")
-  ids+=("__lan__");    labels+=("LAN proxy")
-  ids+=("__forget__"); labels+=("Forget all subs")
+  if [[ -n "$running" ]]; then
+    ids+=("__toggle__"); labels+=("⏹  Stop")
+  else
+    ids+=("__toggle__"); labels+=("󰐚  Start")
+  fi
 
-  sel=$(for i in "${!labels[@]}"; do printf '%s\n' "${labels[$i]}"; done \
-    | $_WM -p "Sing-box" --format i ${select_idx:+--select $select_idx})
+  ids+=("__nodes__"); labels+=("󰖩  $current  [$count]")
+  ids+=("__lan__");   labels+=("󰒑  LAN [$(lan_on && echo ON || echo OFF)]")
+
+  ids+=("__sep1__"); labels+=("")
+
+  ids+=("__refetch__"); labels+=("󰑐  Refetch all")
+  ids+=("__subs__");   labels+=("󰓦  Subscriptions [${sub_count}]")
+
+  ids+=("__sep2__"); labels+=("")
+
+  ids+=("__purge__"); labels+=("󰅖  Purge all")
+
+  sel=$(for i in "${!labels[@]}"; do
+    case "${ids[$i]}" in
+      __sep1__|__sep2__) printf '\x00───\n' ;;
+      *) printf '%s\n' "${labels[$i]}" ;;
+    esac
+  done | $_WM -p "Sing-box" --format i ${select_idx:+--select $select_idx})
   [[ -z "$sel" ]] && exit 0
   select_idx="$sel"
 
@@ -500,25 +546,10 @@ while true; do
   [[ -z "$action" ]] && continue
 
   case "$action" in
-    __info__) continue ;;
+    __sep1__|__sep2__) continue ;;
 
-    __start__)
-      sb_start
-      ;;
-
-    __stop__)
-      sb_stop
-      ;;
-
-    __restart__)
-      local resp
-      resp=$(printf 'Restart now\nCancel' | $_WM -p "Restart?" --format i)
-      [[ -z "$resp" || "$resp" != "0" ]] && continue
-      sb_restart
-      ;;
-
-    __subs__)
-      subs_submenu
+    __toggle__)
+      if [[ -n "$running" ]]; then sb_stop; else sb_start; fi
       ;;
 
     __nodes__)
@@ -529,19 +560,22 @@ while true; do
       lan_submenu
       ;;
 
-    __forget__)
-      local resp
-      resp=$(printf 'Yes\nNo' | $_WM -p "Forget all subs?" --format i)
+    __refetch__)
+      refetch_all
+      ;;
+
+    __subs__)
+      subs_submenu
+      ;;
+
+    __purge__)
+      resp=$(printf 'Yes\nNo' | $_WM -p "Purge all?" --format i)
       [[ -z "$resp" || "$resp" != "0" ]] && continue
       rm -f "$SUBS_FILE"; rm -rf "$CACHE_DIR"/*
       mkdir -p "$CACHE_DIR"
-      sb_pid >/dev/null && {
-        local obs
-        obs=$(jq -n '[{type: "direct", tag: "direct"}, {type: "block", tag: "block"}]')
-        apply_outbounds "$obs"
-        e "Config reset. Restart to apply."
-      }
-      e "Forgot all"
+      obs=$(jq -n '[{type: "direct", tag: "direct"}, {type: "block", tag: "block"}]')
+      apply_outbounds "$obs"
+      e "Purged"
       ;;
   esac
 done
