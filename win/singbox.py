@@ -4,20 +4,13 @@ import os, sys, json, base64, hashlib, re, time, subprocess, urllib.request, url
 import ctypes
 
 # ═══════════════════════════════════════════════════════════
-# EDIT YOUR SUBSCRIPTIONS HERE
-# ═══════════════════════════════════════════════════════════
-SUBS = [
-    # {"name": "mysub", "url": "https://example.com/sub"},
-]
-
-
-# ═══════════════════════════════════════════════════════════
 UP = os.environ.get("USERPROFILE", os.path.expanduser("~"))
 CONFIG_DIR = os.path.join(UP, ".config", "cm-singbox")
 CACHE_DIR  = os.path.join(CONFIG_DIR, "cache")
 SB_CONFIG  = os.path.join(UP, ".config", "sing-box", "config.json")
 SB_DIR     = os.path.dirname(SB_CONFIG)
 LAN_FILE   = os.path.join(CONFIG_DIR, "lan")
+SUBS_FILE  = os.path.join(CONFIG_DIR, "subs.json")
 API_BASE   = "http://127.0.0.1:9090"
 SELECTOR   = "Proxy"
 
@@ -63,6 +56,14 @@ def api_put(path, body):
 
 def sub_idx(name):
     return hashlib.md5(name.encode()).hexdigest()[:8]
+
+def load_subs():
+    try:
+        with open(SUBS_FILE) as f: return json.load(f)
+    except: return []
+
+def save_subs(subs):
+    with open(SUBS_FILE, "w") as f: json.dump(subs, f, indent=2)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -244,14 +245,84 @@ def apply_sub(idx, name):
     return True
 
 def refetch_all():
-    if not SUBS: e("No subscriptions configured (edit script header)"); return
+    subs = load_subs()
+    if not subs: e("No subscriptions"); return
     c = 0
-    for sub in SUBS:
+    for sub in subs:
         idx = sub_idx(sub["name"])
         nodes = fetch_sub(idx, sub["name"], sub["url"])
         if nodes and apply_sub(idx, sub["name"]): c += 1
     if c > 0: sb_restart()
     e(f"Refetched {c} subscriptions")
+
+def sub_submenu(idx, name, url):
+    while True:
+        nf = os.path.join(CACHE_DIR, f"{idx}.nodes")
+        count = len(json.load(open(nf))) if os.path.exists(nf) else 0
+        print(f"\n── {name}  ({count} nodes) ──")
+        print("  1. 󰓦  Fetch & apply nodes")
+        print("  2. 󰏫  Edit URL")
+        print("  3. 󰅖  Forget")
+        print("  b. Back")
+        sel = input("Select: ").strip()
+        if sel == "b": return
+        if sel == "1":
+            nodes = fetch_sub(idx, name, url)
+            if nodes and apply_sub(idx, name):
+                if sb_pid() and is_admin(): sb_restart()
+        elif sel == "2":
+            new_url = input("URL: ").strip()
+            if not new_url: continue
+            subs = load_subs()
+            for s in subs:
+                if s["name"] == name: s["url"] = new_url; break
+            save_subs(subs)
+            url = new_url
+            e("URL updated")
+        elif sel == "3":
+            if input(f"Forget {name}? (y/N): ").strip().lower() != "y": continue
+            subs = load_subs()
+            subs = [s for s in subs if s["name"] != name]
+            save_subs(subs)
+            for ext in ("raw", "nodes"):
+                p = os.path.join(CACHE_DIR, f"{idx}.{ext}")
+                if os.path.exists(p): os.remove(p)
+            e(f"Forgot {name}")
+
+def subs_submenu():
+    while True:
+        subs = load_subs()
+        items = []
+        items.append(("import", "󰐚  Import"))
+        for s in subs:
+            nf = os.path.join(CACHE_DIR, f"{sub_idx(s['name'])}.nodes")
+            count = len(json.load(open(nf))) if os.path.exists(nf) else 0
+            items.append((f"sub:{s['name']}", f"{s['name']}  ({count} nodes)"))
+        print("\n── Subscriptions ──")
+        for i, (act, label) in enumerate(items, 1):
+            print(f"  {i}. {label}")
+        print("  b. Back")
+        sel = input("Select: ").strip()
+        if sel == "b": return
+        if not sel.isdigit(): continue
+        i = int(sel) - 1
+        if i < 0 or i >= len(items): continue
+        act = items[i][0]
+        if act == "import":
+            name = input("Name: ").strip()
+            if not name: continue
+            url = input("URL: ").strip()
+            if not url: continue
+            subs = load_subs()
+            subs.append({"name": name, "url": url})
+            save_subs(subs)
+            e(f"Imported {name}")
+        elif act.startswith("sub:"):
+            n = act[4:]
+            for s in subs:
+                if s["name"] == n:
+                    sub_submenu(sub_idx(n), n, s["url"])
+                    break
 
 
 # ═══════════════════════════════════════════════════════════
@@ -371,6 +442,8 @@ def main():
 
         items = []
         items.append(("nodes", f"󰒒  {curr}  [{cnt}]"))
+        subs = load_subs()
+        items.append(("subs", f"󰓦  Subscriptions [{len(subs)}]"))
         if not pid or admin:
             items.append(("refetch", "󰑐  Refetch all"))
         if admin:
@@ -436,6 +509,9 @@ def main():
 
         elif act == "refetch":
             refetch_all()
+
+        elif act == "subs":
+            subs_submenu()
 
         elif act == "toggle":
             if pid: sb_stop()
