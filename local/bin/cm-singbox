@@ -7,6 +7,8 @@ CACHE_DIR="$CONFIG_DIR/cache"
 PIDFILE="$CONFIG_DIR/pid"
 API_BASE="${API_BASE:-http://127.0.0.1:9090}"
 SELECTOR_TAG="${SELECTOR_TAG:-Proxy}"
+API_TEST_URL="http://cp.cloudflare.com"
+API_TIMEOUT=5000
 SB_CONFIG="${SB_CONFIG:-$HOME/.config/sing-box/config.json}"
 
 mkdir -p "$CONFIG_DIR" "$CACHE_DIR"
@@ -179,6 +181,32 @@ list_nodes() {
   local sel
   sel=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || return 1
   e "$sel" | jq -r '.all[]' 2>/dev/null
+}
+
+test_node() {
+  local tag="$1"
+  local encoded
+  encoded=$(jq -rn --arg x "$tag" '$x | @uri')
+  local result
+  result=$(api_get "/proxies/$encoded/delay?url=$API_TEST_URL&timeout=$API_TIMEOUT" 2>/dev/null)
+  echo "$result" | jq -r '.delay // "ERR"' 2>/dev/null || echo "ERR"
+}
+
+api_put_switch() {
+  local tag="$1"
+  local data groups
+  data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || { e "API error"; return 1; }
+  groups=$(jq -r --arg tag "$tag" '.all[] as $g | select(.type == "Selector") | select(.now == $tag) | $g' <<< "$data" 2>/dev/null)
+  if [[ -n "$groups" ]]; then
+    while IFS= read -r group; do
+      curl -s -X PUT "$API_BASE/proxies/$group" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
+    done <<< "$groups"
+    e "Switched to $tag"
+  else
+    local url_encoded; url_encoded=$(jq -rn --arg x "$tag" '$x | @uri')
+    curl -s -X PUT "$API_BASE/proxies/$SELECTOR_TAG" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
+    e "Switched to $tag"
+  fi
 }
 
 fetch_sub() {
@@ -407,8 +435,13 @@ lan_submenu() {
 nodes_submenu() {
   while true; do
     local ids=() labels=()
-    local current=""
-    sb_pid >/dev/null && current=$(current_node)
+    local current
+    current=$(current_node)
+
+    ids+=("__browse__");  labels+=("󰒒  Browse")
+    ids+=("__tested__");  labels+=("󱐌  Browse (tested)")
+    ids+=("__sep__");     labels+=("")
+
     for f in "$CACHE_DIR"/*.nodes; do
       [[ -f "$f" ]] || continue
       while IFS= read -r node; do
@@ -424,32 +457,106 @@ nodes_submenu() {
     done
 
     local sel
-    sel=$(for i in "${!labels[@]}"; do printf '%s\n' "${labels[$i]}"; done \
-      | $_WM -p "Nodes" --format i)
+    sel=$(for i in "${!labels[@]}"; do
+      case "${ids[$i]}" in
+        __sep__) printf '\x00───\n' ;;
+        *) printf '%s\n' "${labels[$i]}" ;;
+      esac
+    done | $_WM -p "Nodes" --format i)
     [[ -z "$sel" ]] && return
 
     local act="${ids[$sel]:-}"
     [[ -z "$act" ]] && continue
 
     case "$act" in
+      __sep__) continue ;;
+
+      __browse__)
+        while true; do
+          local ids2=() labels2=() current2
+          current2=$(current_node)
+          for f in "$CACHE_DIR"/*.nodes; do
+            [[ -f "$f" ]] || continue
+            while IFS= read -r node; do
+              [[ -z "$node" ]] && continue
+              local tag2 type2
+              tag2=$(echo "$node" | jq -r '.tag // empty' 2>/dev/null)
+              type2=$(echo "$node" | jq -r '.type // empty' 2>/dev/null)
+              [[ -z "$tag2" ]] && continue
+              local mark2="  "
+              [[ "$tag2" == "$current2" ]] && mark2="󰗠 "
+              ids2+=("node:$tag2"); labels2+=("${mark2}${type2}  $tag2")
+            done < <(jq -c '.[]' "$f" 2>/dev/null)
+          done
+          local sel2
+          sel2=$(printf '%s\n' "${labels2[@]}" | $_WM -p "Nodes" --format i)
+          [[ -z "$sel2" ]] && break
+          local act2="${ids2[$sel2]:-}"
+          [[ -z "$act2" ]] && break
+          case "$act2" in
+            node:*)
+              local t="${act2#node:}"
+              [[ -z "$t" ]] && continue
+              api_put_switch "$t"
+              ;;
+          esac
+        done
+        ;;
+
+      __tested__)
+        local nodes tags=()
+        nodes=$(list_nodes 2>/dev/null) || { e "API error"; continue; }
+        while IFS= read -r t; do
+          [[ -n "$t" ]] && tags+=("$t")
+        done <<< "$nodes"
+
+        local results=() sorted=()
+        for t in "${tags[@]}"; do
+          local delay latlabel sortkey
+          delay=$(test_node "$t")
+          if [[ "$delay" =~ ^[0-9]+$ ]]; then
+            latlabel="${delay}ms"
+            sortkey="$delay"
+          else
+            latlabel=""
+            sortkey="99999"
+          fi
+          results+=("$t|$latlabel|$sortkey")
+        done
+
+        IFS=$'\n' sorted=($(sort -t'|' -k3 -n <<< "${results[*]}"))
+
+        while true; do
+          local ids3=() labels3=() current3
+          current3=$(current_node)
+          for r in "${sorted[@]}"; do
+            local tag3 latlabel3
+            tag3="${r%%|*}"
+            local rest="${r#*|}"
+            latlabel3="${rest%%|*}"
+            local mark3="  "
+            [[ "$tag3" == "$current3" ]] && mark3="󰗠 "
+            ids3+=("node:$tag3"); labels3+=("${mark3}$(printf '%5s' "$latlabel3")  $tag3")
+          done
+          local sel3
+          sel3=$(printf '%s\n' "${labels3[@]}" | $_WM -p "Nodes" --format i)
+          [[ -z "$sel3" ]] && break
+          local act3="${ids3[$sel3]:-}"
+          [[ -z "$act3" ]] && break
+          case "$act3" in
+            node:*)
+              local t="${act3#node:}"
+              [[ -z "$t" ]] && continue
+              api_put_switch "$t"
+              ;;
+          esac
+        done
+        ;;
+
       node:*)
         local tag="${act#node:}"
         [[ -z "$tag" ]] && continue
-        sb_pid >/dev/null || { e "Start sing-box first"; continue; }
-        local data
-        data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || { e "API error"; continue; }
-        local groups
-        groups=$(jq -r --arg tag "$tag" '.all[] as $g | select(.type == "Selector") | select(.now == $tag) | $g' <<< "$data" 2>/dev/null)
-        if [[ -n "$groups" ]]; then
-          while IFS= read -r group; do
-            curl -s -X PUT "$API_BASE/proxies/$group" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
-          done <<< "$groups"
-          e "Switched to $tag"
-        else
-          local url_encoded; url_encoded=$(jq -rn --arg x "$tag" '$x | @uri')
-          curl -s -X PUT "$API_BASE/proxies/$SELECTOR_TAG" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
-          e "Switched to $tag"
-        fi
+        api_put_switch "$tag"
         ;;
     esac
   done
@@ -517,11 +624,10 @@ while true; do
 
   if [[ -n "$running" ]]; then
     ids+=("__toggle__"); labels+=("⏹  Stop")
+    ids+=("__nodes__"); labels+=("󰒒  $current  [$count]")
   else
     ids+=("__toggle__"); labels+=("󰐚  Start")
   fi
-
-  ids+=("__nodes__"); labels+=("󰖩  $current  [$count]")
   ids+=("__lan__");   labels+=("󰒑  LAN [$(lan_on && echo ON || echo OFF)]")
 
   ids+=("__sep1__"); labels+=("")

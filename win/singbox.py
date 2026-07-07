@@ -264,6 +264,12 @@ def list_nodes():
     d = api_get(f"/proxies/{SELECTOR}")
     return d.get("all", []) if d else []
 
+def test_node(tag):
+    import urllib.parse
+    enc = urllib.parse.quote(tag, safe='')
+    d = api_get(f"/proxies/{enc}/delay?url=http://cp.cloudflare.com&timeout=5000")
+    return d.get("delay") if d else None
+
 def switch_node(tag):
     api_put(f"/proxies/{SELECTOR}", {"name": tag})
     e(f"Switched to {tag}")
@@ -332,12 +338,13 @@ def main():
         if sys.argv[1] in ("--run",): run_foreground(); return
 
     while True:
+        pid = sb_pid()
         curr = current_node()
         cnt = node_count()
         lan_str = "ON" if lan_on() else "OFF"
         lan_port = lan_config()["port"]
         print(f"\n── Sing-box ──")
-        print(f"  1. {curr}  [{cnt}]")
+        print(f"  1. 󰒒 {curr}  [{cnt}]")
         print(f"  2. Refetch all")
         print(f"  3. LAN [{lan_str}]")
         print(f"  4. Port [{lan_port}]")
@@ -345,20 +352,49 @@ def main():
         choice = input("Select: ").strip()
 
         if choice == "1":
+            if not sb_pid(): e("Start sing-box first"); continue
             nodes = list_nodes()
-            if not nodes: e("No nodes or sing-box not running"); continue
+            if not nodes: e("No nodes"); continue
             curr = current_node()
-            print(f"\nNodes ({len(nodes)}):")
+
+            print()
+            print("  1. 󰒒 Browse")
+            print("  2. 󱐌 Browse (tested)")
+            print()
+            print("  Nodes:")
             for i, n in enumerate(nodes, 1):
-                mark = " <" if n == curr else ""
-                print(f"  {i}. {n}{mark}")
+                mark = " 󰗠" if n == curr else ""
+                print(f"  {i}.{mark} {n}")
             print("  b. Back")
             sel = input("Select: ").strip()
             if sel == "b": continue
-            try:
+
+            if sel == "1":
+                sel2 = input("Select node: ").strip()
+                if sel2.isdigit():
+                    i = int(sel2) - 1
+                    if 0 <= i < len(nodes): switch_node(nodes[i])
+
+            elif sel == "2":
+                results = []
+                for n in nodes:
+                    d = test_node(n)
+                    lat = f"{d}ms" if d else ""
+                    sk = d if d else 99999
+                    results.append((n, lat, sk))
+                results.sort(key=lambda x: x[2])
+                print()
+                for i, (tag, lat, _) in enumerate(results, 1):
+                    mark = "󰗠" if tag == curr else " "
+                    print(f"  {i}. {mark} {lat:>5}  {tag}")
+                sel2 = input("Select node (or Enter): ").strip()
+                if sel2.isdigit():
+                    i = int(sel2) - 1
+                    if 0 <= i < len(results): switch_node(results[i][0])
+
+            elif sel.isdigit():
                 i = int(sel) - 1
                 if 0 <= i < len(nodes): switch_node(nodes[i])
-            except ValueError: pass
 
         elif choice == "2":
             refetch_all()
