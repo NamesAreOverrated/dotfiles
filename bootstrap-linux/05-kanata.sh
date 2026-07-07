@@ -5,7 +5,6 @@ if [[ ! "$ans" =~ ^[yY] ]]; then
     return
 fi
 
-KANATA_VERSION="1.11.0"
 KANATA_PREREQ_OK=true
 
 # Find any installed uinput udev rule (any filename)
@@ -85,19 +84,19 @@ elif need curl && need unzip && true; then
         echo "    Install: sudo xbps-install kanata"
         echo "    Or build: cargo install kanata --root ~/.local"
     else
-        printf "  Install kanata v%s? [y/N] " "$KANATA_VERSION"
+        printf "  Install latest kanata? [y/N] "
         read -r ans2
         if [[ "$ans2" =~ ^[yY] ]]; then
-            echo "  Downloading kanata v$KANATA_VERSION ..."
+            echo "  Downloading kanata ..."
             TMP="$(mktemp -d)"
-            curl -fsSL "https://github.com/jtroo/kanata/releases/download/v${KANATA_VERSION}/linux-binaries-x64.zip" -o "$TMP/kanata.zip"
+            curl -fsSL "https://github.com/jtroo/kanata/releases/latest/download/linux-binaries-x64.zip" -o "$TMP/kanata.zip"
             unzip -j "$TMP/kanata.zip" "kanata_linux_x64" -d "$TMP" >/dev/null
             mkdir -p "$HOME/.local/bin"
             mv "$TMP/kanata_linux_x64" "$HOME/.local/bin/kanata"
             chmod +x "$HOME/.local/bin/kanata"
             rm -rf "$TMP"
             KANATA_BIN="$HOME/.local/bin/kanata"
-            echo "  Downloaded kanata v$KANATA_VERSION"
+            echo "  Downloaded kanata"
         else
             echo "  Skipped"
         fi
