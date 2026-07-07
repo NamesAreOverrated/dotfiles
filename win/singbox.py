@@ -5,8 +5,9 @@ import os, sys, json, base64, hashlib, re, time, subprocess, urllib.request, url
 # ═══════════════════════════════════════════════════════════
 # EDIT YOUR SUBSCRIPTIONS HERE
 # ═══════════════════════════════════════════════════════════
-SUBS = []
+SUBS = [
     # {"name": "mysub", "url": "https://example.com/sub"},
+]
 
 
 # ═══════════════════════════════════════════════════════════
@@ -108,7 +109,7 @@ def parse_vmess(raw, tag):
     ps = j.get("ps") or f"vmess-{j.get('add', '')}"
     addr = j.get("add") or j.get("server")
     if not addr: return None
-    port = int(j.get("port", 443))
+    port = int(j.get("port") or 443)
     uuid = j.get("id", "")
     aid = int(j.get("aid", 0))
     name = ps.split("@")[0]
@@ -130,7 +131,10 @@ def parse_ss(raw, tag):
     method, password = auth_parts
     addr_parts = addr.split(":", 1)
     if len(addr_parts) < 2: return None
-    host, port = addr_parts[0], int(addr_parts[1])
+    host = addr_parts[0]
+    port_str = addr_parts[1]
+    if not host or not port_str: return None
+    port = int(port_str)
     name_num = fragment.split("@")[0]
     if not host or not port or not name_num: return None
     return {"type": "shadowsocks", "tag": fragment, "server": host, "server_port": port, "method": method, "password": password}
@@ -146,8 +150,9 @@ def parse_trojan(raw, tag):
     name_num = rest_parts[1] if len(rest_parts) > 1 else ""
     hp = host_port.split(":", 1)
     if len(hp) < 2: return None
-    host, port = hp[0], int(hp[1])
-    if not host or not port: return None
+    host = hp[0]; port_str = hp[1]
+    if not host or not port_str: return None
+    port = int(port_str)
     return {"type": "trojan", "tag": f"{name_num}@{host}:{port}", "server": host, "server_port": port, "password": password}
 
 def parse_hy2(raw, tag):
@@ -161,8 +166,9 @@ def parse_hy2(raw, tag):
     name_num = rest_parts[1] if len(rest_parts) > 1 else ""
     hp = host_port.split(":", 1)
     if len(hp) < 2: return None
-    host, port = hp[0], int(hp[1])
-    if not host or not port: return None
+    host = hp[0]; port_str = hp[1]
+    if not host or not port_str: return None
+    port = int(port_str)
     return {"type": "hysteria2", "tag": f"{name_num}@{host}:{port}", "server": host, "server_port": port, "password": password}
 
 
@@ -241,7 +247,7 @@ def current_node():
 
 def node_count():
     d = api_get(f"/proxies/{SELECTOR}")
-    return len(d["all"]) if d and "all" in d else 0
+    return len(d.get("all") or []) if d else 0
 
 def list_nodes():
     d = api_get(f"/proxies/{SELECTOR}")
@@ -275,7 +281,7 @@ def lan_apply():
     with open(SB_CONFIG) as f: cfg = json.load(f)
     port = lan_config()["port"]
     listen = "0.0.0.0" if lan_on() else "127.0.0.1"
-    inbounds = [i for i in cfg.get("inbounds", []) if i.get("tag") != "mixed"]
+    inbounds = [i for i in (cfg.get("inbounds") or []) if i.get("tag") != "mixed"]
     inbounds.append({"type": "mixed", "tag": "mixed", "listen": listen, "listen_port": port})
     cfg["inbounds"] = inbounds
     with open(SB_CONFIG, "w") as f: json.dump(cfg, f, indent=2)
