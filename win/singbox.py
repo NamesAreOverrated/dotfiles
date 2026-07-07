@@ -370,9 +370,9 @@ def main():
         lan_str = "ON" if lan_on() else "OFF"
 
         items = []
-        items.append(("nodes", f"󰒒 {curr}  [{cnt}]"))
+        items.append(("nodes", f"󰒒  {curr}  [{cnt}]"))
         if not pid or admin:
-            items.append(("refetch", "󰑐 Refetch all"))
+            items.append(("refetch", "󰑐  Refetch all"))
         if admin:
             if pid:
                 items.append(("toggle", "⏹  Stop"))
@@ -384,7 +384,7 @@ def main():
         print(f"\n── Sing-box ──")
         for i, (act, label) in enumerate(items, 1):
             print(f"  {i}. {label}")
-        print("  q. Quit")
+        print("  q. 󰿅  Quit")
         choice = input("Select: ").strip()
 
         if choice == "q": break
@@ -399,8 +399,8 @@ def main():
             if not nodes: e("No nodes"); continue
             curr = current_node()
             print()
-            print("  1. 󰒒 Browse")
-            print("  2. 󱐌 Browse (tested)")
+            print("  1. 󰒒  Browse")
+            print("  2. 󱐌  Browse (tested)")
             print()
             print("  Nodes:")
             for i, n in enumerate(nodes, 1):
