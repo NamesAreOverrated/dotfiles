@@ -140,7 +140,7 @@ EOF
 fi
 
 mkdir -p "$HOME/.config/niri/local"
-WALL=$(cat "$HOME/.config/wallpaper" 2>/dev/null)
+WALL=$(cat "$HOME/.config/wallpaper" 2>/dev/null) || true
 if [ -n "$WALL" ] && [ -f "$WALL" ]; then
     printf 'spawn-at-startup "swaybg" "-i" "%s" "-m" "fill"\n' "$WALL" > "$HOME/.config/niri/local/wallpaper.kdl"
     echo "  Generated ~/.config/niri/local/wallpaper.kdl"
@@ -180,4 +180,4 @@ if [ "$PATCHED" = "1" ]; then
 fi
 
 echo "Linking niri config..."
-link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
+link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl" || true
