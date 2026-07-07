@@ -1,6 +1,7 @@
 # cm-singbox.py — Sing-box manager for Windows
 
 import os, sys, json, base64, hashlib, re, time, subprocess, urllib.request, urllib.error
+import ctypes
 
 # ═══════════════════════════════════════════════════════════
 # EDIT YOUR SUBSCRIPTIONS HERE
@@ -25,6 +26,11 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
 if not os.path.exists(LAN_FILE):
     with open(LAN_FILE, "w") as f: f.write("state=0\nport=1080\n")
+
+try:
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        print("Warning: not running as Administrator — TUN / auto_route may not work.")
+except: pass
 
 
 # ═══════════════════════════════════════════════════════════
@@ -175,7 +181,12 @@ def parse_hy2(raw, tag):
 # ═══════════════════════════════════════════════════════════
 # Subscription & Config
 def fetch_sub(idx, name, url):
-    try: raw = urllib.request.urlopen(url, timeout=10).read().decode()
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/120.0.0.0 Safari/537.36"
+    })
+    try: raw = urllib.request.urlopen(req, timeout=10).read().decode()
     except: e(f"Failed to fetch {name}"); return None
 
     raw_file = os.path.join(CACHE_DIR, f"{idx}.raw")
@@ -324,10 +335,12 @@ def main():
         curr = current_node()
         cnt = node_count()
         lan_str = "ON" if lan_on() else "OFF"
+        lan_port = lan_config()["port"]
         print(f"\n── Sing-box ──")
         print(f"  1. {curr}  [{cnt}]")
         print(f"  2. Refetch all")
         print(f"  3. LAN [{lan_str}]")
+        print(f"  4. Port [{lan_port}]")
         print(f"  q. Quit")
         choice = input("Select: ").strip()
 
@@ -352,6 +365,16 @@ def main():
 
         elif choice == "3":
             lan_toggle()
+
+        elif choice == "4":
+            cfg = lan_config()
+            try:
+                new_port = int(input("Port: ").strip())
+                if new_port < 1 or new_port > 65535: raise ValueError
+                with open(LAN_FILE, "w") as f: f.write(f"state={cfg['state']}\nport={new_port}\n")
+                lan_apply()
+                sb_restart()
+            except: e("Invalid port")
 
         elif choice in ("q", "quit", "exit"):
             break
