@@ -137,11 +137,17 @@ wifi_submenu() {
         sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
         sec="${sec#:}"
         if [[ -z "$sec" || "$sec" == "--" ]]; then
-          nmcli device wifi connect "$ssid" 2>/dev/null || notify-send "cm-network" "Failed to connect"
+          nmcli device wifi connect "$ssid" 2>/dev/null || {
+            printf '\x00Connection failed\nDismiss\n' \
+              | $_WM -p "Error" --no-input --format i --lines 2 || true
+          }
         else
           pw=$(printf '\x00Enter password\n' | $_WM -p "Password for ${ssid}" -P --input-fallback --lines 0)
           [[ -z "$pw" ]] && continue
-          nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || notify-send "cm-network" "Wrong password or connection failed"
+          nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || {
+            printf '\x00Connection failed\nDismiss\n' \
+              | $_WM -p "Error" --no-input --format i --lines 2 || true
+          }
         fi
         ;;
     esac

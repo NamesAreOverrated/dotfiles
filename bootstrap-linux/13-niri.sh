@@ -146,10 +146,6 @@ if [ -n "$WALL" ] && [ -f "$WALL" ]; then
     echo "  Generated ~/.config/niri/local/wallpaper.kdl"
 fi
 
-echo "Linking niri config..."
-link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"
-
-
 if [ "$PATCHED" = "1" ]; then
     link "$DOTFILES/niri/local/patched.kdl" "$HOME/.config/niri/local/patched.kdl"
     if has niri && niri --version 2>/dev/null | grep -qi patched; then
@@ -182,3 +178,6 @@ if [ "$PATCHED" = "1" ]; then
         fi
     fi
 fi
+
+echo "Linking niri config..."
+link "$DOTFILES/niri/config.kdl" "$HOME/.config/niri/config.kdl"

@@ -47,7 +47,7 @@ pick_sink() {
   local prompt="${1:-Select output}"
   local sinks
   sinks=$(list_sinks)
-  [[ -z "$sinks" ]] && { notify-send "cm-volmixer" "No sinks found"; exit 1; }
+  [[ -z "$sinks" ]] && exit 1
   local default_name
   default_name=$(pactl get-default-sink 2>/dev/null)
   local items=()
@@ -76,7 +76,7 @@ pick_source() {
   local prompt="${1:-Select mic}"
   local sources
   sources=$(list_sources)
-  [[ -z "$sources" ]] && { notify-send "cm-volmixer" "No mics found"; exit 1; }
+  [[ -z "$sources" ]] && exit 1
   local default_name
   default_name=$(pactl get-default-source 2>/dev/null)
   local items=()

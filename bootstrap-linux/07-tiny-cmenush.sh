@@ -62,13 +62,13 @@ else
     echo "  Skipping cm-network (nmcli not found)"
 fi
 
-if has sing-box && has cm-network; then
+if has sing-box && has jq; then
     link "$DOTFILES/local/bin/cm-singbox" "$HOME/.local/bin/cm-singbox"
     echo ""
     echo "  ── cm-singbox ──"
     echo "  Start/stop will prompt for sudo interactively"
 else
-    echo "  Skipping cm-singbox (sing-box or cm-network not found)"
+    echo "  Skipping cm-singbox (sing-box or jq not found)"
 fi
 
 if has swaybg; then

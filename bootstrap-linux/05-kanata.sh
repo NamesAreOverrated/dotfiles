@@ -20,40 +20,51 @@ fi
 
 # ── Check 1: udev rule installed ──
 if [ -z "$INSTALLED_RULE" ]; then
-    KANATA_PREREQ_OK=false
-    echo "  MISSING: uinput udev rule not found"
-    if [ ! -f "$DOTFILES/kanata/99-uinput.rules" ]; then
-        printf "  Generate 99-uinput.rules template? [y/N] "
-        read -r gen_ans
-        if [[ "$gen_ans" =~ ^[yY] ]]; then
+    if has udevadm; then
+        if [ ! -f "$DOTFILES/kanata/99-uinput.rules" ]; then
             mkdir -p "$DOTFILES/kanata"
             cat > "$DOTFILES/kanata/99-uinput.rules" << 'EOF'
 KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
 EOF
-            echo "  Written to $DOTFILES/kanata/99-uinput.rules"
+            echo "  Generated $DOTFILES/kanata/99-uinput.rules"
         fi
-    fi
-    if [ -f "$DOTFILES/kanata/99-uinput.rules" ]; then
-        echo "    sudo cp \"$DOTFILES/kanata/99-uinput.rules\" /etc/udev/rules.d/"
+        if sudo cp "$DOTFILES/kanata/99-uinput.rules" /etc/udev/rules.d/ \
+            && sudo udevadm control --reload-rules \
+            && sudo udevadm trigger \
+            && sudo modprobe uinput 2>/dev/null; then
+            echo "  Udev rule installed"
+        else
+            KANATA_PREREQ_OK=false
+            echo "  MISSING: uinput udev rule not found"
+            echo "    sudo cp \"$DOTFILES/kanata/99-uinput.rules\" /etc/udev/rules.d/"
+            echo "    sudo udevadm control --reload-rules && sudo udevadm trigger"
+            echo "    sudo modprobe uinput"
+        fi
     else
-        echo "    echo 'KERNEL==\"uinput\", GROUP=\"input\", MODE=\"0660\", OPTIONS+=\"static_node=uinput\"' | sudo tee /etc/udev/rules.d/99-uinput.rules"
+        echo "  No udev — ensure /dev/uinput is accessible (sudo chmod 666 /dev/uinput)"
     fi
-    echo "    sudo udevadm control --reload-rules && sudo udevadm trigger"
-    echo "    sudo modprobe uinput"
 fi
 
 # ── Check 2: group exists ──
 if ! getent group "$KANATA_GROUP" >/dev/null 2>&1; then
-    KANATA_PREREQ_OK=false
-    echo "  MISSING: group '$KANATA_GROUP' does not exist"
-    echo "    sudo groupadd \"$KANATA_GROUP\""
+    if sudo groupadd "$KANATA_GROUP"; then
+        echo "  Group '$KANATA_GROUP' created"
+    else
+        KANATA_PREREQ_OK=false
+        echo "  MISSING: group '$KANATA_GROUP' does not exist"
+        echo "    sudo groupadd \"$KANATA_GROUP\""
+    fi
 fi
 
 # ── Check 3: user in group ──
 if ! groups "$(whoami)" | grep -qw "$KANATA_GROUP"; then
-    KANATA_PREREQ_OK=false
-    echo "  MISSING: user '$(whoami)' not in group '$KANATA_GROUP'"
-    echo "    sudo usermod -aG \"$KANATA_GROUP\" \"$(whoami)\""
+    if sudo usermod -aG "$KANATA_GROUP" "$(whoami)"; then
+        echo "  Added to group '$KANATA_GROUP'"
+    else
+        KANATA_PREREQ_OK=false
+        echo "  MISSING: user '$(whoami)' not in group '$KANATA_GROUP'"
+        echo "    sudo usermod -aG \"$KANATA_GROUP\" \"$(whoami)\""
+    fi
     echo "  Then log out and back in."
 fi
 

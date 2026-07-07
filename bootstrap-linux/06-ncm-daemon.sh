@@ -10,6 +10,8 @@ else
     read -r ans
     if [[ "$ans" =~ ^[yY] ]]; then
         need curl || return
+        need socat || return
+        need jq || return
         need pipewire || return
         mkdir -p "$HOME/.local/bin"
         if [ "$IS_MUSL" = 1 ]; then

@@ -233,7 +233,6 @@ launch_terminal() {
   term="${TERMINAL:-}"
   [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
   if [[ -z "$term" ]]; then
-    notify-send "cm-launcher" "No terminal emulator found"
     return 1
   fi
   "$term" "$@"
@@ -276,7 +275,6 @@ do_add() {
   done
 
   if [[ ${#items[@]} -eq 0 ]]; then
-    notify-send "cm-launcher" "All system apps already added"
     return
   fi
 
@@ -292,7 +290,7 @@ do_add() {
 do_remove() {
   local local_dir items=() paths=()
   local_dir=$(get_local_app_dirs | head -1)
-    [[ -d "$local_dir" ]] || { notify-send "cm-launcher" "No local apps directory"; return; }
+    [[ -d "$local_dir" ]] || { return; }
 
   for file in "$local_dir"/*.desktop; do
     [[ -f "$file" ]] || continue
@@ -316,7 +314,6 @@ do_remove() {
   done
 
   if [[ ${#items[@]} -eq 0 ]]; then
-    notify-send "cm-launcher" "No symlinked apps to remove"
     return
   fi
 
@@ -416,8 +413,6 @@ main() {
   while true; do
     local entries
     entries=$(read_cache) || entries=$(build_cache)
-    [[ -z "$entries" ]] && { notify-send "cm-launcher" "No applications found"; exit 1; }
-
     local execs=() icons=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
     while IFS='' read -r line; do
       [[ -z "$line" ]] && continue
