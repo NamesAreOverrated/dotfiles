@@ -27,10 +27,14 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 if not os.path.exists(LAN_FILE):
     with open(LAN_FILE, "w") as f: f.write("state=0\nport=1080\n")
 
-try:
-    if not ctypes.windll.shell32.IsUserAnAdmin():
-        print("Warning: not running as Administrator — TUN / auto_route may not work.")
-except: pass
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+if not is_admin():
+    print("Warning: not running as Administrator — TUN / auto_route may not work.")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -310,6 +314,27 @@ def lan_toggle():
     lan_apply()
     sb_restart()
 
+def lan_submenu():
+    while True:
+        lan_str = "ON" if lan_on() else "OFF"
+        lan_port = lan_config()["port"]
+        print()
+        print(f"  1. 󰒑  LAN [{lan_str}]")
+        print(f"  2. 🔧  Port [{lan_port}]")
+        print("  b. Back")
+        sel = input("Select: ").strip()
+        if sel == "b": return
+        if sel == "1": lan_toggle()
+        elif sel == "2":
+            try:
+                new_port = int(input("Port: ").strip())
+                if new_port < 1 or new_port > 65535: raise ValueError
+                cfg = lan_config()
+                with open(LAN_FILE, "w") as f: f.write(f"state={cfg['state']}\nport={new_port}\n")
+                lan_apply()
+                sb_restart()
+            except: e("Invalid port")
+
 
 # ═══════════════════════════════════════════════════════════
 # Service install
@@ -339,24 +364,40 @@ def main():
 
     while True:
         pid = sb_pid()
+        admin = is_admin()
         curr = current_node()
         cnt = node_count()
         lan_str = "ON" if lan_on() else "OFF"
-        lan_port = lan_config()["port"]
+
+        items = []
+        items.append(("nodes", f"󰒒 {curr}  [{cnt}]"))
+        if not pid or admin:
+            items.append(("refetch", "󰑐 Refetch all"))
+        if admin:
+            if pid:
+                items.append(("toggle", "⏹  Stop"))
+            else:
+                items.append(("toggle", "󰐚  Start"))
+        if admin:
+            items.append(("lan", f"󰒑  LAN [{lan_str}]"))
+
         print(f"\n── Sing-box ──")
-        print(f"  1. 󰒒 {curr}  [{cnt}]")
-        print(f"  2. Refetch all")
-        print(f"  3. LAN [{lan_str}]")
-        print(f"  4. Port [{lan_port}]")
-        print(f"  q. Quit")
+        for i, (act, label) in enumerate(items, 1):
+            print(f"  {i}. {label}")
+        print("  q. Quit")
         choice = input("Select: ").strip()
 
-        if choice == "1":
+        if choice == "q": break
+        if not choice.isdigit(): continue
+        i = int(choice) - 1
+        if i < 0 or i >= len(items): continue
+        act = items[i][0]
+
+        if act == "nodes":
             if not sb_pid(): e("Start sing-box first"); continue
             nodes = list_nodes()
             if not nodes: e("No nodes"); continue
             curr = current_node()
-
             print()
             print("  1. 󰒒 Browse")
             print("  2. 󱐌 Browse (tested)")
@@ -368,13 +409,11 @@ def main():
             print("  b. Back")
             sel = input("Select: ").strip()
             if sel == "b": continue
-
             if sel == "1":
                 sel2 = input("Select node: ").strip()
                 if sel2.isdigit():
-                    i = int(sel2) - 1
-                    if 0 <= i < len(nodes): switch_node(nodes[i])
-
+                    j = int(sel2) - 1
+                    if 0 <= j < len(nodes): switch_node(nodes[j])
             elif sel == "2":
                 results = []
                 for n in nodes:
@@ -389,34 +428,21 @@ def main():
                     print(f"  {i}. {mark} {lat:>5}  {tag}")
                 sel2 = input("Select node (or Enter): ").strip()
                 if sel2.isdigit():
-                    i = int(sel2) - 1
-                    if 0 <= i < len(results): switch_node(results[i][0])
-
+                    j = int(sel2) - 1
+                    if 0 <= j < len(results): switch_node(results[j][0])
             elif sel.isdigit():
-                i = int(sel) - 1
-                if 0 <= i < len(nodes): switch_node(nodes[i])
+                j = int(sel) - 1
+                if 0 <= j < len(nodes): switch_node(nodes[j])
 
-        elif choice == "2":
+        elif act == "refetch":
             refetch_all()
 
-        elif choice == "3":
-            lan_toggle()
+        elif act == "toggle":
+            if pid: sb_stop()
+            else: sb_start()
 
-        elif choice == "4":
-            cfg = lan_config()
-            try:
-                new_port = int(input("Port: ").strip())
-                if new_port < 1 or new_port > 65535: raise ValueError
-                with open(LAN_FILE, "w") as f: f.write(f"state={cfg['state']}\nport={new_port}\n")
-                lan_apply()
-                sb_restart()
-            except: e("Invalid port")
-
-        elif choice in ("q", "quit", "exit"):
-            break
-
-        elif choice == "":
-            continue
+        elif act == "lan":
+            lan_submenu()
 
 if __name__ == "__main__":
     main()
