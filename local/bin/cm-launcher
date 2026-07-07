@@ -5,6 +5,7 @@ WMENUSH="tiny-cmenush"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 LAUNCHER_CACHE="$HOME/.cache/cm-launcher.txt"
+THEME_DIRS_CACHED=()
 
 eval "$(~/.local/bin/config-env)"
 
@@ -67,44 +68,29 @@ get_theme_dirs() {
 }
 
 # ── Resolve icon path ──
-# Searches largest PNG first, then SVG, then pixmaps
+# Caches theme dirs globally; searches largest PNG first, then SVG, then pixmaps
 resolve_icon() {
   local name="$1"
-  # Absolute path icon → use as-is
   [[ "$name" == /* && -f "$name" ]] && { echo "$name"; return; }
-  # Strip file extension if icon name includes one (e.g. "godot-mono.svg")
   [[ "$name" == *.* ]] && name="${name%.*}"
-  local theme_dirs=()
-  while IFS='' read -r dir; do theme_dirs+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
-  local sizes=(256 128 64 48 32 24 22 16)
-  for td in "${theme_dirs[@]}"; do
-    for sz in "${sizes[@]}"; do
-      local p="$td/${sz}x${sz}/apps/${name}.png"
-      [[ -f "$p" ]] && { echo "$p"; return; }
-    done
-  done
-  for td in "${theme_dirs[@]}"; do
-    for sz in "${sizes[@]}"; do
-      local p="$td/${sz}x${sz}/apps/${name}.svg"
-      [[ -f "$p" ]] && { echo "$p"; return; }
-    done
-    local p="$td/scalable/apps/${name}.svg"
+  [[ ${#THEME_DIRS_CACHED[@]} -eq 0 ]] && \
+    while IFS='' read -r dir; do THEME_DIRS_CACHED+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
+  for td in "${THEME_DIRS_CACHED[@]}"; do
+    local p="$td/256x256/apps/${name}.png"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="$td/48x48/apps/${name}.png"
+    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="$td/scalable/apps/${name}.svg"
     [[ -f "$p" ]] && { echo "$p"; return; }
   done
-  # Fallback: icon directly in icon base dir (e.g. ~/.local/share/icons/something.png)
   for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
     [[ -d "$base" ]] || continue
-    p="$base/${name}.png"
-    [[ -f "$p" ]] && { echo "$p"; return; }
-    p="$base/${name}.svg"
-    [[ -f "$p" ]] && { echo "$p"; return; }
+    p="$base/${name}.png"; [[ -f "$p" ]] && { echo "$p"; return; }
+    p="$base/${name}.svg"; [[ -f "$p" ]] && { echo "$p"; return; }
   done
-    local p="/usr/share/pixmaps/${name}.png"
-    [[ -f "$p" ]] && { echo "$p"; return; }
-    p="/usr/share/pixmaps/${name}.svg"
-    [[ -f "$p" ]] && { echo "$p"; return; }
-    p="/usr/share/pixmaps/${name}.xpm"
-    [[ -f "$p" ]] && { echo "$p"; return; }
+  p="/usr/share/pixmaps/${name}.png";  [[ -f "$p" ]] && { echo "$p"; return; }
+  p="/usr/share/pixmaps/${name}.svg";  [[ -f "$p" ]] && { echo "$p"; return; }
+  p="/usr/share/pixmaps/${name}.xpm";  [[ -f "$p" ]] && { echo "$p"; return; }
 }
 # ── Parse a .desktop file ──
 # Returns: path|name|exec|icon|terminal|action_ids
@@ -246,24 +232,34 @@ do_add() {
 
   for dir in $(get_system_app_dirs); do
     [[ -d "$dir" ]] || continue
-    for file in "$dir"/*.desktop; do
-      [[ -f "$file" ]] || continue
-      local bn name exec icon terminal _path rest thumb ico_path
+    local files=()
+    for f in "$dir"/*.desktop; do [[ -f "$f" ]] && files+=("$f"); done
+    [[ ${#files[@]} -eq 0 ]] && continue
+
+    local awk_out
+    awk_out=$(awk -F= '
+      FNR == 1 {
+        if (fname != "" && name != "" && nodisp != "true") print name "|" icon "|" fname
+        name=""; icon=""; nodisp=""; fname=FILENAME
+      }
+      /^Name=/ && name == ""  { name=substr($0,6) }
+      /^Icon=/ && icon == ""  { icon=substr($0,6) }
+      /^NoDisplay=/            { nodisp=substr($0,11) }
+      END {
+        if (name != "" && nodisp != "true") print name "|" icon "|" fname
+      }
+    ' "${files[@]}" 2>/dev/null) || true
+    [[ -z "$awk_out" ]] && continue
+
+    while IFS='' read -r line; do
+      local name icon file bn thumb ico_path
+      name="${line%%|*}"; line="${line#*|}"
+      icon="${line%%|*}"; file="${line#*|}"
       bn=$(basename "$file")
       [[ -f "$local_dir/$bn" ]] && continue
       local seen=0
-      for p in "${paths[@]}"; do
-        [[ "$(basename "$p")" == "$bn" ]] && seen=1 && break
-      done
+      for p in "${paths[@]}"; do [[ "$(basename "$p")" == "$bn" ]] && seen=1 && break; done
       (( seen )) && continue
-
-      parsed=$(parse_desktop "$file") || continue
-      _path="${parsed%%|*}"; rest="${parsed#*|}"
-      name="${rest%%|*}"; rest="${rest#*|}"
-      exec="${rest%%|*}"; rest="${rest#*|}"
-      icon="${rest%%|*}"; rest="${rest#*|}"
-      terminal="${rest%%|*}"
-
       thumb=""
       if [[ -n "$icon" ]]; then
         ico_path=$(resolve_icon "$icon")
@@ -271,17 +267,13 @@ do_add() {
       fi
       items+=("${thumb:-$name}")
       paths+=("$file")
-    done
+    done <<< "$awk_out"
   done
 
-  if [[ ${#items[@]} -eq 0 ]]; then
-    return
-  fi
-
+  [[ ${#items[@]} -eq 0 ]] && return
   local selected
   selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return
-
   ln -s "${paths[$selected]}" "$local_dir/"
   build_cache > /dev/null 2>&1 || true
 }
