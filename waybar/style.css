@@ -3,7 +3,7 @@
   font-size: 12px;
   font-weight: 900;
   min-height: 0;
-  margin: 0;
+  margin: 0px 4px;
   padding: 0;
 }
 
@@ -11,19 +11,26 @@ window#waybar {
   background: transparent;
 }
 
+#custom-lock,
+#custom-reboot,
+#custom-shutdown{
+  margin: 0px 9px;
+}
+#pulseaudio.output{
+  /* margin: 0px 4px; */
+}
 #workspaces,
 #tray,
 #network,
 #disk,
-#pulseaudio.output,
+#volume,
 #pulseaudio.input,
 #cpu,
 #memory,
 #clock,
 #custom-containers,
-#custom-lock,
-#custom-reboot,
-#custom-shutdown {
+#power-actions,
+#privacy{
   margin: 2px 4px;
   padding: 0px 9px;
   min-height: 24px;
@@ -31,6 +38,11 @@ window#waybar {
   border-radius: 5px;
   background: #1e1e2e;
   color: #cdd6f4;
+}
+
+
+#power-actions{
+  padding: 0px 0px;
 }
 
 #workspaces {
@@ -92,6 +104,9 @@ window#waybar {
 #cpu                     { color: #a6e3a1; }
 #memory                  { color: #f9e2af; }
 #clock                   { color: #b4befe; }
+#privacy-item.audio-out  { color: #a6e3a1; }
+#privacy-item.audio-in   { color: #fab387; }
+#privacy-item.screenshare{ color: #f38ba8; }
 
 #custom-containers { color: #fab387; }
 
@@ -108,7 +123,6 @@ window#waybar {
 #mpris {
   padding: 0px 12px;
   margin: 2px 4px;
-  min-height: 24px;
   border-radius: 32px;
   color: #585b70;
   text-shadow: 1px 1px 2px black;
@@ -137,3 +151,15 @@ tooltip label {
   color: #cdd6f4;
   padding: 4px 6px;
 }
+trough {
+  min-width: 50px;
+  min-height: 5px;
+  border-radius: 8px;
+  background: #585b70;
+}
+
+trough highlight {
+  border-radius: 8px;
+  background-color: #cdd6f4;
+}
+
