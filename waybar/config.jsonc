@@ -6,15 +6,21 @@
   "margin-top": 4,
   "margin-left": 8,
   "margin-right": 8,
-  "modules-left": [ "niri/workspaces","group/power-actions", "tray"],
+  "modules-left": [ "niri/workspaces",  "mpris", "custom/lyric"],
   "modules-center": ["privacy"],
-  "modules-right": [ "mpris", "group/resources" ,  "group/audio","bluetooth", "network",  "clock"],
+  "modules-right": [ "tray", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "mpris": {
     "format": "󰎈  {dynamic}",
     "format-paused": "󰏤  {dynamic}",
     "tooltip-format": "󰎈  {title}\n󰻋  {artist}\n󰉊  {album}\n⏱  {position}/{length}\n  {player}",
     "dynamic-order": ["title", "artist", "position", "length"],
     "interval": 1
+  },
+  "custom/lyric": {
+    "interval": 1,
+    "exec": "jq -nc \"{cmd:\\\"query\\\",args:{operation:\\\"lyric\\\"}}\" | socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/ncm-socket | jq -r .line",
+    "format": "󰍰 {text}",
+    "max-length": 40,
   },
   "niri/workspaces": {
     "format": "{icon}",

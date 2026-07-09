@@ -27,6 +27,7 @@ window#waybar {
 #power-actions,
 #mpris.playing,
 #mpris.paused,
+#custom-lyric,
 #privacy{
   margin: 0px 0px;
   padding: 0px 8px;
@@ -34,9 +35,15 @@ window#waybar {
   border-radius: 5px;
   background: rgba(30, 30, 46,0.85);
   box-shadow: 0 0 10px rgba(245, 194, 231,0.45),
-              inset 0 0 6px  rgba(245, 194, 231,0.12)
+              inset 0 0 6px  rgba(245, 194, 231,0.12);
 }
 
+#custom-lyric  { 
+  /* box-shadow: 0 0 10px rgba(245, 194, 231,0.45), */
+  /*             inset 0 0 6px  rgba(245, 194, 231,0.12); */
+  /* background: rgba(30, 30, 46,0.85); */
+  /* text-shadow: 2px 2px 3px #1e1e2e; */
+}
 
 #cpu,
 #memory,
@@ -100,6 +107,7 @@ window#waybar {
   background: #f38ba8;
 }
 
+#custom-lyric            { color: #cdd6f4; }
 #bluetooth               { color: #89b4fa; }
 #bluetooth.off           { color: #585b70; }
 #bluetooth.disabled      { color: #585b70; }
