@@ -1083,7 +1083,7 @@ do
 	})
 
 	-- Automatically install LSPs and related tools to stdpath for Neovim
-	require("mason").setup({})
+	require("mason").setup()
 
 	-- Remove servers incompatible with musl
 	if is_musl() then
@@ -1116,6 +1116,16 @@ do
 		vim.lsp.config(name, server)
 		vim.lsp.enable(name)
 	end
+
+	vim.lsp.config("roslyn_ls", {
+
+		capabilities = vim.tbl_deep_extend(
+			"force",
+			(vim.lsp.config.roslyn_ls and vim.lsp.config.roslyn_ls.capabilities) or {},
+			{ textDocument = { diagnostic = { dynamicRegistration = false } } }
+		),
+		on_attach = function() end,
+	})
 end
 
 -- ============================================================
