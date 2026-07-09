@@ -1,14 +1,14 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 28,
-  "spacing": 0,
-  "margin-top": 2,
-  "margin-left": 0,
-  "margin-right": 0,
-  "modules-left": ["niri/workspaces","sway/workspaces", "group/power-actions", "tray"],
+  "height": 24,
+  "spacing": 6,
+  "margin-top": 4,
+  "margin-left": 8,
+  "margin-right": 8,
+  "modules-left": [ "niri/workspaces","group/power-actions", "tray"],
   "modules-center": ["privacy"],
-  "modules-right": [ "mpris","custom/containers" , "pulseaudio#input", "group/volume", "network", "disk", "memory", "cpu", "clock"],
+  "modules-right": [ "mpris", "group/resources" ,  "group/audio","bluetooth", "network",  "clock"],
   "mpris": {
     "format": "󰎈  {dynamic}",
     "format-paused": "󰏤  {dynamic}",
@@ -29,25 +29,54 @@
   },
 
   "tray": {
-    "icon-size": 16,
+    "icon-size": 14,
     "spacing": 8,
     "show-passive-items": true
   },
   "network": {
-    "format-wifi": "  {essid}",
-    "format-ethernet": "󰖩  {ifname}",
-    "format-disconnected": "󰖪  offline",
+    "format-wifi": "󰖩  {essid} {bandwidthTotalBits}",
+    "format-ethernet": "󰌘  {ifname} {bandwidthTotalBits}",
+    "format-disconnected": "  offline",
     "tooltip-format-wifi": "{essid} ({signalStrength}%)  {ipaddr}\n{ifname}",
     "tooltip-format-ethernet": "{ipaddr}  {ifname}",
     "on-click": "~/.local/bin/cm-network",
     "on-click-right":"~/.local/bin/cm-network",
     "interval": 5
   },
+  "bluetooth": {
+	"format": "  {status}",
+  "format-no-controller":"󰂲",
+  "format-off":"󰂲  {status}",
+	"format-connected": "  {device_alias}",
+	"format-connected-battery": "  {device_alias} {device_battery_percentage}%",
+	"tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
+	"tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
+	"tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
+	"tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%"
+},
+  "group/resources": {
+    "orientation": "horizontal",
+    "modules": [
+      "custom/containers",
+      "disk",
+      "memory",
+      "cpu"
+    ]
+  },
   "disk": {
-    "format": "󰋊 {percentage_used}%",
+    "format": "󰋊  {percentage_used}%",
     "path": "/",
     "interval": 30,
     "tooltip-format": "{used} / {total} ({percentage_used}%)"
+  },
+  "cpu": {
+    "format": "  {usage}%",
+    "interval": 5,
+  },
+  "memory": {
+    "format": "  {percentage}%",
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G ({percentage}%)",
+    "interval": 10
   },
   "clock": {
     "format": "󰥔  {:%H:%M}",
@@ -66,6 +95,13 @@
       }
     },
     "interval": 60
+  },
+  "group/audio": {
+    "orientation": "horizontal",
+    "modules": [
+      "group/volume",
+      "pulseaudio#input",
+    ]
   },
   "group/volume": {
     "orientation": "horizontal",
@@ -102,20 +138,12 @@
     "on-click-right": "~/.local/bin/cm-volmixer",
   },
   "custom/containers": {
-  "format": " {}",
+  "format": "  {}",
   "interval": 10,
   "exec": "sh -c 'containers=$( (podman ps --format {{.Names}} 2>/dev/null; docker ps --format {{.Names}} 2>/dev/null) | sed \"/^$/d\" ); count=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | wc -l | tr -d \" \"); names=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | paste -sd \", \" -); printf \"%s\\n%s\" \"$count\" \"$names\"'",
   "tooltip": true
   },
-  "cpu": {
-    "format": "  {usage}%",
-    "interval": 5,
-  },
-  "memory": {
-    "format": "  {percentage}%",
-    "tooltip-format": "{used:0.1f}G / {total:0.1f}G ({percentage}%)",
-    "interval": 10
-  },
+  
 "group/power-actions": {
     "orientation": "horizontal",
     "drawer": {
