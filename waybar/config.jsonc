@@ -17,8 +17,8 @@
     "interval": 1
   },
   "custom/lyric": {
-    "interval": 1,
-    "exec": "jq -nc \"{cmd:\\\"query\\\",args:{operation:\\\"lyric\\\"}}\" | socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/ncm-socket | jq -r .line",
+    "interval": 2,
+    "exec": "printf '%s' '{\"cmd\":\"query\",\"args\":{\"operation\":\"lyric\"}}' | socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/ncm-socket | jq -r .line",
     "format": "󰍰 {text}",
     "max-length": 40,
   },
