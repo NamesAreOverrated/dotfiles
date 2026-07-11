@@ -109,7 +109,10 @@
       {
         "ip_is_private": true,
         "outbound": "direct"
-      }
+      },
+      { "rule_set": "geosite-geolocation-cn", "outbound": "direct" },
+      { "rule_set": "geoip-cn", "outbound": "direct" },
+      { "rule_set": "geosite-geolocation-!cn", "outbound": "proxy" }
     ]
   },
   "experimental": {
