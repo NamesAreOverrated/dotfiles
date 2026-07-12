@@ -20,7 +20,8 @@
     "interval": 2,
     "exec": "printf '%s' '{\"cmd\":\"query\",\"args\":{\"operation\":\"lyric\"}}' | socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/ncm-socket | jq -r .line",
     "format": "󰍰 {text}",
-    "max-length": 40,
+    // "min-length": 160,
+    // "max-length": 200,
   },
   "niri/workspaces": {
     "format": "{icon}",
@@ -40,8 +41,8 @@
     "show-passive-items": true
   },
   "network": {
-    "format-wifi": "󰖩  {essid} {bandwidthTotalBits}",
-    "format-ethernet": "󰌘  {ifname} {bandwidthTotalBits}",
+    "format-wifi": "󰖩  {essid} {bandwidthTotalBytes}",
+    "format-ethernet": "󰌘  {ifname} {bandwidthTotalBytes}",
     "format-disconnected": "  offline",
     "tooltip-format-wifi": "{essid} ({signalStrength}%)  {ipaddr}\n{ifname}",
     "tooltip-format-ethernet": "{ipaddr}  {ifname}",

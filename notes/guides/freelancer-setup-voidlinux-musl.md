@@ -297,6 +297,16 @@ bash freelancer.sh
 
 ```
 
+### Step 8: Fix for higher resolution
+
+While higher resolution is available from the repack edit already. The texts rendering of the ordinal Freelancer is still busted on higher resolution (Anything above 1024p)
+
+Get `d3d8.dll`[https://github.com/crosire/d3d8to9] and drop into `~/wine/drive_c/Games/Freelancer/EXE/`. 
+
+Add `d3d8` in the `libraries` tab in `winecfg` and choose `native,builtin` (persistent) Or you can do `WINEDLLOVERRIDES="d3d8=n,b"` (pre-launch)
+
+Note: the game scales up with ultrawide perfectly. All the cutscene are real-time rendered. The quirk is the aspect ratio changes would show a lot of behind the scene (characters appearing and disappearing)
+
 ### DONE
 
 note if using in a bare metal machine. you can use `gamescope` from `Valve` to scale the game without the HD patch (although why would you do that?). But since it's in a vm and we don't have `vulkan` support so it is what it is.
