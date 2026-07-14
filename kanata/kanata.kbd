@@ -1,47 +1,69 @@
 ;; ==========================================
-;; 1. 物理层 (硬件扫描码输入)
+;; 1. 物理层
 ;; ==========================================
 (defsrc
+  ;; 第一排 (Row 1)
   esc  1    2    3    4    5    6    7    8    9    0    -    =    bspc
-  caps a    d    h    j    k    l    i    n    p
-  rctl
+  ;; 第二排右侧
+  u    i    o    p
+  ;; 第三排
+  caps a    d    h    j    k    l
+  ;; 第四排右侧 (包含 n, m, , , .)
+  m    ,    .    n
+  ;; 最底排
+  spc  ralt rctl
 )
 
 ;; ==========================================
-;; 2. 行为别名 (触发器逻辑)
+;; 2. 行为别名
 ;; ==========================================
 (defalias
-  ;; CapsLock逻辑: 200ms内松开是Esc，按住是切到 caps_nav 层
+  ;; CapsLock 逻辑: 200ms内松开是 Esc，按住是切到 caps_nav 层
   cap (tap-hold 200 200 esc (layer-toggle caps_nav))
   
-  ;; 物理Esc逻辑: 200ms内松开是反引号(`)，按住是切到 esc_media 层
-  ;; 注意：在 Kanata 里反引号叫 grv (Grave)
+  ;; 物理 Esc 逻辑: 200ms内松开是反引号(`)，按住是切到 esc_media (小键盘+媒体) 层
   esm (tap-hold 200 200 grv (layer-toggle esc_media))
 )
 
 ;; ==========================================
-;; 3. 默认层 (你平时的键盘状态)
+;; 3. 默认层
 ;; ==========================================
 (deflayer default
+  ;; 第一排
   @esm 1    2    3    4    5    6    7    8    9    0    -    =    bspc
-  @cap a    d    h    j    k    l    i    n    p
-  caps ;; 原本的右 Ctrl 现在变成了真正的 CapsLock 锁定键
+  ;; 第二排
+  u    i    o    p
+  ;; 第三排
+  @cap a    d    h    j    k    l
+  ;; 第四排
+  m    ,    .    n
+  ;; 底排
+  spc  ralt caps
 )
 
 ;; ==========================================
-;; 4. 导航层 (按住 CapsLock 时激活)
+;; 4. 导航层 (按住 CapsLock 激活)
 ;; ==========================================
 (deflayer caps_nav
   _    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12  _
-  _    end  del  left down up   rght home pgdn pgup
-  _
+  _    home _    pgup
+  _    end  del  left down up   rght
+  _    _    _    pgdn
+  _    _    _
 )
 
 ;; ==========================================
-;; 5. 媒体层 (按住 物理Esc 时激活)
+;; 5. 媒体+数字小键盘层 (按住 物理Esc 激活)
 ;; ==========================================
 (deflayer esc_media
+  ;; 第一排：音量控制
   _    _    _    _    _    _    _    _    _    _    _     vold volu mute
-  _    _    _    _    _    _    _    _    _    prnt
-  _
+  ;; 第二排：U I O ➔ 7 8 9
+  kp7  kp8  kp9  prnt
+  ;; 第三排：J K L ➔ 4 5 6
+  _    _    _    _    kp4  kp5  kp6
+  ;; 第四排：按照你的习惯，N M , ➔ 1 2 3 (原句号键 . 闲置)
+  kp2  kp3  _    kp1
+  ;; 底排：空格 ➔ 0，右 Alt ➔ 小数点 .
+  kp0  kp.  _
 )
