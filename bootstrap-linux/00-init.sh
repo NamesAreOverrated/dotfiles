@@ -57,11 +57,11 @@ echo "TERMINAL=$TERMINAL" >> "$HOME/.config/env"
 echo "  TERMINAL=$TERMINAL set in ~/.config/env"
 
 # --- Bash config ---
-if [ -f "$HOME/.config/inputrc" ]; then
-    link "$DOTFILES/inputrc" "$HOME/.config/inputrc"
-fi
+link "$DOTFILES/inputrc" "$HOME/.config/inputrc"
 
 if ! grep -q '^\$include ~/.config/inputrc$' "$HOME/.inputrc" 2>/dev/null; then
     echo '$include ~/.config/inputrc' >> "$HOME/.inputrc"
 fi
+
+echo "inpputrc set in ~/.inputrc"
 
