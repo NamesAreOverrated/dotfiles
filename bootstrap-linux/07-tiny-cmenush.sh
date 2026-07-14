@@ -77,34 +77,13 @@ else
     echo "  Skipping set-wallpaper (swaybg not found)"
 fi
 
-if has fish; then
-    echo "  Skipping cm-alias (bash-only tool)"
-else
-    link "$DOTFILES/local/bin/cm-alias" "$HOME/.local/bin/cm-alias"
-fi
+link "$DOTFILES/local/bin/cm-alias" "$HOME/.local/bin/cm-alias"
 
 link "$DOTFILES/local/bin/config-env" "$HOME/.local/bin/config-env"
 
 # ── Proxy config ──
 
 CFG="$HOME/.config/cm-network"
-
-# Migrate old rofi-network config
-if [ -f "$HOME/.config/rofi-network" ]; then
-    if [ ! -f "$CFG" ]; then
-        mv "$HOME/.config/rofi-network" "$CFG"
-        echo "  Migrated ~/.config/rofi-network → ~/.config/cm-network"
-    else
-        rm "$HOME/.config/rofi-network"
-        echo "  Removed old ~/.config/rofi-network"
-    fi
-fi
-
-# Migrate old tm-network config
-if [ -f "$HOME/.config/tm-network" ] && [ ! -f "$CFG" ]; then
-    mv "$HOME/.config/tm-network" "$CFG"
-    echo "  Migrated ~/.config/tm-network → ~/.config/cm-network"
-fi
 
 # Create default proxy config if none exists
 if [ ! -f "$CFG" ]; then
@@ -116,43 +95,12 @@ fi
 # ── Shell env sourcing ──
 # Ensure shell configs source the env script for proxy + tool vars
 
-if has fish; then
-    mkdir -p "$HOME/.config/fish"
-    # Migrate old proxy block → env sourcing
-    if grep -q "Proxy config (managed by tm-network)" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        sed -i '/^# Proxy config (managed by tm-network)$/,/^end$/c\~/.local/bin/config-env --fish | source' "$HOME/.config/fish/config.fish"
-        echo "  Migrated proxy sourcing in ~/.config/fish/config.fish → ~/.local/bin/config-env --fish | source"
-    fi
-    if ! grep -q "config-env --fish | source" "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        cat >> "$HOME/.config/fish/config.fish" << 'FISH_EOF'
-
-~/.local/bin/config-env --fish | source
-FISH_EOF
-        echo "  Added config-env sourcing to ~/.config/fish/config.fish"
-    fi
-else
-    # Migrate old proxy block → eval "$(~/.local/bin/config-env)"
-    if grep -q "Proxy config (managed by tm-network)" "$HOME/.bashrc" 2>/dev/null; then
-        sed -i '/^# Proxy config (managed by tm-network)$/,/^fi$/c\eval "$(~/.local/bin/config-env)"' "$HOME/.bashrc"
-        echo "  Migrated proxy sourcing in ~/.bashrc → eval \"\$(~/.local/bin/config-env)\""
-    fi
-    if ! grep -q 'config-env' "$HOME/.bashrc" 2>/dev/null; then
+if ! grep -q 'config-env' "$HOME/.bashrc" 2>/dev/null; then
         cat >> "$HOME/.bashrc" << 'EOF'
 
 eval "$(~/.local/bin/config-env)"
 EOF
         echo "  Added eval \$(~/.local/bin/config-env) to ~/.bashrc"
-    fi
 fi
 
-# Migrate old rofi-network variable names in bashrc (if fish user ever had rofi)
-if [ -f "$HOME/.bashrc" ]; then
-    sed -i \
-        -e 's|# Proxy config (managed by rofi-network)|# Proxy config (managed by cm-network)|' \
-        -e 's|ROFI_NET_CFG="$HOME/.config/rofi-network"|PROXY_CFG="$HOME/.config/cm-network"|' \
-        -e 's|if \[ -f "$ROFI_NET_CFG" \] && \[ "$(sed -n '\''2p'\'' "$ROFI_NET_CFG")" = "1" \];|if [ -f "$PROXY_CFG" ] \&\& [ "$(sed -n '\''2p'\'' "$PROXY_CFG")" = "1" ];|' \
-        -e 's|PROXY="http://$(sed -n '\''1p'\'' "$ROFI_NET_CFG")"|PROXY="http://$(sed -n '\''1p'\'' "$PROXY_CFG")"|' \
-        -e 's|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$ROFI_NET_CFG")"|NO_PROXY_VAL="$(sed -n '\''3p'\'' "$PROXY_CFG")"|' \
-        -e 's|export all_proxy="socks5://$(sed -n '\''1p'\'' "$ROFI_NET_CFG")"|export all_proxy="socks5://$(sed -n '\''1p'\'' "$PROXY_CFG")"|' \
-        "$HOME/.bashrc" 2>/dev/null || true
-fi
+

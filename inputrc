@@ -1,0 +1,17 @@
+set editing-mode vi
+set keyseq-timeout 0
+
+set show-mode-in-prompt on
+set vi-ins-mode-string \1\e[6 q\2
+set vi-cmd-mode-string \1\e[2 q\2
+
+set completion-ignore-case on
+
+set show-all-if-ambiguous on
+
+$if mode=vi
+"\e[5":history-search-backward
+"\e[6":history-search-forward
+$endif
+
+"\e[Z":menu-complete
