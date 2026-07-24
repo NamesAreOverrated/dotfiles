@@ -11,7 +11,7 @@ fi
 echo "$img" > "$HOME/.config/wallpaper"
 
 if [ -d "$HOME/.config/sway/local" ]; then
-  printf 'output * bg "%s" fill\n' "$img" > "$HOME/.config/sway/local/wallpaper"
+  printf 'output * bg "%s" fill\n' "$img" > "$HOME/.config/sway/local/wallpaper.g"
 fi
 
 if [ -d "$HOME/.config/niri/local" ] && command -v swaybg >/dev/null; then
