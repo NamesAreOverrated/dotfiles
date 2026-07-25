@@ -313,4 +313,11 @@ Nope I was just being stupid. Just make sure you chose the 32bit version in stea
 
 note if using in a bare metal machine. you can use `gamescope` from `Valve` to scale the game without the HD patch (although why would you do that?). But since it's in a vm and we don't have `vulkan` support so it is what it is.
 
+### OTHER THINGS
+
+1. `sway`/`wlroots` don't work well for VMs. Because VM GPU driver triggers failures with `drmCloseBufferHandle` no closing properly in `wlroots` even though it actually works. You could patched the hard crash in `wlroots` but depending on the compositor it can be a "yay" or "nay" this is changed for VM's drivers or not. So actually newer rust wm using `smithay` or "non-vanilla" popular `wlroots` drivers would probably worked better for VM GPU things.
+
+2. Also, when in `sway`. `winecfg` would just cause `kernal32.dll` issue when creating prefix. But `wine wineboot` get around that. After prefix is created it would just work fine.
+
+3. `cnc-draw` for old `DirectDraw` game software upscaling. `dgVoodoo` does 3D an 2D but it needs real GPUs. "Voodoo" used to be a line of GPU cards. So `dgVoodoo` started as a translation layer for old softwares built on now extinct "voodoo cards" driver APIs, then ended up kinda supporting everything as a general translation layers for older graphical APIs to mordern hardwares's APIs.
 
