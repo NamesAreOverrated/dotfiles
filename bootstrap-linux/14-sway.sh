@@ -44,6 +44,7 @@ EOF
 
         if has waybar; then
             echo "exec waybar"
+            echo 'bindsym $mod+Shift+w exec sh -c "pkill waybar || waybar"'
         fi
 
         if has swayidle && has powerctl; then
@@ -55,8 +56,8 @@ EOF
 
         echo ""
 
-        if has "$TERMINAL"; then
-            echo "bindsym \$mod+Return exec \$term"
+        if [ "$TERMINAL" ]; then
+            echo "bindsym \$mod+Return exec $TERMINAL"
         fi
 
         if has cm-launcher; then
@@ -102,9 +103,6 @@ EOF
             echo 'bindsym $mod+n exec cm-network'
         fi
 
-        if has waybar; then
-            echo 'bindsym $mod+Shift+w exec sh -c "pkill waybar || waybar"'
-        fi
     } > "$HOME/.config/sway/local/utilities.g"
     echo "  Generated ~/.config/sway/local/utilities.g"
 
@@ -145,10 +143,12 @@ else
     echo "    git clone git@github.com:username/sway.git ~/sway-patched"
     echo "    cd ~/sway-patched"
     echo "    meson setup build \\"
+    echo "      --default-library=static \\"
     echo "      -Dzsh-completions=false \\"
     echo "      -Dfish-completions=false \\"
     echo "      -Ddefault-wallpaper=false \\"
     echo "      -Dman-pages=disabled \\"
+    echo "      -Dswaybar=false \\"
     echo "      -Dtray=disabled"
     echo "    ninja -C build"
     echo "    sudo ninja -C build install"

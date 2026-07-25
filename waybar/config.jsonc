@@ -6,7 +6,7 @@
   "margin-top": 4,
   "margin-left": 8,
   "margin-right": 8,
-  "modules-left": [ "niri/workspaces",  "mpris", "custom/lyric"],
+  "modules-left": ["sway/workspaces",  "mpris", "custom/lyric"],
   "modules-center": ["privacy"],
   "modules-right": [ "tray", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "mpris": {
@@ -23,11 +23,22 @@
     // "min-length": 160,
     // "max-length": 200,
   },
-  "niri/workspaces": {
+  // "niri/workspaces": {
+  //   "format": "{icon}",
+  //   "on-click": "activate",
+  //   "format-icons": {
+  //           "active": "󰮯",
+  //           "persistent": "",
+  //           "empty": "󰊠",
+  //           "urgent": "󰵙",
+  //           "default": ""
+  //   },
+  // },
+"sway/workspaces": {
     "format": "{icon}",
     "on-click": "activate",
     "format-icons": {
-            "active": "󰮯",
+            "focused": "󰮯",
             "persistent": "",
             "empty": "󰊠",
             "urgent": "󰵙",
