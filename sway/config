@@ -5,7 +5,8 @@ include config.d/*
 include local/*.g
 
 xwayland disable
-exec env DISPLAY=:0 xwayland-satellite
+exec xwayland-satellite :0
+env DISPLAY :0
 
 # Home row direction keys, like vim
 set $left h
@@ -19,7 +20,7 @@ shadow blur 8
 shadow opacity 0.08
 shadow color #F5C2E7
 
-opacity 0.9
+opacity 0.95
 opacity focused 1
 
 bindsym $mod+Shift+r overview all pull
@@ -27,9 +28,7 @@ bindsym $mod+Shift+t overview all swap
 bindsym $mod+Shift+g overview all focus
 
 default_border pixel 1
-#client.focused #f5c2e7 #000000 #ffffff #f5c2e7 #f5c2e7
-#client.focused_inactive #505050 #000000 #ffffff #505050 #505050
-#client.unfocused #505050 #000000 #888888 #505050 #505050
+default_floating_border pixel 1
 
 client.focused #f5c2e7 #313244 #cdd6f4 #cba6f7 #f5c2e7
 client.focused_inactive #505050 #313244 #a6adc8 #585b70 #45475a
@@ -101,7 +100,7 @@ bindsym $mod+x layout toggle stacking tabbed splitv
 # Basics:
 #
     # Kill focused window
-    bindsym $mod+Shift+q kill
+    bindsym $mod+q kill
 
     # Drag floating windows by holding down $mod and left mouse button.
     # Resize them with right mouse button + $mod.
