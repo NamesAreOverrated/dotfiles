@@ -143,6 +143,8 @@ else
     echo "    git clone git@github.com:username/sway.git ~/sway-patched"
     echo "    cd ~/sway-patched"
     echo "    meson setup build \\"
+    echo "      -Db_lto=true \\"
+    echo "      --buildtype=release \\"
     echo "      --default-library=static \\"
     echo "      -Dzsh-completions=false \\"
     echo "      -Dfish-completions=false \\"

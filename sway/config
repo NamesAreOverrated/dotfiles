@@ -17,7 +17,7 @@ set $right l
 corner_radius 6
 shadow enabled yes
 shadow blur 8
-shadow opacity 0.08
+shadow opacity 0.15
 shadow color #F5C2E7
 
 opacity 0.95
@@ -192,6 +192,9 @@ bindsym $mod+equal       resize grow left
 # Height (window fraction)
 bindsym $mod+Shift+minus resize shrink up
 bindsym $mod+Shift+equal resize grow up
+
+bindsym $mod+Ctrl+minus evenv
+bindsym $mod+Ctrl+equal evenh
 
 
 #
