@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -u
+
+WMENUSH="tiny-cmenush"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+THEME="$CONFIG_DIR/tiny-cmenush/launcher.theme"
+
+COLOR_BROWSER="#89b4fa"
+COLOR_TERMINAL="#a6e3a1"
+COLOR_EDITOR="#fab387"
+COLOR_SOCIAL="#cba6f7"
+COLOR_MEDIA="#f38ba8"
+COLOR_FILES="#94e2d5"
+COLOR_OTHER="#a6adc8"
+
+CAT_ORDER=(BROWSER TERMINAL EDITOR SOCIAL MEDIA FILES OTHER)
+CAT_LABELS=("Browsers" "Terminals" "Editors" "Social" "Media" "Files" "Other")
+
+categorize() {
+	local app_id="$1"
+	case "${app_id,,}" in
+		firefox|librewolf|chromium|google-chrome|brave|qutebrowser|edge|vivaldi|opera)
+			echo BROWSER ;;
+		foot|alacritty|kitty|wezterm|gnome-terminal|konsole|urxvt|st|xterm|termite|ghostty|ptyxis)
+			echo TERMINAL ;;
+		code|code-*|vim|nvim|neovim|emacs|helix|zed|geany|sublime_text|atom)
+			echo EDITOR ;;
+		discord|telegram*|signal|whatsapp*|slack|element|ferdium|hexchat|gajim)
+			echo SOCIAL ;;
+		mpv|vlc|celluloid|spotify|strawberry|rhythmbox|totem|audacious|qmmp)
+			echo MEDIA ;;
+		nautilus|thunar|pcmanfm|dolphin|ranger|nnn|lf|yazi)
+			echo FILES ;;
+		*) echo OTHER ;;
+	esac
+}
+
+get_icon() {
+	local app_id="$1"
+	case "${app_id,,}" in
+		firefox|librewolf)       echo "" ;;
+		chromium|google-chrome|brave|edge|vivaldi|opera) echo "" ;;
+		qutebrowser)             echo "󰖟" ;;
+		foot|alacritty|kitty|wezterm|ghostty) echo "" ;;
+		gnome-terminal|konsole|urxvt|st|xterm|termite|ptyxis) echo "󰆍" ;;
+		code|code-*)             echo "󰨞" ;;
+		vim|nvim|neovim)         echo "" ;;
+		emacs)                   echo "" ;;
+		helix|zed)               echo "" ;;
+		discord)                 echo "󰙯" ;;
+		telegram*)               echo "" ;;
+		signal)                  echo "󰭹" ;;
+		slack)                   echo "󰒱" ;;
+		element)                 echo "" ;;
+		mpv|vlc|celluloid|totem) echo "󰎁" ;;
+		spotify|strawberry|rhythmbox) echo "󰓇" ;;
+		nautilus|thunar|pcmanfm|dolphin) echo "󰉋" ;;
+		ranger|nnn|lf|yazi)      echo "󰇴" ;;
+		*)                       echo "󰊠" ;;
+	esac
+}
+
+main() {
+	local action="${1:-pull}"
+	case "$action" in
+		pull|swap|focus) ;;
+		*) echo "Usage: cm-swirl [pull|swap|focus]" >&2; exit 1 ;;
+	esac
+
+	local tree
+	tree=$(swaymsg -t get_tree) || exit 1
+
+	local ids=() names=() cats=() focused=()
+
+	while IFS=$'\t' read -r id name app_id is_focused ws; do
+		local cat
+		cat=$(categorize "$app_id")
+		local icon
+		icon=$(get_icon "$app_id")
+		local display="$icon  $name"
+		if [[ ${#display} -gt 80 ]]; then
+			display="${display:0:77}..."
+		fi
+		ids+=("$id")
+		names+=("$display")
+		cats+=("$cat")
+		focused+=("$is_focused")
+	done < <(echo "$tree" | jq -r '
+		.nodes[] | select(.type == "output")
+		| .nodes[] | select(.type == "workspace")
+		| .name as $ws
+		| recurse(.nodes[], .floating_nodes[])
+		| select(.type == "con" and .nodes == [])
+		| [.id, (.name // "untitled"), (.app_id // .window_properties.class // ""), .focused, $ws]
+		| @tsv
+	')
+
+	local line_to_id=() focus_line=-1 line=0
+
+	local tmpf
+	tmpf=$(mktemp /tmp/cm-swirl-XXXXXX)
+	trap '[[ -n "${tmpf-}" ]] && rm -f "$tmpf"' EXIT
+
+	for ci in "${!CAT_ORDER[@]}"; do
+		local cat="${CAT_ORDER[$ci]}"
+		local label="${CAT_LABELS[$ci]}"
+		local color_var="COLOR_$cat"
+		local color="${!color_var}"
+		local first=1
+
+		for i in "${!ids[@]}"; do
+			if [[ "${cats[$i]}" != "$cat" ]]; then
+				continue
+			fi
+			if [[ $first -eq 1 ]]; then
+				printf '\x00╌  %s  ╌\n' "$label" >> "$tmpf"
+				line=$((line + 1))
+				first=0
+			fi
+			printf '%s\x1c%s\n' "${names[$i]}" "$color" >> "$tmpf"
+			line_to_id[line]="${ids[$i]}"
+			if [[ "${focused[$i]}" == "true" && $focus_line -eq -1 ]]; then
+				focus_line=$line
+			fi
+			line=$((line + 1))
+		done
+	done
+
+	if [[ ${#line_to_id[@]} -eq 0 ]]; then
+		exit 0
+	fi
+
+	local select_arg=()
+	[[ $focus_line -ge 0 ]] && select_arg=(--select "$focus_line")
+	local selected
+	selected=$(cat "$tmpf" \
+		| tiny-cmenush -p "${action^}" --format i \
+			"${select_arg[@]}" \
+			-c "$THEME") || true
+	if [[ -z "${selected-}" ]]; then
+		exit 0
+	fi
+
+	local con_id="${line_to_id[$selected]-}"
+	[[ -z "$con_id" ]] && exit 0
+	swaymsg "[con_id=$con_id]" "$action"
+}
+
+main "$@"

@@ -26,6 +26,10 @@ if has sway; then
         echo "set \$mod Mod1" > "$HOME/.config/sway/local/mod.g"
     fi
 
+    if [ -f "$DOTFILES/local/bin/cm-swirl" ]; then
+        echo "Linking cm-swirl..."
+        link "$DOTFILES/local/bin/cm-swirl" "$HOME/.local/bin/cm-swirl"
+    fi
 
     if ! [ -f "$HOME/.config/sway/local/outputs.g" ]; then
         cat > "$HOME/.config/sway/local/outputs.g" <<'EOF'
@@ -101,6 +105,12 @@ EOF
 
         if has cm-network; then
             echo 'bindsym $mod+n exec cm-network'
+        fi
+
+        if has cm-swirl; then
+            echo 'bindsym $mod+s exec cm-swirl pull'
+            echo 'bindsym $mod+r exec cm-swirl swap'
+            echo 'bindsym $mod+g exec cm-swirl focus'
         fi
 
     } > "$HOME/.config/sway/local/utilities.g"

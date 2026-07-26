@@ -23,8 +23,8 @@ shadow color #F5C2E7
 opacity 0.95
 opacity focused 1
 
-bindsym $mod+Shift+r overview all pull
-bindsym $mod+Shift+t overview all swap
+bindsym $mod+Shift+s overview all pull
+bindsym $mod+Shift+r overview all swap
 bindsym $mod+Shift+g overview all focus
 
 default_border pixel 1
