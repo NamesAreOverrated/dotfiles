@@ -40,9 +40,12 @@ get_icon_theme() {
 }
 
 # ── Icon theme search chain ──
+_PROCESSED_THEMES=""
 get_theme_dirs() {
   local theme="$1" depth="${2:-0}"
   (( depth > 8 )) && return
+  [[ "$_PROCESSED_THEMES" == *"|$theme|"* ]] && return
+  _PROCESSED_THEMES+="|$theme|"
   local base first_match="" matched=0
   for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
     local dir="$base/$theme"
@@ -53,8 +56,10 @@ get_theme_dirs() {
     fi
   done
   if (( matched )); then
-    local inherit
-    inherit=$(sed -n 's/^Inherits=\s*//p' "$first_match/index.theme" 2>/dev/null | head -1)
+    local inherit=""
+    while IFS='=' read -r key val; do
+      [[ "$key" == "Inherits" ]] && { inherit="${val#"${val%%[! ]*}"}"; break; }
+    done < "$first_match/index.theme" 2>/dev/null
     if [[ -n "$inherit" ]]; then
       local IFS=','
       for t in $inherit; do
@@ -73,8 +78,7 @@ resolve_icon() {
   local name="$1"
   [[ "$name" == /* && -f "$name" ]] && { echo "$name"; return; }
   [[ "$name" == *.* ]] && name="${name%.*}"
-  [[ ${#THEME_DIRS_CACHED[@]} -eq 0 ]] && \
-    while IFS='' read -r dir; do THEME_DIRS_CACHED+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
+  [[ ${#THEME_DIRS_CACHED[@]} -eq 0 ]] && { _PROCESSED_THEMES=""; while IFS='' read -r dir; do THEME_DIRS_CACHED+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u); }
   for td in "${THEME_DIRS_CACHED[@]}"; do
     local p="$td/256x256/apps/${name}.png"
     [[ -f "$p" ]] && { echo "$p"; return; }
@@ -165,7 +169,7 @@ exec_to_argv() {
     fi
   done
   [[ -n "$arg" ]] && args+=("$arg")
-  printf '%s\0' "${args[@]}"
+  [[ ${#args[@]} -gt 0 ]] && printf '%s\0' "${args[@]}"
 }
 
 # ── Build cache ──
@@ -180,7 +184,17 @@ build_cache() {
       parsed=$(parse_desktop "$file") || continue
       local mtime
       mtime=$(stat -c '%Y' "$file" 2>/dev/null) || continue
-      echo "$mtime|$parsed" >> "$tmpf"
+      # Pre-resolve icon path at build time
+      local _icon _rest resolved=""
+      _icon="${parsed}"; for _ in 1 2 3; do _icon="${_icon#*|}"; done
+      _rest="${_icon#*|}"; _icon="${_icon%%|*}"
+      [[ -n "$_icon" ]] && resolved=$(resolve_icon "$_icon" 2>/dev/null)
+      # Insert resolved icon after the icon field
+      local head="${parsed%%|*}"  # path
+      local t="${parsed#*|}"; head="$head|${t%%|*}"  # name
+      t="${t#*|}"; head="$head|${t%%|*}"  # exec
+      t="${t#*|}"; head="$head|${t%%|*}"  # icon
+      echo "$mtime|$head|$resolved|$_rest" >> "$tmpf"
     done
   done
   mv "$tmpf" "$LAUNCHER_CACHE"
@@ -190,27 +204,14 @@ build_cache() {
 # ── Read cache ──
 read_cache() {
   [[ -f "$LAUNCHER_CACHE" ]] || return 1
-  local cache_count=0
   while IFS='' read -r line; do
     [[ -z "$line" ]] && continue
-    cache_count=$((cache_count + 1))
     local mtime file rest
     mtime="${line%%|*}"; rest="${line#*|}"
     file="${rest%%|*}"; rest="${rest#*|}"
-    local curr_mtime
-    curr_mtime=$(stat -c '%Y' "$file" 2>/dev/null) || return 1
-    [[ "$curr_mtime" != "$mtime" ]] && return 1
+    [[ "$(stat -c '%Y' "$file" 2>/dev/null)" != "$mtime" ]] && return 1
     echo "$file|$rest"
   done < "$LAUNCHER_CACHE"
-  # Invalidate if .desktop file count differs (additions/deletions)
-  local dir_count=0
-  for dir in $(get_local_app_dirs); do
-    [[ -d "$dir" ]] || continue
-    for f in "$dir"/*.desktop; do
-      [[ -f "$f" ]] && dir_count=$((dir_count + 1))
-    done
-  done
-  [[ "$dir_count" -ne "$cache_count" ]] && return 1
 }
 
 # ── Launch with terminal ──
@@ -393,9 +394,7 @@ show_actions_submenu() {
 main() {
   # One-time migration: invalidate old cache format
   if [[ -f "$LAUNCHER_CACHE" ]]; then
-    if grep -q '/usr/' "$LAUNCHER_CACHE" 2>/dev/null; then
-      rm -f "$LAUNCHER_CACHE"
-    elif [[ $(head -1 "$LAUNCHER_CACHE" | tr -cd '|' | wc -c) -eq 5 ]]; then
+    if [[ $(head -1 "$LAUNCHER_CACHE" | tr -cd '|' | wc -c) -le 6 ]]; then
       rm -f "$LAUNCHER_CACHE"
     fi
   fi
@@ -405,26 +404,30 @@ main() {
   while true; do
     local entries
     entries=$(read_cache) || entries=$(build_cache)
-    local execs=() icons=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
+    local execs=() icons=() resolved_icons=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
     while IFS='' read -r line; do
       [[ -z "$line" ]] && continue
-      local path name exec icon terminal actions tail ico_path thumb
+      local path name exec icon resolved_icon terminal actions tail ico_path thumb
       path="${line%%|*}"; tail="${line#*|}"
       name="${tail%%|*}"; tail="${tail#*|}"
       exec="${tail%%|*}"; tail="${tail#*|}"
       icon="${tail%%|*}"; tail="${tail#*|}"
+      resolved_icon="${tail%%|*}"; tail="${tail#*|}"
       terminal="${tail%%|*}"; tail="${tail#*|}"
       actions="${tail%%|*}"
       paths+=("$path")
       names_list+=("$name")
       execs+=("$exec")
       icons+=("$icon")
+      resolved_icons+=("$resolved_icon")
       terminals+=("$terminal")
       action_ids_list+=("$actions")
       local indicator=""
       [[ -n "$actions" ]] && indicator=" 󰅂"
       local label="$name$indicator"
-      if [[ -n "$icon" ]]; then
+      if [[ -n "$resolved_icon" ]]; then
+        label="$label"$'\x1f'"$resolved_icon"
+      elif [[ -n "$icon" ]]; then
         ico_path=$(resolve_icon "$icon")
         [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
       fi
@@ -521,4 +524,6 @@ main() {
   done
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
