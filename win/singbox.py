@@ -1,6 +1,6 @@
 # cm-singbox.py — Sing-box manager for Windows
 
-import os, sys, json, base64, hashlib, re, time, subprocess, urllib.request, urllib.error
+import os, sys, json, base64, hashlib, re, time, subprocess, urllib.request, urllib.error, urllib.parse
 import ctypes
 
 # ═══════════════════════════════════════════════════════════
@@ -182,6 +182,67 @@ def parse_hy2(raw, tag):
     port = int(port_str)
     return {"type": "hysteria2", "tag": f"{name_num}@{host}:{port}", "server": host, "server_port": port, "password": password}
 
+def parse_vless(raw, tag):
+    s = raw.replace("vless://", "", 1)
+
+    # Some clients use base64-encoded JSON (vmess-like)
+    if re.match(r"^[A-Za-z0-9+/=]+$", s.split("#")[0]):
+        d = b64d(s.split("#")[0])
+        if d:
+            try:
+                j = json.loads(d)
+                addr = j.get("add") or j.get("server")
+                port = int(j.get("port") or 443)
+                uuid = j.get("id", "")
+                ps = j.get("ps") or f"vless-{addr}"
+                if not addr: return None
+                return {"type": "vless", "tag": f"{ps.split('@')[0]}-{tag}@{addr}:{port}",
+                        "server": addr, "server_port": port, "uuid": uuid}
+            except: pass
+
+    # Standard URI: vless://uuid@host:port?params#tag
+    parts = s.split("@", 1)
+    if len(parts) < 2: return None
+    info, rest = parts
+    uuid = info.split("#")[0]
+    rest_parts = rest.split("#", 1)
+    host_qs = rest_parts[0]
+    name_raw = rest_parts[1] if len(rest_parts) > 1 else ""
+    name = urllib.parse.unquote(name_raw).strip()
+
+    hp_parts = host_qs.split("?", 1)
+    hp = hp_parts[0].split(":", 1)
+    if len(hp) < 2: return None
+    host = hp[0]; port = int(hp[1])
+    if not host: return None
+
+    tag_out = name if name else f"vless-{tag}@{host}:{port}"
+    result = {"type": "vless", "tag": tag_out, "server": host, "server_port": port, "uuid": uuid}
+
+    if len(hp_parts) > 1:
+        params = dict(p.split("=", 1) for p in hp_parts[1].split("&") if "=" in p)
+
+        flow = params.get("flow")
+        if flow: result["flow"] = flow
+
+        security = params.get("security")
+        if security in ("tls", "reality"):
+            tls = {"enabled": True}
+            sni = params.get("sni")
+            if sni: tls["server_name"] = sni
+            fp = params.get("fp")
+            if fp: tls["utls"] = {"enabled": True, "fingerprint": fp}
+            if security == "reality":
+                pk = params.get("pbk")
+                if pk:
+                    reality = {"enabled": True, "public_key": pk}
+                    sid = params.get("sid")
+                    if sid: reality["short_id"] = sid
+                    tls["reality"] = reality
+            result["tls"] = tls
+
+    return result
+
 
 # ═══════════════════════════════════════════════════════════
 # Subscription & Config
@@ -197,7 +258,7 @@ def fetch_sub(idx, name, url):
     raw_file = os.path.join(CACHE_DIR, f"{idx}.raw")
     with open(raw_file, "w") as f: f.write(raw)
 
-    if not re.search(r"^(vmess|ss|trojan|hysteria2)://", raw, re.MULTILINE):
+    if not re.search(r"^(vmess|ss|trojan|hysteria2|vless)://", raw, re.MULTILINE):
         decoded = b64d(raw)
         if decoded:
             with open(raw_file, "w") as f: f.write(decoded)
@@ -212,6 +273,7 @@ def fetch_sub(idx, name, url):
             elif line.startswith("ss://"):       parsed = parse_ss(line, idx)
             elif line.startswith("trojan://"):   parsed = parse_trojan(line, idx)
             elif line.startswith("hysteria2://"): parsed = parse_hy2(line, idx)
+            elif line.startswith("vless://"):     parsed = parse_vless(line, idx)
             if parsed: nodes.append(parsed)
 
     if not nodes: os.remove(raw_file); return None
