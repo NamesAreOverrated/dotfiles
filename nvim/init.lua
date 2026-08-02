@@ -189,10 +189,112 @@ do
 	--  See `:help hlsearch`
 	vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 
-	-- Ctrl+S to save, <leader>w for save all, <leader>wq for save all + quit
+	-- Ctrl+S to save; <leader>wa write all, <leader>wq write all + quit (picker lets you skip buffers)
 	vim.keymap.set({ "n", "x", "i", "s" }, "<C-s>", "<cmd>write<CR>", { desc = "[S]ave file" })
-	vim.keymap.set("n", "<leader>w", "<cmd>wall<CR>", { desc = "[W]rite all files" })
-	vim.keymap.set("n", "<leader>wq", "<cmd>wqa<CR>", { desc = "Write all and quit" })
+	local function modified_file_buffers()
+		local list = {}
+		for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].modified and vim.bo[bufnr].buftype == "" then
+				local name = vim.api.nvim_buf_get_name(bufnr)
+				if name ~= "" then
+					table.insert(list, { bufnr = bufnr, name = name })
+				end
+			end
+		end
+		return list
+	end
+	local function write_buffers(list)
+		local failed = {}
+		for _, item in ipairs(list) do
+			local ok = pcall(vim.api.nvim_buf_call, item.bufnr, function()
+				vim.cmd("silent write")
+			end)
+			if not ok then
+				table.insert(failed, item.name)
+			end
+		end
+		return failed
+	end
+	local function buffer_picker(quit_after)
+		local list = modified_file_buffers()
+		if #list == 0 then
+			if quit_after then
+				vim.cmd("qa")
+			else
+				vim.notify("No modified buffers", vim.log.levels.INFO)
+			end
+			return
+		end
+		local function prompt()
+			local items = {}
+			local save_label = quit_after and ("Save %d and quit"):format(#list) or ("Save %d"):format(#list)
+			table.insert(items, { label = save_label, save = true })
+			for _, item in ipairs(list) do
+				table.insert(items, { label = "Skip: " .. item.name, bufnr = item.bufnr })
+			end
+			vim.ui.select(items, { prompt = "Modified buffers:", format_item = function(i)
+				return i.label
+			end }, function(choice)
+				if choice == nil then
+					return
+				end
+				if choice.save then
+					local failed = write_buffers(list)
+					if #failed > 0 then
+						vim.notify("Could not write: " .. table.concat(failed, ", "), vim.log.levels.ERROR)
+						return
+					end
+					if quit_after then
+						vim.cmd("qa!")
+					end
+				else
+					for i, item in ipairs(list) do
+						if item.bufnr == choice.bufnr then
+							table.remove(list, i)
+							break
+						end
+					end
+					if #list == 0 then
+						if quit_after then
+							vim.cmd("qa!")
+						end
+					else
+						prompt()
+					end
+				end
+			end)
+		end
+		prompt()
+	end
+	vim.keymap.set("n", "<leader>wa", function()
+		buffer_picker(false)
+	end, { desc = "Save [A]ll (skip buffers)" })
+	vim.keymap.set("n", "<leader>wq", function()
+		buffer_picker(true)
+	end, { desc = "Save all and [Q]uit" })
+	vim.keymap.set("n", "<leader>wQ", "<cmd>qa!<CR>", { desc = "[Q]uit without saving" })
+	vim.keymap.set("n", "<leader>wb", function()
+		require("telescope.builtin").buffers({ sort_mru = true })
+	end, { desc = "[B]uffer picker (MRU)" })
+	vim.keymap.set("n", "<leader>wd", function()
+		vim.cmd("bd")
+	end, { desc = "[D]elete current buffer" })
+	vim.keymap.set("n", "<leader>wD", function()
+		local current = vim.api.nvim_get_current_buf()
+		local skipped = {}
+		for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+			if bufnr ~= current and vim.fn.buflisted(bufnr) == 1 and vim.fn.bufwinid(bufnr) == -1 then
+				if vim.bo[bufnr].modified then
+					table.insert(skipped, vim.api.nvim_buf_get_name(bufnr))
+				else
+					pcall(vim.cmd, "bdelete " .. bufnr)
+				end
+			end
+		end
+		if #skipped > 0 then
+			vim.notify("Skipped modified buffers: " .. table.concat(skipped, ", "), vim.log.levels.WARN)
+		end
+	end, { desc = "[D]elete hidden buffers" })
 
 	-- Delete without yanking
 	vim.keymap.set({ "n", "v" }, "X", '"_d', { desc = "Delete to black hole register" })
@@ -255,12 +357,13 @@ do
 	vim.keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
 
 	-- Open TermFileBrowser (writes raw path to --output-file)
-	local function open_termfilebrowser(open_cmd, use_split, dir, opts)
+	local function open_termfilebrowser(open_mode, use_split, dir, opts)
 		opts = opts or {}
 		local outfile = vim.fn.tempname() .. ".tfb"
 		local win
 		if use_split then
 			local buf = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 			win = vim.api.nvim_open_win(buf, true, { split = "right", width = 40 })
 		end
 		local cmd = "termfilebrowser --step-into --output-file " .. outfile
@@ -269,6 +372,11 @@ do
 		end
 		if opts.root then
 			cmd = cmd .. " --root " .. vim.fn.shellescape(opts.root) .. " --strict"
+		end
+		local function open_picked(path)
+			local buf = vim.fn.bufadd(path)
+			vim.fn.bufload(buf)
+			vim.api.nvim_set_current_buf(buf)
 		end
 		vim.fn.jobstart(cmd, {
 			term = true,
@@ -283,28 +391,85 @@ do
 							if win then
 								vim.api.nvim_win_close(win, true)
 							end
-							local buf = vim.fn.bufadd(path)
-							vim.fn.bufload(buf)
-							if open_cmd == "vsplit" then
-								vim.cmd("vsplit")
+							if open_mode == "prompt" then
+								vim.ui.select({ "Open", "Open (vsplit)", "Open (hsplit)", "Copy path" }, { prompt = "Open file:" }, function(choice)
+									if choice == nil then
+										return
+									elseif choice == "Open (vsplit)" then
+										vim.cmd("vsplit")
+									elseif choice == "Open (hsplit)" then
+										vim.cmd("split")
+									elseif choice == "Copy path" then
+										vim.fn.setreg("+", path)
+										return
+									end
+									open_picked(path)
+								end)
+							else
+								open_picked(path)
 							end
-							vim.api.nvim_set_current_buf(buf)
 						end)
 					end
 				end
 			end,
 		})
+		vim.api.nvim_buf_set_option(vim.api.nvim_get_current_buf(), "bufhidden", "wipe")
 		vim.cmd("startinsert")
 	end
 
 	-- Session management (built-in :mksession)
 
-	local function session_dir()
-		local ok, result = pcall(vim.fn.system, "git rev-parse --show-toplevel 2>/dev/null")
+	local active_session_dir = nil
+	local session_active = false
+
+	local function session_dir(base)
+		base = base or vim.fn.getcwd()
+		local ok, result = pcall(vim.fn.system, { "git", "-C", base, "rev-parse", "--show-toplevel" })
 		if ok and vim.v.shell_error == 0 then
 			return vim.trim(result) .. "/.nvim"
 		end
-		return vim.fn.getcwd() .. "/.nvim"
+		return base .. "/.nvim"
+	end
+
+	-- Index of projects that have sessions, so the switcher can list them from anywhere.
+	local SESSION_INDEX = vim.fn.stdpath("state") .. "/session_projects.json"
+
+	local function index_load()
+		local f = io.open(SESSION_INDEX, "r")
+		if not f then
+			return {}
+		end
+		local content = f:read("*a")
+		f:close()
+		local ok, data = pcall(vim.json.decode, content)
+		if ok and type(data) == "table" then
+			return data
+		end
+		return {}
+	end
+
+	local function index_save(projects)
+		vim.fn.mkdir(vim.fn.stdpath("state"), "p")
+		local f = io.open(SESSION_INDEX, "w")
+		if f then
+			f:write(vim.json.encode(projects))
+			f:close()
+		end
+	end
+
+	local function index_add(project)
+		local projects = vim.tbl_filter(function(p) return p ~= project end, index_load())
+		table.insert(projects, 1, project)
+		index_save(projects)
+	end
+
+	local function index_remove(project)
+		index_save(vim.tbl_filter(function(p) return p ~= project end, index_load()))
+	end
+
+	-- The project dir that owns a session dir like `<project>/.nvim`.
+	local function project_of(session_dir_path)
+		return vim.fn.fnamemodify(session_dir_path, ":h")
 	end
 
 	local function get_git_root()
@@ -316,7 +481,10 @@ do
 	end
 
 	local function save_session()
-		local dir = session_dir()
+		if not session_active then
+			return
+		end
+		local dir = active_session_dir or session_dir()
 		if vim.fn.isdirectory(dir) ~= 1 then
 			return
 		end
@@ -336,6 +504,7 @@ do
 					:gsub("\\\\%?\\(%a:)", "%1")
 					:gsub("//%?/(%a:)", "%1")
 					:gsub("\\\\%?/(%a:)", "%1")
+					:gsub("[^\n]*term://[^\n]*\n?", "")
 
 				local f_out = io.open(tmp, "w")
 				if f_out then
@@ -361,20 +530,77 @@ do
 		end,
 	})
 
+	local function cleanup_after_session_load(startup_buf, dir_arg)
+		if startup_buf and vim.api.nvim_buf_is_valid(startup_buf) then
+			local name = vim.api.nvim_buf_get_name(startup_buf)
+			local norm = function(p)
+				return vim.fn.fnamemodify(p, ":p"):gsub("/$", "")
+			end
+			local is_startup_dir = dir_arg
+				and name ~= ""
+				and norm(name) == norm(dir_arg)
+				and vim.api.nvim_buf_get_option(startup_buf, "buftype") == ""
+				and not vim.api.nvim_buf_get_option(startup_buf, "modified")
+				and vim.fn.bufwinid(startup_buf) == -1
+			if is_startup_dir then
+				vim.cmd.bwipeout(startup_buf)
+			end
+		end
+		for _, b in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_get_name(b):sub(1, 7) == "term://" and vim.fn.bufwinid(b) == -1 then
+				vim.cmd.bwipeout(b)
+			end
+		end
+		local args = vim.fn.argv()
+		local non_term = vim.tbl_filter(function(a) return a:sub(1, 7) ~= "term://" end, args)
+		if #non_term ~= #args then
+			vim.cmd("%argdel")
+			for _, a in ipairs(non_term) do
+				vim.cmd("$argadd " .. vim.fn.fnameescape(a))
+			end
+		end
+	end
+
 	vim.api.nvim_create_autocmd("VimEnter", {
 		once = true,
 		callback = function()
-			local sf = session_dir() .. "/session.vim"
-			if vim.fn.filereadable(sf) == 1 then
-				vim.schedule(function()
-					vim.cmd("source " .. sf)
-				end)
-			elseif vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
-				vim.schedule(function()
-					local dir = vim.fn.argv(0)
-					open_termfilebrowser("edit", false, dir, { root = dir })
-				end)
+			local dir_arg = nil
+			if vim.fn.argc() == 1 then
+				local arg = vim.fn.argv(0)
+				if vim.fn.isdirectory(arg) == 1 then
+					dir_arg = vim.fn.fnamemodify(vim.fn.expand(arg), ":p")
+				end
 			end
+
+			if dir_arg then
+				active_session_dir = session_dir(dir_arg)
+			elseif vim.fn.argc() == 1 then
+				active_session_dir = session_dir(vim.fn.fnamemodify(vim.fn.argv(0), ":p:h"))
+			else
+				active_session_dir = session_dir()
+			end
+
+		local sf = active_session_dir .. "/session.vim"
+		local startup_buf = vim.api.nvim_get_current_buf()
+		if dir_arg and vim.fn.filereadable(sf) == 1 then
+			session_active = true
+			index_add(project_of(active_session_dir))
+			vim.schedule(function()
+				vim.cmd("source " .. vim.fn.fnameescape(sf))
+				cleanup_after_session_load(startup_buf, dir_arg)
+			end)
+		elseif dir_arg then
+			vim.schedule(function()
+				open_termfilebrowser("plain", false, dir_arg, { root = dir_arg })
+			end)
+		elseif vim.fn.filereadable(sf) == 1 and vim.fn.argc() == 0 then
+			session_active = true
+			index_add(project_of(active_session_dir))
+			vim.schedule(function()
+				vim.cmd("source " .. vim.fn.fnameescape(sf))
+				cleanup_after_session_load(startup_buf, nil)
+			end)
+		end
 		end,
 	})
 
@@ -389,25 +615,80 @@ do
 	vim.keymap.set("n", "<leader>e", function()
 		local dir = current_file_dir()
 		local root = get_git_root()
-		open_termfilebrowser("edit", true, dir, root and { root = root } or {})
-	end, { desc = "[E]xplore with TermFileBrowser" })
-	vim.keymap.set("n", "<leader>E", function()
-		local dir = current_file_dir()
-		local root = get_git_root()
-		open_termfilebrowser("vsplit", true, dir, root and { root = root } or {})
-	end, { desc = "[E]xplore in split with TermFileBrowser" })
+		open_termfilebrowser("prompt", true, dir, root and { root = root } or {})
+	end, { desc = "[E]xplore with TermFileBrowser (pick, then choose plain/split)" })
 
-	vim.keymap.set("n", "<leader>ts", function()
-		local dir = session_dir()
+	vim.keymap.set("n", "<leader>St", function()
+		local dir = active_session_dir or session_dir()
 		if vim.fn.isdirectory(dir) == 1 then
 			vim.fn.delete(dir, "rf")
+			session_active = false
+			index_remove(project_of(dir))
 			print("Session: OFF")
 		else
 			vim.fn.mkdir(dir, "p")
+			active_session_dir = dir
+			session_active = true
 			save_session()
+			index_add(project_of(dir))
 			print("Session: ON")
 		end
-	end, { desc = "[T]oggle [S]ession" })
+		vim.cmd("redrawstatus")
+	end, { desc = "[S]ession [T]oggle" })
+
+	vim.keymap.set("n", "<leader>Sl", function()
+		local dir = active_session_dir or session_dir()
+		local sf = dir .. "/session.vim"
+		if vim.fn.filereadable(sf) == 1 then
+			active_session_dir = dir
+			session_active = true
+			index_add(project_of(dir))
+			vim.cmd("source " .. vim.fn.fnameescape(sf))
+			print("Session: loaded " .. sf)
+		else
+			print("No session at " .. sf)
+		end
+		vim.cmd("redrawstatus")
+	end, { desc = "[S]ession [L]oad" })
+
+	vim.keymap.set("n", "<leader>Ss", function()
+		local dir = active_session_dir or session_dir()
+		if vim.fn.isdirectory(dir) ~= 1 then
+			print("No session folder for this project — use <leader>St to create one")
+			return
+		end
+		active_session_dir = dir
+		session_active = true
+		save_session()
+		index_add(project_of(dir))
+		print("Session: saved")
+		vim.cmd("redrawstatus")
+	end, { desc = "[S]ession [S]ave" })
+
+	vim.keymap.set("n", "<leader>Sp", function()
+		local projects = vim.tbl_filter(function(p)
+			return vim.fn.filereadable(p .. "/.nvim/session.vim") == 1
+		end, index_load())
+		index_save(projects)
+		if #projects == 0 then
+			print("No sessioned projects")
+			return
+		end
+		vim.ui.select(projects, { prompt = "Open project session:" }, function(choice)
+			if not choice then
+				return
+			end
+			local dir = choice .. "/.nvim"
+			local sf = dir .. "/session.vim"
+			active_session_dir = dir
+			session_active = true
+			vim.fn.chdir(choice)
+			vim.cmd("source " .. vim.fn.fnameescape(sf))
+			index_add(choice)
+			print("Project session: " .. choice)
+			vim.cmd("redrawstatus")
+		end)
+	end, { desc = "[S]ession [P]ick project" })
 
 	vim.keymap.set("n", "<leader>tt", function()
 		vim.cmd("split | terminal")
@@ -419,6 +700,35 @@ do
 	-- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
 	-- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 	-- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
+
+	-- Custom window resize: step is 10% of the total editor width/height,
+	--  computed at press time so it adapts to the current terminal size.
+	local resize_step_w = function()
+		return math.max(math.floor(vim.o.columns * 0.1), 1)
+	end
+	local resize_step_h = function()
+		return math.max(math.floor(vim.o.lines * 0.1), 1)
+	end
+	vim.keymap.set("n", "<C-w>=", function()
+		vim.cmd("vertical resize +" .. resize_step_w())
+	end, { desc = "Increase window width by 10%" })
+	vim.keymap.set("n", "<C-w>-", function()
+		vim.cmd("vertical resize -" .. resize_step_w())
+	end, { desc = "Decrease window width by 10%" })
+	vim.keymap.set("n", "<C-w>+", function()
+		vim.cmd("resize +" .. resize_step_h())
+	end, { desc = "Increase window height by 10%" })
+	vim.keymap.set("n", "<C-w>_", function()
+		vim.cmd("resize -" .. resize_step_h())
+	end, { desc = "Decrease window height by 10%" })
+	-- Kill leftover nvim defaults that clash with the custom resize bindings.
+	vim.keymap.set("n", "<C-w>>", "<Nop>", { desc = "Disabled (use <C-w>=/<C-w>-)" })
+	vim.keymap.set("n", "<C-w><", "<Nop>", { desc = "Disabled (use <C-w>=/<C-w>-)" })
+	vim.keymap.set("n", "<C-w>|", "<Nop>", { desc = "Disabled (use <C-w>=/<C-w>-)" })
+	-- Equalize all windows (the old <C-w>= behavior, now on Backspace).
+	vim.keymap.set("n", "<C-w><BS>", function()
+		vim.cmd("wincmd =")
+	end, { desc = "Equalize all window sizes" })
 
 	-- Toggle spell check
 	vim.keymap.set("n", "<leader>to", function()
@@ -443,6 +753,64 @@ do
 			end
 		end,
 	})
+
+	-- Proportional window scaling when the terminal window is resized.
+	do
+		local last_state = nil
+
+		local function snapshot()
+			local state = { cols = vim.o.columns, lines = vim.o.lines, wins = {} }
+			for _, w in ipairs(vim.api.nvim_list_wins()) do
+				state.wins[w] = {
+					width = vim.api.nvim_win_get_width(w),
+					height = vim.api.nvim_win_get_height(w),
+				}
+			end
+			last_state = state
+		end
+
+		local function rescale_windows()
+			if not last_state then
+				snapshot()
+				return
+			end
+			local cols, lines = vim.o.columns, vim.o.lines
+			if last_state.cols < 1 or last_state.lines < 1 then
+				snapshot()
+				return
+			end
+			local targets = {}
+			for _, w in ipairs(vim.api.nvim_list_wins()) do
+				if vim.api.nvim_win_get_config(w).relative == "" then
+					local old = last_state.wins[w]
+					if old then
+						targets[w] = {
+							width = math.max(math.floor(old.width * cols / last_state.cols), 1),
+							height = math.max(math.floor(old.height * lines / last_state.lines), 1),
+						}
+					end
+				end
+			end
+			for w, t in pairs(targets) do
+				vim.api.nvim_win_call(w, function()
+					vim.cmd("vertical resize " .. t.width)
+					vim.cmd("resize " .. t.height)
+				end)
+			end
+			snapshot()
+		end
+
+		vim.api.nvim_create_autocmd("VimResized", { callback = rescale_windows })
+		vim.api.nvim_create_autocmd(
+			{ "WinNew", "WinClosed", "WinResized", "SafeState" },
+			{ callback = snapshot }
+		)
+		snapshot()
+	end
+
+	_G.__session_state = function()
+		return { active = session_active, dir = active_session_dir }
+	end
 end
 
 -- ============================================================
@@ -586,6 +954,10 @@ do
 			{ "<leader>to", desc = "[T]oggle Spell [O]n" },
 			{ "<leader>h", group = "Git [H]unk", mode = { "n", "v" } }, -- Enable gitsigns recommended keymaps first
 			{ "<leader>f", group = "[F]ind" },
+			{ "<leader>w", group = "[W]orkspace" },
+			{ "<leader>S", group = "[S]ession" },
+			{ "<leader>e", desc = "[E]xplore TermFileBrowser" },
+			{ "<leader>q", desc = "Diagnostic [Q]uickfix" },
 			{ "gr", group = "LSP Actions", mode = { "n" } },
 		},
 	})
@@ -736,6 +1108,44 @@ do
 		return "%2l:%-2v"
 	end
 
+	-- Buffer count [N] or [N·M] (N listed buffers, M modified); green when a
+	-- session is active (autosave on), plain otherwise
+	vim.api.nvim_set_hl(0, "MiniStatuslineSessionActive", { default = true, fg = "#9ECE6A" })
+	local function buffer_count_group()
+		local bufs = vim.tbl_filter(function(b)
+			return vim.fn.buflisted(b) == 1
+		end, vim.api.nvim_list_bufs())
+		local mod = vim.tbl_filter(function(b)
+			return vim.api.nvim_buf_is_loaded(b) and vim.bo[b].modified
+		end, bufs)
+		local label = #mod > 0 and ("[%d·%d]"):format(#bufs, #mod) or ("[%d]"):format(#bufs)
+		local st = _G.__session_state and _G.__session_state() or { active = false }
+		local hl = st.active and "MiniStatuslineSessionActive" or "MiniStatuslineDevinfo"
+		return { hl = hl, strings = { label } }
+	end
+	---@diagnostic disable-next-line: duplicate-set-field
+	statusline.config.content.active = function()
+		local mode, mode_hl = statusline.section_mode({ trunc_width = 120 })
+		local git = statusline.section_git({ trunc_width = 40 })
+		local diff = statusline.section_diff({ trunc_width = 75 })
+		local diagnostics = statusline.section_diagnostics({ trunc_width = 75 })
+		local lsp = statusline.section_lsp({ trunc_width = 75 })
+		local filename = statusline.section_filename({ trunc_width = 140 })
+		local fileinfo = statusline.section_fileinfo({ trunc_width = 120 })
+		local location = statusline.section_location({ trunc_width = 75 })
+		local search = statusline.section_searchcount({ trunc_width = 75 })
+		return statusline.combine_groups({
+			{ hl = mode_hl, strings = { mode } },
+			buffer_count_group(),
+			{ hl = "MiniStatuslineDevinfo", strings = { git, diff, diagnostics, lsp } },
+			"%<",
+			{ hl = "MiniStatuslineFilename", strings = { filename } },
+			"%= ",
+			{ hl = "MiniStatuslineFileinfo", strings = { fileinfo } },
+			{ hl = mode_hl, strings = { search, location } },
+		})
+	end
+
 	-- ... and there is more!
 	--  Check out: https://github.com/nvim-mini/mini.nvim
 end
@@ -815,7 +1225,9 @@ do
 	vim.keymap.set("n", "<leader>sr", builtin.resume, { desc = "[S]earch [R]esume" })
 	vim.keymap.set("n", "<leader>s.", builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
 	vim.keymap.set("n", "<leader>sc", builtin.commands, { desc = "[S]earch [C]ommands" })
-	vim.keymap.set("n", "<leader><leader>", builtin.buffers, { desc = "[ ] Find existing buffers" })
+	vim.keymap.set("n", "<leader><leader>", function()
+		builtin.buffers({ sort_mru = true })
+	end, { desc = "[ ] Find existing buffers (MRU)" })
 
 	-- Add Telescope-based LSP pickers when an LSP attaches to a buffer.
 	-- If you later switch picker plugins, this is where to update these mappings.
