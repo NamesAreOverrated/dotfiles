@@ -134,6 +134,22 @@ qr_login() {
     rm -f "$QR_IMG"
 }
 
+ncm_logout() {
+    sel=$(printf '\uf08b Logout\n\uf00d Cancel' \
+        | $MENU -p "$nickname" --format i 2>/dev/null)
+    [ "$sel" = "0" ] || return
+
+    resp=$(sock_send '{"cmd":"exec","args":{"operation":"logout"}}')
+    ok=$(echo "$resp" | jq -r '.ok // false')
+    code=$(echo "$resp" | jq -r '.code // empty')
+    if [ "$ok" = "true" ] && [ "$code" = "200" ]; then
+        printf '\x00Logged out\n' | timeout 1.5 $MENU --no-input -p "Done" 2>/dev/null || true
+    else
+        printf '\x00Logout failed (%s)\n' "$code" \
+            | timeout 1.5 $MENU --no-input -p "Error" 2>/dev/null || true
+    fi
+}
+
 search() {
     query=$(printf '\x00Type a search query\n' | $MENU --input-fallback -p "Search" 2>/dev/null)
     [ -n "$query" ] || return
@@ -441,6 +457,8 @@ select_idx=""
         7) ncm_online || continue
             if [ -z "$nickname" ]; then
                 qr_login
+            else
+                ncm_logout
             fi ;;
         8) ncm_online || continue; search ;;
         9) ncm_online || continue; playlists ;;
