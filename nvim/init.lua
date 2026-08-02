@@ -958,6 +958,8 @@ do
 			{ "<leader>S", group = "[S]ession" },
 			{ "<leader>e", desc = "[E]xplore TermFileBrowser" },
 			{ "<leader>q", desc = "Diagnostic [Q]uickfix" },
+			{ "<leader>s:", desc = "[S]earch [:] Command palette (M-x)" },
+			{ "<leader>s;", desc = "[S]earch [;] Command history" },
 			{ "gr", group = "LSP Actions", mode = { "n" } },
 		},
 	})
@@ -1225,6 +1227,10 @@ do
 	vim.keymap.set("n", "<leader>sr", builtin.resume, { desc = "[S]earch [R]esume" })
 	vim.keymap.set("n", "<leader>s.", builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
 	vim.keymap.set("n", "<leader>sc", builtin.commands, { desc = "[S]earch [C]ommands" })
+	vim.keymap.set("n", "<leader>s:", function()
+		builtin.commands({ sort_lastused = true })
+	end, { desc = "[S]earch [:] Command palette (M-x)" })
+	vim.keymap.set("n", "<leader>s;", builtin.command_history, { desc = "[S]earch [;] Command history" })
 	vim.keymap.set("n", "<leader><leader>", function()
 		builtin.buffers({ sort_mru = true })
 	end, { desc = "[ ] Find existing buffers (MRU)" })
