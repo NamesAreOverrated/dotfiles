@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -uo pipefail
 
 WMENUSH="tiny-cmenush"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -77,13 +77,16 @@ get_theme_dirs() {
 resolve_icon() {
   local name="$1"
   [[ "$name" == /* && -f "$name" ]] && { echo "$name"; return; }
-  [[ "$name" == *.* ]] && name="${name%.*}"
+  case "$name" in
+    *.png|*.PNG|*.svg|*.SVG|*.xpm|*.XPM|*.ico|*.ICO|*.jpg|*.jpeg|*.JPG|*.JPEG|*.gif|*.GIF|*.bmp|*.BMP) name="${name%.*}" ;;
+  esac
   [[ ${#THEME_DIRS_CACHED[@]} -eq 0 ]] && { _PROCESSED_THEMES=""; while IFS='' read -r dir; do THEME_DIRS_CACHED+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u); }
   for td in "${THEME_DIRS_CACHED[@]}"; do
-    local p="$td/256x256/apps/${name}.png"
-    [[ -f "$p" ]] && { echo "$p"; return; }
-    p="$td/48x48/apps/${name}.png"
-    [[ -f "$p" ]] && { echo "$p"; return; }
+    local size p
+    for size in 512 256 128 96 64 48 32 24 16; do
+      p="$td/${size}x${size}/apps/${name}.png"
+      [[ -f "$p" ]] && { echo "$p"; return; }
+    done
     p="$td/scalable/apps/${name}.svg"
     [[ -f "$p" ]] && { echo "$p"; return; }
   done
@@ -99,74 +102,89 @@ resolve_icon() {
 # ── Parse a .desktop file ──
 # Returns: path|name|exec|icon|terminal|action_ids
 parse_desktop() {
-  local file="$1" name exec icon terminal nodisplay actions
+  local file="$1" name exec icon terminal nodisplay hidden actions
   name=$(sed -n '/^Name=/{s/^Name=//p;q}' "$file" 2>/dev/null)
   exec=$(sed -n '/^Exec=/{s/^Exec=//p;q}' "$file" 2>/dev/null)
   icon=$(sed -n '/^Icon=/{s/^Icon=//p;q}' "$file" 2>/dev/null)
   terminal=$(sed -n '/^Terminal=/{s/^Terminal=//p;q}' "$file" 2>/dev/null)
   nodisplay=$(sed -n '/^NoDisplay=/{s/^NoDisplay=//p;q}' "$file" 2>/dev/null)
+  hidden=$(sed -n '/^Hidden=/{s/^Hidden=//p;q}' "$file" 2>/dev/null)
   actions=$(sed -n '/^Actions=/{s/^Actions=//p;q}' "$file" 2>/dev/null)
   actions="${actions%;}"
-  [[ -z "$name" || "$nodisplay" == "true" || -z "$exec" ]] && return 1
+  terminal="${terminal,,}"
+  nodisplay="${nodisplay,,}"
+  hidden="${hidden,,}"
+  [[ -z "$name" || "$nodisplay" == "true" || "$hidden" == "true" || -z "$exec" ]] && return 1
   echo "$file|$name|$exec|$icon|$terminal|$actions"
 }
 
-# ── Process Exec field ──
-# Strips field codes, expands %i/%c/%k, resolves backslash escapes
-process_exec() {
-  local exec="$1" icon_name="$2" app_name="$3" desktop_path="$4"
-  local result="" i ch
-  for ((i=0; i<${#exec}; i++)); do
-    ch="${exec:$i:1}"
-    if [[ "$ch" == "\\" && $((i+1)) -lt ${#exec} ]]; then
-      local next="${exec:$((i+1)):1}"
-      case "$next" in
-        s) result+=" "; i=$((i+1)) ;;
-        n) result+=$'\n'; i=$((i+1)) ;;
-        t) result+=$'\t'; i=$((i+1)) ;;
-        \\) result+="\\"; i=$((i+1)) ;;
-        \") result+="\""; i=$((i+1)) ;;
-        *) result+="$ch$next"; i=$((i+1)) ;;
-      esac
-    elif [[ "$ch" == "%" && $((i+1)) -lt ${#exec} ]]; then
-      local next="${exec:$((i+1)):1}"
-      case "$next" in
-        %) result+="%"; i=$((i+1)) ;;
-        i) result+=" --icon ${icon_name} "; i=$((i+1)) ;;
-        c) result+="$app_name"; i=$((i+1)) ;;
-        k) result+="$desktop_path"; i=$((i+1)) ;;
-        [fFuUdDnNvVm]) i=$((i+1)) ;;
-        *) result+="$ch$next"; i=$((i+1)) ;;
-      esac
-    else
-      result+="$ch"
-    fi
-  done
-  echo "$result" | tr -s ' ' | sed 's/^ //;s/ $//'
-}
-
-# ── Split processed Exec into argv ──
+# ── Tokenize Exec into argv ──
+# Expands %i/%c/%k in place, resolves backslash escapes, handles "…" and '…' quoting.
 exec_to_argv() {
-  local exec="$1"
-  local args=() arg="" in_quotes=false i ch
+  local exec="$1" icon_name="$2" app_name="$3" desktop_path="$4"
+  local args=() arg="" mode="plain" i ch n
   for ((i=0; i<${#exec}; i++)); do
     ch="${exec:$i:1}"
-    if $in_quotes; then
-      if [[ "$ch" == '"' ]]; then
-        in_quotes=false
-      else
-        arg+="$ch"
-      fi
-    else
-      if [[ "$ch" == '"' ]]; then
-        in_quotes=true
-      elif [[ "$ch" == ' ' ]]; then
-        [[ -n "$arg" ]] && args+=("$arg")
-        arg=""
-      else
-        arg+="$ch"
-      fi
+    if [[ "$ch" == '%' && $((i+1)) -lt ${#exec} ]]; then
+      n="${exec:$((i+1)):1}"
+      case "$n" in
+        %) arg+="%"; i=$((i+1)) ;;
+        i)
+          if [[ -n "$icon_name" ]]; then
+            [[ -n "$arg" ]] && { args+=("$arg"); arg=""; }
+            args+=("--icon")
+            arg="$icon_name"
+          fi
+          i=$((i+1)) ;;
+        c) arg+="$app_name"; i=$((i+1)) ;;
+        k) arg+="$desktop_path"; i=$((i+1)) ;;
+        [fFuUdDnNvVm]) i=$((i+1)) ;;
+        *) arg+="$ch$n"; i=$((i+1)) ;;
+      esac
+      continue
     fi
+    case "$mode" in
+      squote)
+        if [[ "$ch" == "'" ]]; then mode="plain"
+        else arg+="$ch"; fi
+        ;;
+      dquote)
+        if [[ "$ch" == '"' ]]; then
+          mode="plain"
+        elif [[ "$ch" == '\' && $((i+1)) -lt ${#exec} ]]; then
+          n="${exec:$((i+1)):1}"
+          case "$n" in
+            '"'|'\') arg+="$n"; i=$((i+1)) ;;
+            *) arg+="$ch" ;;
+          esac
+        else
+          arg+="$ch"
+        fi
+        ;;
+      plain)
+        if [[ "$ch" == '\' && $((i+1)) -lt ${#exec} ]]; then
+          n="${exec:$((i+1)):1}"
+          case "$n" in
+            s|' ') arg+=" "; i=$((i+1)) ;;
+            n) arg+=$'\n'; i=$((i+1)) ;;
+            t) arg+=$'\t'; i=$((i+1)) ;;
+            '\') arg+='\'; i=$((i+1)) ;;
+            '"') arg+='"'; i=$((i+1)) ;;
+            *) arg+="$ch$n"; i=$((i+1)) ;;
+          esac
+        elif [[ "$ch" == '"' ]]; then
+          mode="dquote"
+        elif [[ "$ch" == "'" ]]; then
+          if [[ -z "$arg" ]]; then mode="squote"
+          else arg+="$ch"; fi
+        elif [[ "$ch" == ' ' ]]; then
+          [[ -n "$arg" ]] && args+=("$arg")
+          arg=""
+        else
+          arg+="$ch"
+        fi
+        ;;
+    esac
   done
   [[ -n "$arg" ]] && args+=("$arg")
   [[ ${#args[@]} -gt 0 ]] && printf '%s\0' "${args[@]}"
@@ -174,9 +192,11 @@ exec_to_argv() {
 
 # ── Build cache ──
 build_cache() {
-  local tmpf
+  local tmpf dirs=()
   tmpf=$(mktemp)
-  for dir in $(get_local_app_dirs); do
+  printf '#cm-launcher v2 theme=%s\n' "$(get_icon_theme)" >> "$tmpf"
+  mapfile -t dirs < <(get_local_app_dirs)
+  for dir in "${dirs[@]}"; do
     [[ -d "$dir" ]] || continue
     for file in "$dir"/*.desktop; do
       [[ -f "$file" ]] || continue
@@ -198,13 +218,21 @@ build_cache() {
     done
   done
   mv "$tmpf" "$LAUNCHER_CACHE"
-  sed 's/^[^|]*|//' "$LAUNCHER_CACHE"
+  sed -e '1{/^#/d;}' -e 's/^[^|]*|//' "$LAUNCHER_CACHE"
 }
 
 # ── Read cache ──
 read_cache() {
   [[ -f "$LAUNCHER_CACHE" ]] || return 1
+  local first=1
   while IFS='' read -r line; do
+    if (( first )); then
+      first=0
+      if [[ "$line" == \#cm-launcher* ]]; then
+        [[ "${line#*theme=}" != "$(get_icon_theme)" ]] && return 1
+        continue
+      fi
+    fi
     [[ -z "$line" ]] && continue
     local mtime file rest
     mtime="${line%%|*}"; rest="${line#*|}"
@@ -227,11 +255,12 @@ launch_terminal() {
 
 # ── Add mode: symlink system apps ──
 do_add() {
-  local local_dir items=() paths=()
+  local local_dir items=() paths=() dirs=()
   local_dir=$(get_local_app_dirs | head -1)
   mkdir -p "$local_dir"
 
-  for dir in $(get_system_app_dirs); do
+  mapfile -t dirs < <(get_system_app_dirs)
+  for dir in "${dirs[@]}"; do
     [[ -d "$dir" ]] || continue
     local files=()
     for f in "$dir"/*.desktop; do [[ -f "$f" ]] && files+=("$f"); done
@@ -240,14 +269,15 @@ do_add() {
     local awk_out
     awk_out=$(awk -F= '
       FNR == 1 {
-        if (fname != "" && name != "" && nodisp != "true") print name "|" icon "|" fname
-        name=""; icon=""; nodisp=""; fname=FILENAME
+        if (fname != "" && name != "" && tolower(nodisp) != "true" && tolower(hidden) != "true") print name "|" icon "|" fname
+        name=""; icon=""; nodisp=""; hidden=""; fname=FILENAME
       }
       /^Name=/ && name == ""  { name=substr($0,6) }
       /^Icon=/ && icon == ""  { icon=substr($0,6) }
       /^NoDisplay=/            { nodisp=substr($0,11) }
+      /^Hidden=/               { hidden=substr($0,8) }
       END {
-        if (name != "" && nodisp != "true") print name "|" icon "|" fname
+        if (name != "" && tolower(nodisp) != "true" && tolower(hidden) != "true") print name "|" icon "|" fname
       }
     ' "${files[@]}" 2>/dev/null) || true
     [[ -z "$awk_out" ]] && continue
@@ -275,6 +305,7 @@ do_add() {
   local selected
   selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return
+  [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
   ln -s "${paths[$selected]}" "$local_dir/"
   build_cache > /dev/null 2>&1 || true
 }
@@ -288,13 +319,12 @@ do_remove() {
   for file in "$local_dir"/*.desktop; do
     [[ -f "$file" ]] || continue
     [[ -L "$file" ]] || continue
-    local parsed name exec icon terminal _path rest ico_path
+    local parsed name exec icon _path rest ico_path
     parsed=$(parse_desktop "$file") || continue
     _path="${parsed%%|*}"; rest="${parsed#*|}"
     name="${rest%%|*}"; rest="${rest#*|}"
     exec="${rest%%|*}"; rest="${rest#*|}"
     icon="${rest%%|*}"; rest="${rest#*|}"
-    terminal="${rest%%|*}"
 
     local indicator=""
     local label="$name$indicator"
@@ -313,6 +343,7 @@ do_remove() {
   local selected
   selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return
+  [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
 
   rm "${paths[$selected]}"
   build_cache > /dev/null 2>&1 || true
@@ -350,6 +381,7 @@ show_actions_submenu() {
     a_exec=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Exec=/{s/^Exec=//p;q}}" "$desktop_path" 2>/dev/null)
     a_icon=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Icon=/{s/^Icon=//p;q}}" "$desktop_path" 2>/dev/null)
     a_terminal=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Terminal=/{s/^Terminal=//p;q}}" "$desktop_path" 2>/dev/null)
+    a_terminal="${a_terminal,,}"
 
     [[ -z "$a_name" ]] && a_name="$action_id"
     [[ -z "$a_icon" ]] && a_icon="$parent_icon"
@@ -375,28 +407,25 @@ show_actions_submenu() {
   [[ -z "$selected" ]] && return 1
 
   local idx="$selected"
-  local processed
-  processed=$(process_exec "${execs[$idx]}" "${icons[$idx]}" "${names[$idx]}" "$desktop_path")
-  [[ -z "$processed" ]] && return 1
+  [[ "$idx" -ge 0 && "$idx" -lt ${#execs[@]} ]] || return 1
 
   local args=()
-  while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
+  while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "${execs[$idx]}" "${icons[$idx]}" "${names[$idx]}" "$desktop_path")
   [[ ${#args[@]} -eq 0 ]] && return 1
 
-  if [[ "${terminals[$idx]}" == "true" ]]; then
-    launch_terminal "${args[@]}" || exit 1
+  if [[ "${terminals[$idx],,}" == "true" ]]; then
+    launch_terminal "${args[@]}" &
   else
-    exec "${args[@]}" || exit 1
+    "${args[@]}" &
   fi
+  return 0
 }
 
 # ── Main ──
 main() {
-  # One-time migration: invalidate old cache format
-  if [[ -f "$LAUNCHER_CACHE" ]]; then
-    if [[ $(head -1 "$LAUNCHER_CACHE" | tr -cd '|' | wc -c) -le 6 ]]; then
-      rm -f "$LAUNCHER_CACHE"
-    fi
+  # One-time migration: invalidate old headerless cache format
+  if [[ -f "$LAUNCHER_CACHE" ]] && ! head -1 "$LAUNCHER_CACHE" | grep -q '^#cm-launcher'; then
+    rm -f "$LAUNCHER_CACHE"
   fi
 
   local select_idx=""
@@ -503,19 +532,15 @@ main() {
     local actions="${action_ids_list[$idx]}"
 
     if [[ -n "$actions" ]]; then
-      show_actions_submenu "$path" "$name" "$icon_name" "$exec" "$terminal"
+      show_actions_submenu "$path" "$name" "$icon_name" "$exec" "$terminal" && exit 0
       continue
     fi
 
-    local processed
-    processed=$(process_exec "$exec" "$icon_name" "$name" "$path")
-    [[ -z "$processed" ]] && exit 1
-
     local args=()
-    while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$processed")
+    while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$exec" "$icon_name" "$name" "$path")
     [[ ${#args[@]} -eq 0 ]] && exit 1
 
-    if [[ "$terminal" == "true" ]]; then
+    if [[ "${terminal,,}" == "true" ]]; then
       launch_terminal "${args[@]}" &
     else
       "${args[@]}" &
