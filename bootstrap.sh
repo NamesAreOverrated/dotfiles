@@ -68,14 +68,14 @@ cat << EOF
                            no_proxy NO_PROXY all_proxy ALL_PROXY"
 
 4. For ncm-daemon on non-systemd system:
-   //Example custom.kdl                     
-   spawn-at-startup "pipewire"              
-   spawn-at-startup "pipewire-pulse"        
-   spawn-at-startup "wireplumber"           
-   environment {                            
-   	PIPEWIRE_LATENCY "2048/48000"           
-   }                                        
-   spawn-at-startup "ncm-daemon" "daemon"   
-   spawn-at-startup "fcitx5"                
+   Add to ~/.config/sway/local/custom.g:
+     env PIPEWIRE_LATENCY 2048/48000
+     exec pipewire
+     exec pipewire-pulse
+     exec wireplumber
+     exec ncm-daemon daemon
+     exec fcitx5
+
+   (Or run them before sway via your init/session manager.)
 
 EOF

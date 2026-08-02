@@ -28,7 +28,6 @@ add_target() {
 
 add_target "tiny-cmenush"        ~/.local/bin/tiny-cmenush
 add_target "termfilebrowser" ~/.local/bin/termfilebrowser
-add_target "niri"           /usr/bin/niri
 add_target "ncm-daemon"        ~/.local/bin/ncm-daemon
 
 if [ ${#names[@]} -eq 0 ]; then

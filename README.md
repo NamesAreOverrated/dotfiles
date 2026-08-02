@@ -1,6 +1,6 @@
 # dotfiles
 
-sway/niri + waybar + gtklock + tiny-cmenush + kanata + nvim + foot + starship.
+sway + waybar + gtklock + tiny-cmenush + kanata + nvim + foot + starship.
 Catppuccin Mocha throughout.
 
 ## What's inside
@@ -8,10 +8,9 @@ Catppuccin Mocha throughout.
 | Thing | Config |
 |-------|--------|
 | [sway](https://swaywm.org) | `sway/config` — Mod key auto-detected (Alt/Super) |
-| [niri](https://github.com/YaLTeR/niri) | `niri/config.kdl` — patched build support |
 | [waybar](https://github.com/Alexays/Waybar) | `waybar/config.jsonc` + `style.css` |
 | [gtklock](https://github.com/jovanlanik/gtklock) | `gtklock/config.ini` + `style.css` + `layout.xml` |
-| tiny-cmenush | Overlay menu (rofi replacement). Companion scripts: `cm-launcher`, `cm-volmixer`, `cm-network`, `cm-alias`, `set-wallpaper` |
+| tiny-cmenush | Overlay menu (rofi replacement). Companion scripts: `cm-launcher`, `cm-media`, `cm-network`, `cm-volmixer`, `cm-alias`, `cm-singbox`, `cm-image`, `cm-preview`, `cm-swirl`, `set-wallpaper`, `powerctl` |
 | [kanata](https://github.com/jtroo/kanata) | `kanata/kanata.kbd` — CapsLock layer-tap keyboard remapper |
 | [nvim](https://neovim.io) | `nvim/` — Catppuccin Mocha base with custom C# semantic token colors |
 | [foot](https://codeberg.org/dnkl/foot) | `foot/foot.ini` |
@@ -38,15 +37,15 @@ The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 
 1. **Init** — prompts for mod key (Alt/Super) and terminal emulator
 2. **Paths** — ensures `~/.local/bin` is in PATH for login shells
-3. **Config linking** — symlinks starship, nvim, foot, sway/niri, gtklock, waybar
+3. **Config linking** — symlinks starship, nvim, foot, sway, gtklock, waybar
 4. **Kanata** — offers to download from GitHub if missing, generates systemd service
-5. **Tiny-cmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: cm-volmixer needs pactl, cm-network needs nmcli, set-wallpaper needs swaybg; cm-alias bash-only skips on fish systems)
+5. **Tiny-cmenush** — offers to download from GitHub if missing, links theme configs + companion scripts (dep-gated: cm-volmixer needs pactl, cm-network needs nmcli, cm-singbox needs sing-box + jq, set-wallpaper needs swaybg; cm-alias bash-only skips on fish systems)
 6. **Wallpapers** — symlinks wallz submodule to `~/Pictures/wallpapers`
-7. **WM configs** — generates machine-specific sway/niri configs (outputs, wallpaper, keybinds)
+7. **WM configs** — generates machine-specific sway configs (outputs, wallpaper, keybinds)
 8. **File management** — offers to install termfilebrowser from GitHub
 9. **Proxy** — migrates old `~/.config/rofi-network` → `~/.config/cm-network`, sets up shell sourcing
 
-Each script checks which tools are actually installed and skips configs for missing ones.
+Each script checks which tools are actually installed and skips configs for missing ones. `cm-swirl` and `powerctl` are linked by the sway step.
 
 ## Machine-specific config
 
@@ -60,11 +59,9 @@ In sway, `~/.config/sway/local/` holds anything machine-specific:
 | `utilities.g` | **Always regenerated.** Auto-generated keybinds based on installed tools. |
 | `custom` | Created once. Add your own binds here (brightness, media keys, etc.). |
 
-Niri has the same pattern under `~/.config/niri/local/`.
+## tiny-cmenush
 
-## Wmenush
-
-Wmenush is a Wayland-native overlay menu that reads items from stdin and
+tiny-cmenush is a Wayland-native overlay menu that reads items from stdin and
 outputs the selection to stdout. It replaces `rofi -dmenu` across all scripts.
 
 The bootstrap installs these companion scripts:
@@ -72,38 +69,33 @@ The bootstrap installs these companion scripts:
 | Script | Depends on | Description |
 |--------|-----------|-------------|
 | `cm-launcher` | — | Desktop launcher — parses `.desktop` files with icon resolution |
+| `cm-media` | tiny-cmenush, gdbus, socat, jq | Media controller — MPRIS transport controls + NetEase Cloud Music frontend (QR login, search, playlists, local files, FM, queue, like/trash) over the `ncm-daemon` socket |
 | `cm-volmixer` | pactl | Audio sink/source/app volume and mute control |
 | `cm-network` | nmcli | Network manager — WiFi scan/connect, proxy config |
+| `cm-singbox` | sing-box, jq, curl | sing-box manager — parse subscriptions into node configs, latency test, switch nodes via the local API |
+| `cm-image` | cm-preview, cm-common | Wallpaper picker — thumbnail file browser with live preview |
+| `cm-preview` | tiny-cmenush | Preview helper for cm-image (also usable as an image viewer) |
+| `cm-swirl` | swaymsg, jq | Categorized window switcher for sway — pull/swap/focus windows grouped by type |
 | `set-wallpaper` | swaybg | Set wallpaper from selected image |
 | `cm-alias` | bash | Alias manager — add/edit/delete aliases via tiny-cmenush, bash only |
+| `powerctl` | gtklock | Lock / reboot / poweroff helper, used by swayidle and keybinds |
 
 ## Sway
 
 Mod key is `Mod1` (Alt) by default, overridden by `~/.config/sway/local/mod.g`
 if you choose Super during bootstrap.
 
-Includes a resize mode (`$mod+r`) that temporarily highlights focused windows
-in red (`#f38ba8`). Exit with Enter or Escape.
-
 Keybinds generated at bootstrap time in `utilities.g`:
+- `$mod+Return` — Terminal
 - `$mod+d` — Application launcher (cm-launcher)
 - `$mod+Ctrl+w` — Wallpaper picker (cm-image | set-wallpaper)
 - `$mod+BackSpace` — Volume mixer (cm-volmixer)
+- `$mod+a` — Alias manager (cm-alias)
+- `$mod+m` — Media controller (cm-media)
+- `$mod+n` — Network controller (cm-network)
+- `$mod+s` / `$mod+r` / `$mod+g` — Window swirl: pull / swap / focus (cm-swirl)
 - Media keys — Volume, playback, brightness (gated by pactl/playerctl/brightnessctl)
-- `$mod+r` — Resize mode
 - `$mod+Shift+e` — Exit sway (with confirmation)
-
-## Niri
-
-Niri gets the same auto-generated keybinds in `~/.config/niri/local/autostart.kdl`:
-
-- `Mod+D` — Application launcher
-- `Mod+Ctrl+W` — Wallpaper picker
-- `Mod+BackSpace` — Volume mixer
-- Media keys — Volume, playback, brightness
-
-A patched niri build (with adaptive column width support) can be installed
-through the bootstrap if desired.
 
 ## Neovim
 
