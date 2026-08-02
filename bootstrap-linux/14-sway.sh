@@ -2,12 +2,6 @@ if has sway; then
     echo "Linking sway config..."
     link "$DOTFILES/sway/config" "$HOME/.config/sway/config"
 
-    if has systemctl; then
-        mkdir -p "$HOME/.config/sway/config.d"
-        link "$DOTFILES/sway/config.d/50-systemd-user.conf" \
-            "$HOME/.config/sway/config.d/50-systemd-user.conf"
-    fi
-
     echo ""
     echo "  Add to ~/.profile to auto-launch on TTY1:"
     echo '    if [ -z "$WAYLAND_DISPLAY" ] && [ -n "$XDG_VTNR" ] && [ "$XDG_VTNR" -eq 1 ]; then'
