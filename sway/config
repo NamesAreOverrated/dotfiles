@@ -4,9 +4,9 @@
 include config.d/*
 include local/*.g
 
-xwayland disable
-exec xwayland-satellite :0
-env DISPLAY :0
+#xwayland disable
+#exec xwayland-satellite :0
+#env DISPLAY :0
 
 # Home row direction keys, like vim
 set $left h
@@ -26,6 +26,10 @@ opacity focused 1
 bindsym $mod+Shift+s overview all pull
 bindsym $mod+Shift+r overview all swap
 bindsym $mod+Shift+g overview all focus
+
+
+#default_border none
+#default_floating_border none
 
 default_border pixel 1
 default_floating_border pixel 1
