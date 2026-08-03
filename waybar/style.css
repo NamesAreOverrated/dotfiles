@@ -1,4 +1,5 @@
 * {
+  text-shadow: 2px 2px 2px #1e1e2e;
   font-family: "afio";
   font-size: 12px;
   font-weight: 900;
@@ -34,8 +35,10 @@ window#waybar {
   border: 1px solid #f5c2e7;
   border-radius: 5px;
   background: rgba(30, 30, 46,0.85);
-  box-shadow: 0 0 10px rgba(245, 194, 231,0.45),
-              inset 0 0 6px  rgba(245, 194, 231,0.12);
+  /* box-shadow: 0 0 10px rgba(245, 194, 231,0.45), */
+  /*             inset 0 0 6px  rgba(245, 194, 231,0.12); */
+  /**/
+
 }
 
 #custom-lyric  { 
@@ -63,19 +66,21 @@ window#waybar {
 
 
 #workspaces button {
-  padding: 0 8px;
-  margin: 0;
-  color: #585b70;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  min-width: 12px;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  box-shadow: none;
-  text-shadow: none;
+  padding: 0 2px;
+  /* margin: 0; */
+  /* color: #585b70; */
+  /* color: #cdd6f4; */
+  /* border: none; */
+  /* border-radius: 0; */
+  /* background: transparent; */
+  /* min-width: 12px; */
+  /* font-family: inherit; */
+  /* font-size: inherit; */
+  /* font-weight: inherit; */
+  /* box-shadow: none; */
+  /* text-shadow: none; */
 }
+
 
 #workspaces button.visible {
   color: #cdd6f4;
@@ -95,9 +100,9 @@ window#waybar {
 
 #workspaces button:hover {
   color: #cdd6f4;
-  background: transparent;
-  box-shadow: none;
-  text-shadow: none;
+  /* background: transparent; */
+  /* box-shadow: none; */
+  /* text-shadow: none; */
 }
 
 #tray {
