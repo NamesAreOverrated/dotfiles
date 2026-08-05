@@ -1,11 +1,12 @@
 * {
-  text-shadow: 2px 2px 2px #1e1e2e;
+  /* text-shadow: 2px 2px 2px #1e1e2e; */
   font-family: "afio";
   font-size: 12px;
-  font-weight: 900;
-  min-height: 0;
-  margin: 0px;
-  padding: 0;
+  /* font-weight: 900; */
+  /* min-height: 0; */
+  /* margin: 0px; */
+  padding: 0px ;
+  border-radius: 12px;
 }
 
 window#waybar {
@@ -30,10 +31,12 @@ window#waybar {
 #mpris.paused,
 #custom-lyric,
 #privacy{
-  margin: 0px 0px;
+
+  /* padding: 0px; */
+  /* margin: 0px 0px; */
   padding: 0px 8px;
-  border: 1px solid #f5c2e7;
-  border-radius: 5px;
+  /* border: 1px solid #f5c2e7; */
+  /* border-radius: 6px; */
   background: rgba(30, 30, 46,0.85);
   /* box-shadow: 0 0 10px rgba(245, 194, 231,0.45), */
   /*             inset 0 0 6px  rgba(245, 194, 231,0.12); */
@@ -90,8 +93,8 @@ window#waybar {
 #workspaces button.focused,
 #workspaces button.active {
   color: #f38ba8;
-  font-weight: 900;
-  min-width: 16px;
+  /* font-weight: 900; */
+  /* min-width: 16px; */
 }
 
 #workspaces button.urgent {
@@ -99,9 +102,14 @@ window#waybar {
 }
 
 #workspaces button:hover {
+  /* padding: 0 4px; */
+  border-radius: 12px;
   color: #cdd6f4;
+  background: rgba(30, 30, 46,1);
+  /* border: 0px solid #f5c2e7; */
   /* background: transparent; */
   /* box-shadow: none; */
+  /* border: 0px solid #f5c2e7; */
   /* text-shadow: none; */
 }
 
@@ -146,7 +154,7 @@ window#waybar {
   /* padding: 0px 12px; */
   /* border-radius: 32px; */
   /* text-shadow: 1px 1px 2px black; */
-  border: none;
+  /* border: none; */
   background: transparent;
 }
 #mpris.playing {
@@ -164,7 +172,8 @@ window#waybar {
 
 tooltip {
   background: #1e1e2e;
-  border: 1.5px solid #cba6f7;
+  /* border: 1px solid #cba6f7; */
+  border: 1px solid #f5c2e7;
   border-radius: 6px;
 }
 tooltip label {
@@ -173,13 +182,21 @@ tooltip label {
 }
 trough {
   min-width: 50px;
-  min-height: 5px;
-  border-radius: 8px;
+  min-height: 6px;
+  /* margin: 0px; */
+  /* border-radius: 8px; */
   background: #585b70;
+}
+slider{
+
+  padding: 0px;
+  margin: 0px 0px;
+  min-width: 0px;
+  min-height: 0px;
 }
 
 trough highlight {
-  border-radius: 8px;
+  /* border-radius: 8px; */
   background-color: #cdd6f4;
 }
 

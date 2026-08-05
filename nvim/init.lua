@@ -472,8 +472,9 @@ do
 		return vim.fn.fnamemodify(session_dir_path, ":h")
 	end
 
-	local function get_git_root()
-		local ok, result = pcall(vim.fn.system, "git rev-parse --show-toplevel 2>/dev/null")
+	local function get_git_root(dir)
+		dir = dir or vim.fn.getcwd()
+		local ok, result = pcall(vim.fn.system, { "git", "-C", dir, "rev-parse", "--show-toplevel" })
 		if ok and vim.v.shell_error == 0 then
 			return vim.trim(result)
 		end
@@ -614,7 +615,7 @@ do
 
 	vim.keymap.set("n", "<leader>e", function()
 		local dir = current_file_dir()
-		local root = get_git_root()
+		local root = get_git_root(dir)
 		open_termfilebrowser("prompt", true, dir, root and { root = root } or {})
 	end, { desc = "[E]xplore with TermFileBrowser (pick, then choose plain/split)" })
 
