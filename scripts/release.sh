@@ -27,8 +27,9 @@ add_target() {
 }
 
 add_target "tiny-cmenush"        ~/.local/bin/tiny-cmenush
-add_target "termfilebrowser" ~/.local/bin/termfilebrowser
-add_target "ncm-daemon"        ~/.local/bin/ncm-daemon
+add_target "termfilebrowser"     ~/.local/bin/termfilebrowser
+add_target "ncm-daemon"          ~/.local/bin/ncm-daemon
+add_target "trsh"                ~/.local/bin/trsh
 
 if [ ${#names[@]} -eq 0 ]; then
     echo "No binaries found."

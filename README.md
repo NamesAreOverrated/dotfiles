@@ -110,6 +110,7 @@ Re-running is safe. Everything is idempotent.
 | ncm-daemon | NetEase Cloud Music daemon, auto-installed via bootstrap + systemd user service |
 | sing-box | `sing-box/config.json` — base config, node list managed by `cm-singbox` |
 | termfilebrowser | TUI file browser, auto-installed via bootstrap |
+| trsh | Safe-by-default `rm` → trash. Auto-installed via bootstrap; aliases: `rm`, `rm-list`, `rm-restore`, `rm-empty`, `rm-purge` |
 
 | wallpapers | `wallpapers` submodule — symlinked to `~/Pictures/wallpapers` |
 | fonts | `fonts/afio.zip` — afio font, installed via bootstrap |
@@ -130,7 +131,8 @@ The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 8. **Wallpapers** — copies existing wallpapers into the `wallpapers` submodule, symlinks it to `~/Pictures/wallpapers`
 9. **Scripts** — links `powerctl`
 10. **File management** — offers to install termfilebrowser from GitHub
-11. **WM configs** — links `cm-swirl`, generates machine-specific sway configs (mod, outputs, wallpaper, keybinds, idle)
+11. **trsh** — offers to auto-download the glibc/musl binary from GitHub releases; installs the 5 `rm` aliases into `~/.bashrc`
+12. **WM configs** — links `cm-swirl`, generates machine-specific sway configs (mod, outputs, wallpaper, keybinds, idle)
 
 Each script checks which tools are actually installed and skips configs for missing ones.
 
