@@ -149,6 +149,80 @@ parse_hy2() {
     '{type: "hysteria2", tag: $tag, server: $server, server_port: $port, password: $password}'
 }
 
+urldecode() {
+  printf '%b' "${1//%/\\x}"
+}
+
+parse_vless() {
+  local raw="$1" tag="$2"
+  local s="${raw#vless://}"
+
+  local info rest
+  info="${s%%@*}"
+  rest="${s#*@}"
+  [[ "$rest" == "$s" ]] && return 1
+
+  local uuid host_qs name_raw
+  uuid="${info%%#*}"
+  host_qs="${rest%%#*}"
+  name_raw="${rest#*#}"
+  [[ "$name_raw" == "$rest" ]] && name_raw=""
+
+  local hp qs host port
+  hp="${host_qs%%\?*}"
+  qs="${host_qs#*\?}"
+  [[ "$qs" == "$host_qs" ]] && qs=""
+  host="${hp%%:*}"
+  port="${hp#*:}"
+  [[ "$port" == "$hp" || -z "$host" || -z "$port" ]] && return 1
+
+  local name
+  name="$(urldecode "$name_raw")"
+  name="${name#"${name%%[![:space:]]*}"}"
+  name="${name%"${name##*[![:space:]]}"}"
+
+  local tag_out
+  if [[ -n "$name" ]]; then
+    tag_out="$name"
+  else
+    tag_out="vless-${tag}@${host}:${port}"
+  fi
+
+  local flow="" security="" sni="" fp="" pbk="" sid=""
+  if [[ -n "$qs" ]]; then
+    local q k v
+    while IFS= read -r q; do
+      [[ -z "$q" ]] && continue
+      k="${q%%=*}"
+      v="${q#*=}"
+      [[ "$v" == "$q" ]] && continue
+      case "$k" in
+        flow) flow="$v" ;;
+        security) security="$v" ;;
+        sni) sni="$v" ;;
+        fp) fp="$v" ;;
+        pbk) pbk="$v" ;;
+        sid) sid="$v" ;;
+      esac
+    done < <(printf '%s\n' "$qs" | tr '&' '\n')
+  fi
+
+  jq -n --arg tag "$tag_out" --arg server "$host" --argjson port "$((port))" \
+    --arg uuid "$uuid" --arg flow "$flow" --arg security "$security" \
+    --arg sni "$sni" --arg fp "$fp" --arg pbk "$pbk" --arg sid "$sid" '
+    {type: "vless", tag: $tag, server: $server, server_port: $port, uuid: $uuid}
+    | if $flow != "" then .flow = $flow else . end
+    | if ($security == "tls" or $security == "reality") then
+        .tls = {enabled: true}
+        | if $sni != "" then .tls.server_name = $sni else . end
+        | if $fp != "" then .tls.utls = {enabled: true, fingerprint: $fp} else . end
+        | if ($security == "reality" and $pbk != "") then
+            .tls.reality = {enabled: true, public_key: $pbk}
+            | if $sid != "" then .tls.reality.short_id = $sid else . end
+          else . end
+      else . end'
+}
+
 build_outbounds() {
   local nodes
   nodes=$(cat) || return 1
@@ -215,7 +289,7 @@ fetch_sub() {
   raw=$(curl -sf "$url" 2>/dev/null) || { e "Failed to fetch $name"; return 1; }
   echo "$raw" > "$CACHE_DIR/$idx.raw"
 
-  if ! grep -qE '^(vmess|ss|trojan|hysteria2)://' "$CACHE_DIR/$idx.raw" 2>/dev/null; then
+  if ! grep -qE '^(vmess|ss|trojan|hysteria2|vless)://' "$CACHE_DIR/$idx.raw" 2>/dev/null; then
     local decoded
     decoded=$(b64d "$raw" 2>/dev/null) && {
       echo "$decoded" > "$CACHE_DIR/$idx.raw"
@@ -231,6 +305,7 @@ fetch_sub() {
       ss://*)    parsed=$(parse_ss "$line" "$idx") ;;
       trojan://*) parsed=$(parse_trojan "$line" "$idx") ;;
       hysteria2://*) parsed=$(parse_hy2 "$line" "$idx") ;;
+      vless://*)     parsed=$(parse_vless "$line" "$idx") ;;
     esac
     [[ -n "$parsed" ]] && nodes_json="${nodes_json}${nodes_json:+,}${parsed}"
   done < "$CACHE_DIR/$idx.raw"
@@ -610,8 +685,14 @@ subs_submenu() {
   done
 }
 
-select_idx=""
-while true; do
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  if [ "${1:-}" = "refetch" ]; then
+    refetch_all
+    exit $?
+  fi
+
+  select_idx=""
+  while true; do
   ids=() labels=()
 
   running=""; sb_pid >/dev/null && running=1
@@ -685,3 +766,4 @@ while true; do
       ;;
   esac
 done
+fi
