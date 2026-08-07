@@ -376,6 +376,7 @@ do
 		local function open_picked(path)
 			local buf = vim.fn.bufadd(path)
 			vim.fn.bufload(buf)
+			vim.bo[buf].buflisted = true
 			vim.api.nvim_set_current_buf(buf)
 		end
 		vim.fn.jobstart(cmd, {

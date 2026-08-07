@@ -1,5 +1,8 @@
 .opencode/
 
+# Obsidian vault-local config
+notes/.obsidian/
+
 # Exclude lock files and caches
 nvim/nvim-pack-lock.json
 *.swp
