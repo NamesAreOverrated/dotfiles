@@ -75,6 +75,7 @@ cat << EOF
      exec wireplumber
      exec ncm-daemon daemon
      exec fcitx5
+     exec mako
 
    (Or run them before sway via your init/session manager.)
 

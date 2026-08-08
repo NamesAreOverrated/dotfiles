@@ -123,7 +123,7 @@ The bootstrap script sources every `.sh` in `bootstrap-linux/` in order:
 
 1. **Init** — prompts for mod key (Alt-main + Super-nested, or Super-main + Alt-nested)
 2. **Path** — adds `~/.local/bin` to PATH in `~/.bash_profile` (login shells)
-3. **Config linking** — links configs for the tools that are installed: starship, nvim, foot, gtklock, waybar, sway
+3. **Config linking** — links configs for the tools that are installed: starship, mako, nvim, foot, gtklock, waybar, sway
 4. **Kanata** — checks uinput udev rule + group membership, offers to install the binary, links config, generates a systemd user service
 5. **ncm-daemon** — offers to download the binary, enables it as a systemd user service
 6. **tiny-cmenush** — offers to download the binary, links theme configs + companion scripts, creates the default proxy config (dep-gated: cm-volmixer needs pactl, cm-network needs nmcli, cm-singbox needs sing-box + jq, set-wallpaper needs swaybg; cm-alias bash-only skips on fish systems)
