@@ -6,8 +6,17 @@ VP="${1:-$HOME/void-packages}"
 SRC="$(cd "$(dirname "$0")" && pwd)/srcpkgs"
 
 if [ ! -f "$VP/xbps-src" ]; then
-    echo "error: no xbps-src found in $VP (clone void-packages first)" >&2
-    exit 1
+    if [ -d "$VP" ]; then
+        echo "error: $VP exists but is not a void-packages checkout" >&2
+        exit 1
+    fi
+    echo "==> cloning void-packages to $VP"
+    git clone --depth 1 https://github.com/void-linux/void-packages "$VP"
+fi
+
+if ! ls "$VP"/masterdir*/.xbps_chroot_init >/dev/null 2>&1; then
+    echo "==> bootstrapping chroot (one-time)"
+    "$VP/xbps-src" binary-bootstrap
 fi
 
 echo "==> syncing templates to $VP/srcpkgs"
@@ -26,4 +35,5 @@ echo "==> build (order matters)"
 echo "    cd $VP"
 echo "    ./xbps-src pkg wlroots-vfx"
 echo "    ./xbps-src pkg swirl"
-echo "    xbps-install wlroots-vfx swirl   # from hostdir/binpkgs"
+echo "    sudo xbps-install -R \"$VP/hostdir/binpkgs\" wlroots-vfx swirl"
+
