@@ -1,0 +1,2 @@
+# Append to common/shlibs in your void-packages checkout:
+#   libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_1
