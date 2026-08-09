@@ -31,9 +31,10 @@ grep -q '^libwlroots-0.21-vfx.so ' "$VP/common/shlibs" 2>/dev/null || {
     echo 'libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_1' >> "$VP/common/shlibs"
 }
 
-echo "==> build (order matters)"
-echo "    cd $VP"
-echo "    ./xbps-src pkg wlroots-vfx"
-echo "    ./xbps-src pkg swirl"
+echo "==> building (order matters)"
+"$VP/xbps-src" pkg -E wlroots-vfx
+"$VP/xbps-src" pkg -E swirl
+
+echo "==> install (as root, from local repo)"
 echo "    sudo xbps-install -R \"$VP/hostdir/binpkgs\" wlroots-vfx swirl"
 
