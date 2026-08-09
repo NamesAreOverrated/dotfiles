@@ -20,9 +20,10 @@ if ! ls "$VP"/masterdir*/.xbps_chroot_init >/dev/null 2>&1; then
 fi
 
 echo "==> syncing templates to $VP/srcpkgs"
-for pkg in wlroots-vfx swirl; do
-    mkdir -p "$VP/srcpkgs/$pkg"
-    cp -r "$SRC/$pkg/template" "$VP/srcpkgs/$pkg/template"
+for entry in "$SRC"/*; do
+    pkg="$(basename "$entry")"
+    rm -rf "$VP/srcpkgs/$pkg"
+    cp -a "$entry" "$VP/srcpkgs/"
 done
 
 echo "==> ensure common/shlibs has the wlroots-vfx soname"
