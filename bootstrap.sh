@@ -70,6 +70,10 @@ cat << EOF
 4. For ncm-daemon on non-systemd system:
    Add to ~/.config/sway/local/custom.g:
      env PIPEWIRE_LATENCY 2048/48000
+     env GTK_IM_MODULE "fcitx"
+     env XMODIFIERS "@im=fcitx"
+     env QT_IM_MODULE "fcitx"
+
      exec pipewire
      exec pipewire-pulse
      exec wireplumber

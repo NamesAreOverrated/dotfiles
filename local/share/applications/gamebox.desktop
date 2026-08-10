@@ -1,0 +1,17 @@
+[Desktop Entry]
+Name=Gamebox
+GenericName=Terminal entering Gamebox
+Comment=Terminal entering Gamebox
+Categories=Distrobox;System;Utility
+Exec=$HOME/.local/bin/dbe gamebox
+Icon=$HOME/.local/share/icons/distrobox/arch.png
+Keywords=distrobox;
+NoDisplay=false
+Terminal=true
+TryExec=$HOME/.local/bin/distrobox
+Type=Application
+Actions=Stop;
+
+[Desktop Action Stop]
+Name=Stop GameBox
+Exec=$HOME/.local/bin/dbs gamebox
