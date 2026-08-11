@@ -24,13 +24,28 @@ sb_pid() {
   [[ -n "$p" ]] && e "$p"
 }
 
-api_get() { curl -sf "$API_BASE$1" 2>/dev/null; }
+api_get() { curl -s --noproxy '*' --max-time 2 -f "$API_BASE$1" 2>/dev/null; }
+
+sb_config_jq() {
+  awk '
+    {
+      s=$0; out=""; inq=0; n=length(s)
+      for (i=1;i<=n;i++) {
+        c=substr(s,i,1)
+        if (c=="\\" && inq) { i++; if (i<=n) out=out substr(s,i,1); continue }
+        if (c=="\"") inq=!inq
+        if (c=="/" && !inq && i<n && substr(s,i+1,1)=="/") break
+        out=out c
+      }
+      print out
+    }
+  ' "$SB_CONFIG" | jq "$@"
+}
 
 current_node() {
-  sb_pid >/dev/null || { e "stopped"; return; }
   local data
-  data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || { e "API error"; return; }
-  e "$data" | grep -oP '"now":[[:space:]]*"[^"]*"' | cut -d'"' -f4
+  data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || { e "API down"; return; }
+  e "$data" | jq -r '.now // "API down"' 2>/dev/null || e "API down"
 }
 
 b64d() {
@@ -248,12 +263,12 @@ apply_outbounds() {
   local obs="$1"
   [[ -f "$SB_CONFIG" ]] || { e "Config not found: $SB_CONFIG"; return 1; }
   local tmp; tmp=$(mktemp)
-  jq --argjson obs "$obs" '.outbounds = $obs' "$SB_CONFIG" > "$tmp" && mv "$tmp" "$SB_CONFIG"
+  sb_config_jq --argjson obs "$obs" '.outbounds = $obs' > "$tmp" && mv "$tmp" "$SB_CONFIG"
 }
 
 list_nodes() {
   local sel
-  sel=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || return 1
+  sel=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null)
   e "$sel" | jq -r '.all[]' 2>/dev/null
 }
 
@@ -269,18 +284,16 @@ test_node() {
 api_put_switch() {
   local tag="$1"
   local data groups
-  data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null) || { e "API error"; return 1; }
+  data=$(api_get "/proxies/$SELECTOR_TAG" 2>/dev/null)
   groups=$(jq -r --arg tag "$tag" '.all[] as $g | select(.type == "Selector") | select(.now == $tag) | $g' <<< "$data" 2>/dev/null)
   if [[ -n "$groups" ]]; then
     while IFS= read -r group; do
-      curl -s -X PUT "$API_BASE/proxies/$group" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
+      curl -s --noproxy '*' --max-time 2 -X PUT "$API_BASE/proxies/$group" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
     done <<< "$groups"
-    e "Switched to $tag"
   else
-    local url_encoded; url_encoded=$(jq -rn --arg x "$tag" '$x | @uri')
-    curl -s -X PUT "$API_BASE/proxies/$SELECTOR_TAG" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
-    e "Switched to $tag"
+    curl -s --noproxy '*' --max-time 2 -X PUT "$API_BASE/proxies/$SELECTOR_TAG" -H "Content-Type: application/json" -d "{\"name\":\"$tag\"}" >/dev/null 2>&1
   fi
+  e "Switched to $tag"
 }
 
 fetch_sub() {
@@ -456,9 +469,9 @@ lan_apply() {
   lan_on && listen="0.0.0.0"
 
   local tmp; tmp=$(mktemp)
-  jq --arg tag "mixed" --arg listen "$listen" --argjson port "$port" '
+  sb_config_jq --arg tag "mixed" --arg listen "$listen" --argjson port "$port" '
     .inbounds = ([.inbounds[] | select(.tag != "mixed")] + [{type: "mixed", tag: $tag, listen: $listen, listen_port: $port}])
-  ' "$SB_CONFIG" > "$tmp" && mv "$tmp" "$SB_CONFIG"
+  ' > "$tmp" && mv "$tmp" "$SB_CONFIG"
 }
 
 lan_submenu() {

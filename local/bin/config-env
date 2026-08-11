@@ -25,26 +25,42 @@ path_line() {
 # ── Proxy ──
 proxy_lines() {
   local cfg="$HOME/.config/cm-network"
+  # Always unset proxy vars first, even if config is missing
+  if [ "$MODE" = "fish" ]; then
+    cat << FISH
+set -e http_proxy; set -e https_proxy; set -e HTTP_PROXY; set -e HTTPS_PROXY
+set -e all_proxy; set -e ALL_PROXY
+FISH
+  else
+    cat << UNSET
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+UNSET
+  fi
+  # no_proxy is always exported: inert without proxy vars, and it keeps
+  # localhost/intranet traffic off the proxy as soon as the proxy turns on
+  local no_proxy="localhost,127.0.0.1,::1,.163.com,.music.126.net"
+  if [ -f "$cfg" ]; then
+    local no_proxy_val
+    no_proxy_val=$(sed -n '3p' "$cfg")
+    [ -n "$no_proxy_val" ] && no_proxy="$no_proxy_val"
+  fi
+  if [ "$MODE" = "fish" ]; then
+    cat << FISH
+set -gx no_proxy "$no_proxy"
+set -gx NO_PROXY "$no_proxy"
+FISH
+  else
+    cat << BASH
+export no_proxy="$no_proxy"
+export NO_PROXY="$no_proxy"
+BASH
+  fi
   [ -f "$cfg" ] || return
   local host
   host=$(sed -n '1p' "$cfg")
   [ -z "$host" ] && return
-  # Always unset proxy vars first
-  if [ "$MODE" = "fish" ]; then
-    cat << FISH
-set -e http_proxy; set -e https_proxy; set -e HTTP_PROXY; set -e HTTPS_PROXY
-set -e all_proxy; set -e ALL_PROXY; set -e no_proxy; set -e NO_PROXY
-FISH
-  else
-    cat << UNSET
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY
-UNSET
-  fi
-  # Only re-export if state is 1
+  # Only export proxy vars if state is 1
   [ "$(sed -n '2p' "$cfg")" = "1" ] || return
-  local no_proxy_val
-  no_proxy_val=$(sed -n '3p' "$cfg")
-  local no_proxy="${no_proxy_val:-localhost,127.0.0.1,::1,.163.com,.music.126.net}"
   if [ "$MODE" = "fish" ]; then
     cat << FISH
 set -gx http_proxy "http://$host"
@@ -53,8 +69,6 @@ set -gx HTTP_PROXY "http://$host"
 set -gx HTTPS_PROXY "http://$host"
 set -gx all_proxy "socks5://$host"
 set -gx ALL_PROXY "socks5://$host"
-set -gx no_proxy "$no_proxy"
-set -gx NO_PROXY "$no_proxy"
 FISH
   else
     cat << BASH
@@ -64,8 +78,6 @@ export HTTP_PROXY="http://$host"
 export HTTPS_PROXY="http://$host"
 export all_proxy="socks5://$host"
 export ALL_PROXY="socks5://$host"
-export no_proxy="$no_proxy"
-export NO_PROXY="$no_proxy"
 BASH
   fi
 }

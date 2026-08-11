@@ -3,7 +3,7 @@ set -u
 
 WMENUSH="tiny-cmenush"
 
-_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _APPREC="󰍵"; _P="󰏫"; _S="󰓡"; _B="󰑐"
+_V="󰕾"; _M="󰝟"; _X="󰅖"; _N="󰍬"; _A="󰘔"; _APPREC="󰍵"; _P="󰏫"; _S="󰓡"; _B="󰑐"; _C="󰦨"
 
 list_sinks() {
   pactl list sinks 2>/dev/null | awk '
@@ -155,6 +155,128 @@ get_source_status() {
     }'
 }
 
+list_cards() {
+  pactl list cards 2>/dev/null | awk '
+    BEGIN { RS=""; FS="\n" }
+    /^Card #[0-9]+/ {
+      id=""; name=""; desc=""
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /^Card #[0-9]+/) {
+          gsub(/.*#/, "", $i); gsub(/[^0-9].*/, "", $i); id=$i
+        }
+        if ($i ~ /^[[:space:]]*Name:[[:space:]]/) {
+          gsub(/^[[:space:]]*Name:[[:space:]]*/, "", $i); name=$i
+        }
+        if ($i ~ /device.description = "/) {
+          gsub(/.*device.description = "|"$/, "", $i); desc=$i
+        }
+      }
+      if (id != "" && name != "")
+        print name "\t" desc
+    }'
+}
+
+get_card_status() {
+  local name="$1"
+  pactl list cards 2>/dev/null | awk -v n="$name" '
+    BEGIN { RS=""; FS="\n" }
+    ($0 ~ "Card #" n) || ($0 ~ "Name: " n) {
+      desc=""; prof=""
+      for (i=1; i<=NF; i++) {
+        if ($i ~ /device.description = "/) {
+          gsub(/.*device.description = "|"$/, "", $i); desc=$i
+        }
+        if ($i ~ /^[[:space:]]*Active Profile:[[:space:]]/) {
+          gsub(/^[[:space:]]*Active Profile:[[:space:]]*/, "", $i); prof=$i
+        }
+      }
+      print desc "|" prof
+    }'
+}
+
+list_profiles() {
+  local name="$1"
+  pactl list cards 2>/dev/null | awk -v n="$name" '
+    BEGIN { RS=""; FS="\n" }
+    ($0 ~ "Card #" n) || ($0 ~ "Name: " n) {
+      inprof=0
+      for (i=1; i<=NF; i++) {
+        line=$i
+        if (line ~ /^[[:space:]]*Profiles:[[:space:]]*$/) { inprof=1; continue }
+        if (inprof && line ~ /^[[:space:]]*Active Profile:/) { inprof=0; continue }
+        if (inprof && line !~ /^[[:space:]]*$/) {
+          n=split(line, parts, /: /)
+          pname=parts[1]; sub(/^[[:space:]]+/, "", pname)
+          rest=parts[2]; sub(/ \(sinks.*/, "", rest)
+          avail=(line ~ /available: yes/) ? "yes" : "no"
+          print pname "|" rest "|" avail
+        }
+      }
+    }'
+}
+
+pick_card() {
+  local prompt="${1:-Select card}"
+  local cards
+  cards=$(list_cards)
+  [[ -z "$cards" ]] && return 1
+  local items=()
+  while IFS=$'\t' read -r cname cdesc; do
+    items+=("$(shorten_name "$cdesc")")
+  done <<< "$cards"
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "$prompt" --format i) || true
+  [[ -z "$selected" ]] && return 1
+  local idx=0
+  while IFS=$'\t' read -r cname cdesc; do
+    [[ "$idx" -eq "$selected" ]] && { echo "$cname"; break; }
+    ((idx++))
+  done <<< "$cards"
+}
+
+pick_profile() {
+  local card="${1:-}"
+  local prompt="${2:-Select profile}"
+  local profs
+  profs=$(list_profiles "$card")
+  [[ -z "$profs" ]] && return 1
+  local active
+  active=$(get_card_status "$card" | cut -d'|' -f2)
+  local items=()
+  while IFS='|' read -r pname pdesc pavail; do
+    local mark="  "
+    [[ "$pname" == "$active" ]] && mark="* "
+    local avtag=""
+    [[ "$pavail" == "no" ]] && avtag=" (unavail)"
+    items+=("$mark$pdesc$avtag")
+  done <<< "$profs"
+  local selected
+  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "$prompt" --format i) || true
+  [[ -z "$selected" ]] && return 1
+  local idx=0
+  while IFS='|' read -r pname pdesc pavail; do
+    [[ "$idx" -eq "$selected" ]] && { echo "$pname"; break; }
+    ((idx++))
+  done <<< "$profs"
+}
+
+shorten_profile() {
+  local p="$1"
+  case "$p" in
+    *hdmi-stereo*"input:"*)        echo "HDMI+Mic"  ;;
+    *"input:"*hdmi-stereo*)        echo "Mic+HDMI"  ;;
+    *hdmi-stereo*)                 echo "HDMI"      ;;
+    *iec958*"input:"*|*"input:"*iec958*) echo "S/PDIF+Mic" ;;
+    *iec958*)                      echo "S/PDIF"    ;;
+    *analog-stereo*"input:"*|*"input:"*analog-stereo*) echo "Analog+Mic" ;;
+    *analog-stereo*)               echo "Analog"    ;;
+    *hdmi-surround*)               echo "HDMI 5.1/7.1" ;;
+    pro-audio)                     echo "Pro Audio" ;;
+    off)                           echo "Off"       ;;
+    *)                             echo "$p"        ;;
+  esac
+}
+
 custom_vol_prompt() {
   local cur_val="${1:-}"
   printf '\x00Current: %s\n' "$cur_val" | $WMENUSH -p "Volume % (0-100)" --input-fallback --lines 0 --pfill "$cur_val" || true
@@ -172,6 +294,16 @@ case "$page" in
   main)
     # ── Collect data ──
     declare -a ids=() labels=()
+
+    def_card_name=$(pactl list cards short 2>/dev/null | head -1 | cut -f2)
+    if [[ -n "$def_card_name" ]]; then
+      cur_card="${cur_card:-$def_card_name}"
+      IFS='|' read -r def_card_desc def_card_prof <<< "$(get_card_status "$cur_card")"
+      short=$(shorten_name "$def_card_desc")
+      ids+=("__card_menu__"); labels+=("${_C}  ${short} [$(shorten_profile "$def_card_prof")]  ▶")
+    else
+      ids+=("__card_menu__"); labels+=("${_C}  Audio card  ▶")
+    fi
 
     def_sink_name=$(pactl get-default-sink 2>/dev/null)
     def_sink_desc=""; def_sink_vol=""; def_sink_mute=""
@@ -266,8 +398,9 @@ case "$page" in
     declare -a menu_ids=()
 
     menu_texts+=('── Devices ──');   menu_ids+=('__HEADER__')
-    menu_texts+=("${labels[0]}");    menu_ids+=('__sink_menu__')
-    menu_texts+=("${labels[1]}");    menu_ids+=('__source_menu__')
+    menu_texts+=("${labels[0]}");    menu_ids+=('__card_menu__')
+    menu_texts+=("${labels[1]}");    menu_ids+=('__sink_menu__')
+    menu_texts+=("${labels[2]}");    menu_ids+=('__source_menu__')
 
     has_play=0
     for i in "${!ids[@]}"; do
@@ -307,11 +440,49 @@ case "$page" in
     [[ -z "$selected_id" || "$selected_id" == "__HEADER__" ]] && continue
 
     case "$selected_id" in
+      __card_menu__)   page="card_menu"   ;;
       __sink_menu__)   page="sink_menu"   ;;
       __source_menu__) page="source_menu" ;;
       play:*)          page="app_menu:${selected_id#play:}" ;;
       rec:*)           page="rec_app_menu:${selected_id#rec:}" ;;
     esac
+    ;;
+
+  card_menu)
+    name="${cur_card:-}"
+    cdesc=""; cprof=""
+    [[ -n "$name" ]] && IFS='|' read -r cdesc cprof <<< "$(get_card_status "$name")"
+    cshort=$(shorten_name "$cdesc")
+    pshort=$(shorten_profile "$cprof")
+    header="${_C}  ${cshort:-Audio card} — ${pshort:-unknown}  *"
+
+    ncards=$(pactl list cards short 2>/dev/null | wc -l)
+    if (( ncards > 1 )); then
+      items=("${_C}  Switch card" "${_P}  Switch profile" "${_S}  Set default sink")
+    else
+      items=("${_P}  Switch profile" "${_S}  Set default sink")
+    fi
+
+    sel=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "$header" --format i) || true
+    [[ -z "$sel" ]] && { page="main"; continue; }
+
+    if (( ncards > 1 )); then
+      case "$sel" in
+        0) newcard=$(pick_card "Select card") || true
+           [[ -n "$newcard" ]] && cur_card="$newcard" ;;
+        1) prof=$(pick_profile "$name" "Select profile") || true
+           [[ -n "$prof" ]] && pactl set-card-profile "$name" "$prof" ;;
+        2) id=$(pick_sink "Set default sink") || true
+           [[ -n "$id" ]] && pactl set-default-sink "$id" ;;
+      esac
+    else
+      case "$sel" in
+        0) prof=$(pick_profile "$name" "Select profile") || true
+           [[ -n "$prof" ]] && pactl set-card-profile "$name" "$prof" ;;
+        1) id=$(pick_sink "Set default sink") || true
+           [[ -n "$id" ]] && pactl set-default-sink "$id" ;;
+      esac
+    fi
     ;;
 
   sink_menu)
@@ -322,7 +493,7 @@ case "$page" in
 
     sel=$(printf '%s\n' \
       "${_S}  Switch device" \
-      "${mute:+${_V}  Unmute}${mute:-${_M}  Mute}" \
+      "$( [[ -n "$mute" ]] && echo "${_V}  Unmute" || echo "${_M}  Mute" )" \
       "25%" \
       "50%" \
       "75%" \
@@ -353,7 +524,7 @@ case "$page" in
 
     sel=$(printf '%s\n' \
       "${_S}  Switch device" \
-      "${mute:+${_V}  Unmute}${mute:-${_M}  Mute}" \
+      "$( [[ -n "$mute" ]] && echo "${_V}  Unmute" || echo "${_M}  Mute" )" \
       "25%" \
       "50%" \
       "75%" \
@@ -405,7 +576,7 @@ case "$page" in
 
     sel=$(printf '%s\n' \
       "${_S}  Switch device" \
-      "${app_mute:+${_V}  Unmute}${app_mute:-${_M}  Mute}" \
+      "$( [[ -n "$app_mute" ]] && echo "${_V}  Unmute" || echo "${_M}  Mute" )" \
       "25%" \
       "50%" \
       "75%" \
@@ -457,7 +628,7 @@ case "$page" in
 
     sel=$(printf '%s\n' \
       "${_S}  Switch mic" \
-      "${app_mute:+${_V}  Unmute}${app_mute:-${_M}  Mute}" \
+      "$( [[ -n "$app_mute" ]] && echo "${_V}  Unmute" || echo "${_M}  Mute" )" \
       "25%" \
       "50%" \
       "75%" \

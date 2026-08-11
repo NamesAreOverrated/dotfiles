@@ -1,5 +1,6 @@
 #!/bin/sh
 
+eval "$(~/.local/bin/config-env)"
 exec distrobox enter -nw \
     --additional-flags "--env PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin --env LS_COLORS=$LS_COLORS" \
     "$@"

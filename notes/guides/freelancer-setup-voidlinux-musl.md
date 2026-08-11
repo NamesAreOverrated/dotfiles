@@ -116,7 +116,7 @@ default_sysctls = [
 # should not use proxy. Proxy environment variables specified for the container
 # in any other way will override the values passed from the host.
 #
-http_proxy = true
+#http_proxy = true
 
 [engine]
 # Cgroup management implementation used for the runtime.
