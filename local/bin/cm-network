@@ -13,6 +13,20 @@ signal_bars() {
   fi
 }
 
+wifi_connect() {
+  local ssid="$1" pw="$2" err rc
+  if [[ -n "$pw" ]]; then
+    err=$(nmcli device wifi connect "$ssid" password "$pw" 2>&1)
+  else
+    err=$(nmcli device wifi connect "$ssid" 2>&1)
+  fi
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+    printf '\x00Connection failed\n%s\nDismiss\n' "$err" \
+      | $_WM -p "Error" --no-input --format i --lines 3 || true
+  fi
+}
+
 proxy_host() {
   local a; a=$(sed -n '1p' "$HOME/.config/cm-network" 2>/dev/null)
   echo "${a%:*}" ; }
@@ -102,8 +116,9 @@ wifi_submenu() {
 
   while true; do
     local -a sub_ids=() sub_labels=()
-    local sel act
-    connected_ssid=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null | grep '^\*' | cut -d: -f2 | head -1)
+    local sel act wifi_list
+    wifi_list=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
+    connected_ssid=$(printf '%s\n' "$wifi_list" | grep '^\*' | cut -d: -f2 | head -1)
 
     while IFS=$'\n' read -r line; do
       [[ -z "$line" || "$line" == *"SSID"* ]] && continue
@@ -116,7 +131,7 @@ wifi_submenu() {
       mark="  "; [[ "$inuse" == "*" ]] && mark="󰗠 "
       lock=""; [[ -n "$sec" && "$sec" != "--" ]] && lock="󰌾 "
       sub_ids+=("net:$ssid"); sub_labels+=("${mark}${bars}  ${lock}${ssid}  (${signal}%)")
-    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | sort -t: -k3 -rn)
+    done <<< "$wifi_list"
     sub_ids+=("__rescan__"); sub_labels+=("󰑐  Rescan")
 
     sel=$(for i in "${!sub_ids[@]}"; do printf '%s\n' "${sub_labels[$i]}"; done \
@@ -133,21 +148,33 @@ wifi_submenu() {
         ;;
       net:*)
         ssid="${act#net:}"
-        [[ "$ssid" == "$connected_ssid" ]] && continue
-        sec=$(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi 2>/dev/null | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
+        if [[ "$ssid" == "$connected_ssid" ]]; then
+          local -a disc_ids=() disc_labels=()
+          local dsel
+          disc_ids+=("__disconnect__"); disc_labels+=("󰅖  Disconnect")
+          disc_ids+=("__cancel__"); disc_labels+=("󰌺  Cancel")
+          dsel=$(for i in "${!disc_ids[@]}"; do printf '%s\n' "${disc_labels[$i]}"; done \
+            | $_WM -p "${ssid}" --format i)
+          [[ -z "$dsel" ]] && continue
+          if [[ "${disc_ids[$dsel]:-}" == "__disconnect__" ]]; then
+            local derr drc
+            derr=$(nmcli device disconnect "$wifi_device" 2>&1)
+            drc=$?
+            if [[ $drc -ne 0 ]]; then
+              printf '\x00Disconnect failed\n%s\nDismiss\n' "$derr" \
+                | $_WM -p "Error" --no-input --format i --lines 3 || true
+            fi
+          fi
+          continue
+        fi
+        sec=$(printf '%s\n' "$wifi_list" | grep -F ":${ssid}:" | head -1 | cut -d: -f4-)
         sec="${sec#:}"
         if [[ -z "$sec" || "$sec" == "--" ]]; then
-          nmcli device wifi connect "$ssid" 2>/dev/null || {
-            printf '\x00Connection failed\nDismiss\n' \
-              | $_WM -p "Error" --no-input --format i --lines 2 || true
-          }
+          wifi_connect "$ssid" ""
         else
           pw=$(printf '\x00Enter password\n' | $_WM -p "Password for ${ssid}" -P --input-fallback --lines 0)
           [[ -z "$pw" ]] && continue
-          nmcli device wifi connect "$ssid" password "$pw" 2>/dev/null || {
-            printf '\x00Connection failed\nDismiss\n' \
-              | $_WM -p "Error" --no-input --format i --lines 2 || true
-          }
+          wifi_connect "$ssid" "$pw"
         fi
         ;;
     esac
@@ -177,8 +204,14 @@ while true; do
 
   # ── WiFi ──
   if [[ -n "$wifi_device" ]]; then
-    wifi_count=$(nmcli -t -f SSID dev wifi 2>/dev/null | grep -cv '^$' || echo 0)
-    ids+=("__wifi__"); labels+=("󰖩  WiFi [${wifi_count}]")
+    wifi_list=$(nmcli -t -f IN-USE,SSID dev wifi 2>/dev/null)
+    wifi_count=$(printf '%s\n' "$wifi_list" | grep -cv '^$' || echo 0)
+    wifi_ssid=$(printf '%s\n' "$wifi_list" | grep '^\*' | cut -d: -f2 | head -1)
+    if [[ -n "$wifi_ssid" ]]; then
+      ids+=("__wifi__"); labels+=("󰖩  ${wifi_ssid} [${wifi_count}]")
+    else
+      ids+=("__wifi__"); labels+=("󰖩  WiFi [${wifi_count}]")
+    fi
   fi
 
   # ── Proxy ──

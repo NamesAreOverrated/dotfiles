@@ -66,6 +66,8 @@
   "format-no-controller":"󰂲",
   "format-off":"󰂲  {status}",
 	"format-connected": "  {device_alias}",
+	"on-click": "~/.local/bin/cm-bluetooth",
+	"on-click-right": "~/.local/bin/cm-bluetooth",
 	"format-connected-battery": "  {device_alias} {device_battery_percentage}%",
 	"tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
 	"tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",

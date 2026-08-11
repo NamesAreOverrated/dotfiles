@@ -1,0 +1,312 @@
+#!/usr/bin/env bash
+set -u
+
+_WM="tiny-cmenush"
+
+# ── Controller / power ──
+bt_has_controller() {
+  bluetoothctl show >/dev/null 2>&1
+}
+bt_powered() {
+  bluetoothctl show 2>/dev/null | grep -qi 'Powered: yes'
+}
+bt_toggle_power() {
+  local err rc
+  if bt_powered; then err=$(bluetoothctl power off 2>&1); else err=$(bluetoothctl power on 2>&1); fi
+  rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Power failed" "$err"
+  bt_auto_connect
+}
+
+# ── Device helpers ──
+bt_devices() {
+  bluetoothctl devices 2>/dev/null | while read -r tag mac rest; do
+    [[ "$tag" == "Device" ]] && printf '%s\t%s\n' "$mac" "${rest:-}"
+  done
+}
+bt_paired() {
+  bluetoothctl paired-devices 2>/dev/null | while read -r tag mac rest; do
+    [[ "$tag" == "Device" ]] && printf '%s\t%s\n' "$mac" "${rest:-}"
+  done
+}
+bt_info_val() {
+  local mac="$1" key="$2" line
+  line=$(bluetoothctl info "$mac" 2>/dev/null | grep -i "^[[:space:]]*${key}:" | head -1)
+  sed -E 's/^[[:space:]]*[^:]+:[[:space:]]*//' <<< "$line"
+}
+bt_battery() {
+  bluetoothctl info "$1" 2>/dev/null | grep -i 'Battery Percentage:' | head -1 | sed -E 's/.*\(([0-9]+)\).*/\1/'
+}
+bt_name_by_mac() {
+  local mac="$1" m n
+  while IFS=$'\t' read -r m n; do [[ "$m" == "$mac" ]] && { echo "$n"; return; }; done < <(bt_devices)
+  while IFS=$'\t' read -r m n; do [[ "$m" == "$mac" ]] && { echo "$n"; return; }; done < <(bt_paired)
+}
+bt_connected_name() {
+  local mac name
+  while IFS=$'\t' read -r mac name; do
+    [[ -z "$mac" ]] && continue
+    if [[ "$(bt_info_val "$mac" Connected)" == "yes" ]]; then echo "$name"; return; fi
+  done < <(bt_devices)
+}
+
+# ── Auto-connect ──
+bt_auto_mac() {
+  local m
+  m=$(sed -n '1p' "$HOME/.config/cm-bluetooth" 2>/dev/null)
+  echo "${m:-off}"
+}
+bt_auto_set() {
+  mkdir -p "$HOME/.config"
+  printf '%s\n' "$1" > "$HOME/.config/cm-bluetooth"
+}
+bt_auto_name() {
+  local mac name
+  mac=$(bt_auto_mac)
+  [[ -z "$mac" || "$mac" == "off" ]] && { echo "off"; return; }
+  name=$(bt_name_by_mac "$mac")
+  echo "${name:-$mac}"
+}
+bt_auto_connect() {
+  local mac
+  mac=$(bt_auto_mac)
+  [[ -z "$mac" || "$mac" == "off" ]] && return
+  bt_powered || return
+  [[ "$(bt_info_val "$mac" Paired)" != "yes" ]] && return
+  [[ "$(bt_info_val "$mac" Connected)" == "yes" ]] && return
+  bluetoothctl --agent connect "$mac" >/dev/null 2>&1 || true
+}
+bt_autoconnect_menu() {
+  while true; do
+    local -a a_ids=() a_labels=()
+    local mac name auto
+    auto=$(bt_auto_mac)
+    while IFS=$'\t' read -r mac name; do
+      [[ -z "$mac" ]] && continue
+      local mark="  "; [[ "$mac" == "$auto" ]] && mark="󰗠 "
+      a_ids+=("set:$mac"); a_labels+=("${mark}${name}")
+    done < <(bt_paired)
+    a_ids+=("__off__"); a_labels+=("$([[ "$auto" == "off" || -z "$auto" ]] && echo '󰗠  Off' || echo '󰅖  Off')")
+    a_ids+=("__back__"); a_labels+=("󰌺  Back")
+
+    local sel act
+    sel=$(for i in "${!a_ids[@]}"; do printf '%s\n' "${a_labels[$i]}"; done \
+      | $_WM -p "Auto-connect" --format i)
+    [[ -z "$sel" ]] && return
+    act="${a_ids[$sel]:-}"
+    case "$act" in
+      __back__) return ;;
+      __off__) bt_auto_set "off" ;;
+      set:*)
+        local mac="${act#set:}"
+        bt_auto_set "$mac"
+        bt_auto_connect
+        ;;
+    esac
+  done
+}
+
+# ── Actions ──
+bt_error() {
+  local title="$1" err="$2"
+  [[ -n "$err" ]] || return 0
+  printf '\x00%s\n%s\nDismiss\n' "$title" "$err" \
+    | $_WM -p "Error" --no-input --format i --lines 3 || true
+}
+bt_connect() {
+  local mac="$1" err rc
+  if ! bt_powered; then
+    err=$(bluetoothctl power on 2>&1); rc=$?
+    [[ $rc -ne 0 ]] && { bt_error "Power failed" "$err"; return $rc; }
+  fi
+  err=$(bluetoothctl --agent connect "$mac" 2>&1); rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Connect failed" "$err"
+}
+bt_disconnect() {
+  local mac="$1" err rc
+  err=$(bluetoothctl disconnect "$mac" 2>&1); rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Disconnect failed" "$err"
+}
+bt_pair() {
+  local mac="$1" err rc
+  err=$(bluetoothctl --agent pair "$mac" 2>&1); rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Pair failed" "$err"
+  return $rc
+}
+bt_pair_connect() {
+  local mac="$1"
+  if ! bt_pair "$mac"; then return 1; fi
+  bluetoothctl trust "$mac" >/dev/null 2>&1 || true
+  bt_connect "$mac"
+}
+bt_trust() {
+  local mac="$1" state="$2" err rc
+  if [[ "$state" == "yes" ]]; then err=$(bluetoothctl untrust "$mac" 2>&1); else err=$(bluetoothctl trust "$mac" 2>&1); fi
+  rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Trust failed" "$err"
+}
+bt_forget() {
+  local mac="$1" err rc
+  err=$(bluetoothctl remove "$mac" 2>&1); rc=$?
+  [[ $rc -ne 0 ]] && bt_error "Remove failed" "$err"
+}
+
+# ── Submenus ──
+bt_device_menu() {
+  local mac="$1" name="$2"
+  local connected trusted paired_state
+  connected=$(bt_info_val "$mac" Connected)
+  trusted=$(bt_info_val "$mac" Trusted)
+  paired_state=$(bt_info_val "$mac" Paired)
+
+  local -a d_ids=() d_labels=()
+  if [[ "$connected" == "yes" ]]; then
+    d_ids+=("__disconnect__"); d_labels+=("󰅖  Disconnect")
+  else
+    if [[ "$paired_state" == "yes" ]]; then
+      d_ids+=("__connect__"); d_labels+=("󰦘  Connect")
+    else
+      d_ids+=("__pairconnect__"); d_labels+=("󰦘  Pair & Connect")
+      d_ids+=("__pair__"); d_labels+=("󰳻  Pair")
+    fi
+  fi
+  d_ids+=("__trust__"); d_labels+=("$([[ "$trusted" == "yes" ]] && echo '󰒊  Untrust' || echo '󰒊  Trust')")
+  d_ids+=("__forget__"); d_labels+=("󰋊  Forget")
+  d_ids+=("__cancel__"); d_labels+=("󰌺  Cancel")
+
+  local sel
+  sel=$(for i in "${!d_ids[@]}"; do printf '%s\n' "${d_labels[$i]}"; done \
+    | $_WM -p "${name}" --format i)
+  [[ -z "$sel" ]] && return
+
+  case "${d_ids[$sel]:-}" in
+    __disconnect__) bt_disconnect "$mac" ;;
+    __connect__)    bt_connect "$mac" ;;
+    __pair__)       bt_pair "$mac" ;;
+    __pairconnect__) bt_pair_connect "$mac" ;;
+    __trust__)      bt_trust "$mac" "$trusted" ;;
+    __forget__)     bt_forget "$mac" ;;
+    *) return ;;
+  esac
+}
+
+bt_devices_submenu() {
+  while true; do
+    local -a d_ids=() d_labels=()
+    local mac name connected trusted batt b
+    while IFS=$'\t' read -r mac name; do
+      [[ -z "$mac" ]] && continue
+      connected=$(bt_info_val "$mac" Connected)
+      trusted=$(bt_info_val "$mac" Trusted)
+      b=$(bt_battery "$mac")
+      batt=""; [[ -n "$b" ]] && batt="  ${b}%"
+      local mark="  "; [[ "$connected" == "yes" ]] && mark="󰗠 "
+      local badge=""; [[ "$trusted" == "yes" ]] && badge="󰒊 "
+      d_ids+=("dev:$mac"); d_labels+=("${mark}${badge}${name}${batt}")
+    done < <(bt_paired)
+
+    if [[ ${#d_ids[@]} -eq 0 ]]; then
+      d_ids+=("__nopaired__"); d_labels+=("󰢼  No paired devices")
+    fi
+    d_ids+=("__back__"); d_labels+=("󰌺  Back")
+
+    local sel act
+    sel=$(for i in "${!d_ids[@]}"; do printf '%s\n' "${d_labels[$i]}"; done \
+      | $_WM -p "Devices" --format i)
+    [[ -z "$sel" ]] && return
+    act="${d_ids[$sel]:-}"
+    case "$act" in
+      __nopaired__|__back__) return ;;
+      dev:*)
+        local mac="${act#dev:}"
+        bt_device_menu "$mac" "$(bt_name_by_mac "$mac")"
+        ;;
+    esac
+  done
+}
+
+bt_do_scan() {
+  bluetoothctl --timeout 12 scan on >/dev/null 2>&1 &
+  local pid=$!
+  printf '\x00Scanning for devices…\nDismiss\n' \
+    | $_WM -p "Scan" --no-input --format i --lines 2 || true
+  wait "$pid" 2>/dev/null
+}
+
+bt_scan() {
+  bt_do_scan
+  while true; do
+    local -a r_ids=() r_labels=()
+    local mac name paired_macs
+    paired_macs=$(bt_paired | cut -f1 | paste -sd' ')
+    while IFS=$'\t' read -r mac name; do
+      [[ -z "$mac" ]] && continue
+      [[ " $paired_macs " == *" $mac "* ]] && continue
+      local b; b=$(bt_battery "$mac")
+      r_ids+=("dev:$mac"); r_labels+=("󰳻  ${name}${b:+"  ${b}%"}") 
+    done < <(bt_devices)
+
+    if [[ ${#r_ids[@]} -eq 0 ]]; then
+      r_ids+=("__none__"); r_labels+=("󰢼  No new devices found")
+    fi
+    r_ids+=("__rescan__"); r_labels+=("󰑐  Rescan")
+    r_ids+=("__back__"); r_labels+=("󰌺  Back")
+
+    local sel act
+    sel=$(for i in "${!r_ids[@]}"; do printf '%s\n' "${r_labels[$i]}"; done \
+      | $_WM -p "Scan results" --format i)
+    [[ -z "$sel" ]] && return
+    act="${r_ids[$sel]:-}"
+    case "$act" in
+      __none__|__back__) return ;;
+      __rescan__) bt_do_scan ;;
+      dev:*)
+        bt_pair_connect "${act#dev:}"
+        ;;
+    esac
+  done
+}
+
+# ── Main menu ──
+select_idx=""
+bt_auto_connect
+while true; do
+  ids=() labels=()
+
+  if ! bt_has_controller; then
+    ids+=("__info__"); labels+=("󰂲  Bluetooth unavailable (bluez/bluetoothd)")
+  else
+    local_connected=$(bt_connected_name)
+    local_pcount=$(bt_paired | grep -c . || true)
+    if [[ -n "$local_connected" ]]; then
+      ids+=("__devices__"); labels+=("󰊓  ${local_connected} [${local_pcount}]")
+    else
+      ids+=("__devices__"); labels+=("󰊓  Devices [${local_pcount}]")
+    fi
+    if bt_powered; then
+      ids+=("__power__"); labels+=("󰂯  Bluetooth on")
+    else
+      ids+=("__power__"); labels+=("󰂲  Bluetooth off")
+    fi
+    ids+=("__autoconnect__"); labels+=("󰒊  Auto-connect: $(bt_auto_name)")
+    if bt_powered; then
+      ids+=("__scan__"); labels+=("󰑐  Scan for devices")
+    fi
+  fi
+
+  sel=$(for i in "${!labels[@]}"; do printf '%s\n' "${labels[$i]}"; done \
+    | $_WM -p "Bluetooth" --format i ${select_idx:+--select $select_idx})
+  [[ -z "$sel" ]] && exit 0
+  select_idx="$sel"
+
+  action="${ids[$sel]:-}"
+  [[ -z "$action" ]] && continue
+
+  case "$action" in
+    __info__) continue ;;
+    __power__) bt_toggle_power ;;
+    __devices__) bt_devices_submenu ;;
+    __autoconnect__) bt_autoconnect_menu ;;
+    __scan__) bt_scan ;;
+  esac
+done

@@ -6,7 +6,7 @@ Target: Steam on VoidLinux-musl host (bare metal) via Distrobox (Arch container)
 
 ## Step 1: Host preparation
 
-Disable IPv6 via sysctl. Add to `/etc/sysctl.d/`
+Disable IPv6 via sysctl (if you don't have IPv6). Add to `/etc/sysctl.d/`
 
 ```conf
 net.ipv6.conf.all.disable_ipv6 = 1
@@ -190,7 +190,7 @@ After that a dry-run of gamescope produces no errors.
 
 ### GE-Proton
 
-Valve's stock Proton is conservative: it lags behind the latest Wine and can't ship media codecs (licensing). GE-Proton (GloriousEggroll) is the community build — newer Wine + DXVK, extra codecs for cutscene-heavy games, and per-game patches. Install a tarball into the box's `compatibilitytools.d` (inside the box home; `~/.steam/root` is a symlink to `~/.steam/steam`):
+Valve's stock Proton is conservative: it lags behind the latest Wine and can't ship media codecs (licensing). GE-Proton (GloriousEggroll) is the community build — newer Wine + DXVK, extra codecs for cutscene-heavy games, and per-game patches. Install a tarball into the box's `compatibilitytools.d` :
 
 ```bash
 mkdir -p ~/.steam/steam/compatibilitytools.d

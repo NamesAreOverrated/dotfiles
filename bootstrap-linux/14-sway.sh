@@ -101,6 +101,10 @@ EOF
             echo 'bindsym $mod+n exec cm-network'
         fi
 
+        if has cm-bluetooth; then
+            echo 'bindsym $mod+b exec cm-bluetooth'
+        fi
+
         if has cm-swirl; then
             echo 'bindsym $mod+s exec cm-swirl pull'
             echo 'bindsym $mod+r exec cm-swirl swap'
