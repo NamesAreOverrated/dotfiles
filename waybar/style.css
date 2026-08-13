@@ -20,6 +20,7 @@ window#waybar {
 }
 
 #workspaces,
+#custom-indicators,
 #tray,
 #resources,
 #audio,
@@ -63,6 +64,7 @@ window#waybar {
 #resources,
 #audio,
 #workspaces,
+#custom-indicators,
 #power-actions{
   padding: 0px 2px;
 }
@@ -123,6 +125,7 @@ window#waybar {
 }
 
 #custom-lyric            { color: #cdd6f4; }
+#custom-indicators       { color: #94e2d5; }
 #bluetooth               { color: #89b4fa; }
 #bluetooth.off           { color: #585b70; }
 #bluetooth.disabled      { color: #585b70; }
