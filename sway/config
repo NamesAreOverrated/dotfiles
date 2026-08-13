@@ -28,11 +28,33 @@ bindsym $mod+Shift+r overview all swap
 bindsym $mod+Shift+g overview all focus
 
 
+# Minimize:
+#
+# Hide (minimize) the focused window into the minimize pool
+bindsym $mod+Escape minimize hide
+
+# Call the next minimized window out of the pool
+bindsym $mod+Ctrl+Escape minimize show
+
+# Open an interactive overview of minimized windows. Click a thumbnail or
+# press its number badge (two digits, e.g. 01-09, 10, 11) to restore it.
+# Press Escape to cancel.
+bindsym $mod+Shift+Escape minimize overview
+
+# Mouse: minimize the focused window with $mod + middle click
+bindsym --whole-window $mod+BTN_MIDDLE minimize hide
+bindsym --whole-window $mod+Shift+BTN_MIDDLE minimize overview
+
+
+
 #default_border none
 #default_floating_border none
 
-default_border pixel 1
-default_floating_border pixel 1
+#default_border pixel 1
+#default_floating_border pixel 1
+
+default_border normal 1
+default_floating_border normal 1
 
 client.focused #f5c2e7 #313244 #cdd6f4 #cba6f7 #f5c2e7
 client.focused_inactive #505050 #313244 #a6adc8 #585b70 #45475a
@@ -44,16 +66,14 @@ gaps inner 8
 column_width default 0.5
 column_width min 0.2
 
-bindsym $mod+Shift+p pop
-
-bindsym $mod+Ctrl+l pull right
-bindsym $mod+Ctrl+h pull left
-
 # Merge right column into focused column
 bindsym $mod+Shift+comma take
 
 # Peel bottom windows from column into a new column to the right
 bindsym $mod+Shift+period release
+
+# Toggle "new windows float by default" on the focused workspace
+bindsym $mod+ctrl+space default_float toggle
 
 bindsym $mod+x layout toggle stacking tabbed splitv
 
