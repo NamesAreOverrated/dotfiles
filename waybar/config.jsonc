@@ -73,7 +73,8 @@
     "icon-theme": "Papirus-Dark",
     "tooltip-format": "{title}",
     "on-click": "activate",
-    "on-click-middle": "close"
+    "on-click-middle": "close",
+    "on-click-right": "minimize"
   },
 
   "tray": {
