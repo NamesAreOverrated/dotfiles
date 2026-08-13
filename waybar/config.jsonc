@@ -6,13 +6,16 @@
   "margin-top": 4,
   "margin-left": 8,
   "margin-right": 8,
-  "modules-left": ["sway/workspaces", "custom/indicators", "mpris", "custom/lyric"],
+  "modules-left": ["group/windows", "mpris", "custom/lyric"],
+
   "modules-center": ["privacy"],
   "modules-right": [ "tray", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "custom/indicators": {
     "exec": "cm-indicators",
     "interval": 1,
     "format": "{}",
+    "return-type": "json",
+    "on-click": "swaymsg default_float toggle",
     "tooltip": false
   },
   "mpris": {
@@ -40,8 +43,20 @@
   //           "default": ""
   //   },
   // },
+  "group/windows": {
+    "orientation": "horizontal",
+    "modules": [
+      "sway/workspaces",
+      "custom/indicators",
+      "wlr/taskbar"
+    ]
+  },
+
+
 "sway/workspaces": {
-    "format": "{icon}",
+
+    "format": "{name}",
+    // "format": "{icon}",
     "on-click": "activate",
     "format-icons": {
             "focused": "󰮯",
@@ -50,6 +65,15 @@
             "urgent": "󰵙",
             "default": ""
     },
+  },
+
+  "wlr/taskbar": {
+    "format": "{icon}",
+    "icon-size": 14,
+    "icon-theme": "Papirus-Dark",
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close"
   },
 
   "tray": {

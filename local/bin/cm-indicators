@@ -7,11 +7,9 @@ focused=$(printf '%s' "$data" | jq -r '.[] | select(.focused == true) | .name' |
 [[ -n "$focused" ]] || exit 0
 
 df=$(printf '%s' "$data" | jq -r --arg w "$focused" '.[] | select(.name == $w) | .default_float')
-cur=$(printf '%s' "$data" | jq -r --arg w "$focused" '.[] | select(.name == $w) | (.minimized_count // 0)')
-global=$(printf '%s' "$data" | jq '[.[] | (.minimized_count // 0)] | add')
 
-parts=()
-[[ "$df" == "true" ]] && parts+=("F")
-parts+=("min[$cur:$global]")
-
-printf '%s\n' "${parts[*]}"
+if [[ "$df" == "true" ]]; then
+  printf '{"text":"󰖲"}\n'
+else
+  printf '{}\n'
+fi
