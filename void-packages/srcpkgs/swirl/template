@@ -1,7 +1,7 @@
 # Template file for 'swirl'
 pkgname=swirl
 version=1.13
-revision=1
+revision=2
 build_style=meson
 configure_args="-Dwerror=false -Db_ndebug=false
  -Dzsh-completions=false -Dfish-completions=false
@@ -18,10 +18,10 @@ short_desc="Tiling Wayland compositor compatible with i3 (Swirl VFX fork)"
 maintainer="ln <ln@localhost>"
 license="MIT"
 homepage="https://github.com/NamesAreOverrated/swirl"
-# git archive excludes submodules; pinned at 2558fdc8
-distfiles="https://github.com/NamesAreOverrated/Swirl/archive/2558fdc8bf36f82628c7a353feefc43a712d0d7a.tar.gz"
-checksum=2fc0c811ae043efa7ad2add9b721e5bb1fb5ae3db9dc4470aae71c23e981ce98
-wrksrc=swirl-2558fdc8bf36f82628c7a353feefc43a712d0d7a
+# git archive excludes submodules; pinned at ee21296c
+distfiles="https://github.com/NamesAreOverrated/Swirl/archive/ee21296c5f24bcf29e56297aece08ef67666d7f3.tar.gz"
+checksum=46110945819037337a40ffcf45b12b0dd9093764f8906307b6bd9130611e6392
+wrksrc=swirl-ee21296c5f24bcf29e56297aece08ef67666d7f3
 
 post_install() {
 	vlicense LICENSE

@@ -1,7 +1,7 @@
 # Template file for 'wlroots-vfx'
 pkgname=wlroots-vfx
 version=0.21.0
-revision=1
+revision=2
 build_style=meson
 # Follow upstream packaging recommendations:
 # https://gitlab.freedesktop.org/wlroots/wlroots/-/wikis/Packaging-recommendations
@@ -19,10 +19,10 @@ short_desc="Modular Wayland compositor library (VFX fork of wlroots-0.21)"
 maintainer="ln <ln@localhost>"
 license="MIT"
 homepage="https://github.com/NamesAreOverrated/wlroots"
-# git archive excludes submodules; pinned at 9436b370
-distfiles="https://github.com/NamesAreOverrated/wlroots/archive/9436b37005d7ade54a9ee9b37d5f4c69cbf08cea.tar.gz"
-checksum=fadd61fb421f707945809211d431d13e7de3870b43656d9b47de17104fe01403
-wrksrc=wlroots-9436b37005d7ade54a9ee9b37d5f4c69cbf08cea
+# git archive excludes submodules; pinned at 5ff2ac2a (upstream merge)
+distfiles="https://github.com/NamesAreOverrated/wlroots/archive/5ff2ac2a67e2ba3345c58b94fbc8ae2e11877714.tar.gz"
+checksum=32730589fb89d0f3b71d9c8352f6dc79afda663096eda352eb333d26ed112360
+wrksrc=wlroots-5ff2ac2a67e2ba3345c58b94fbc8ae2e11877714
 
 post_install() {
 	vlicense LICENSE
