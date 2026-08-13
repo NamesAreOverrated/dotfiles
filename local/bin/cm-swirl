@@ -61,14 +61,20 @@ get_icon() {
 }
 
 main() {
-	local action="${1:-pull}"
-	case "$action" in
-		pull|swap|focus) ;;
-		*) echo "Usage: cm-swirl [pull|swap|focus]" >&2; exit 1 ;;
-	esac
+	local action="pull"
+	for arg in "$@"; do
+		case "$arg" in
+			pull|swap|focus) action="$arg" ;;
+			*) echo "Usage: cm-swirl [pull|swap|focus]" >&2; exit 1 ;;
+		esac
+	done
 
-	local tree
-	tree=$(swaymsg -t get_tree) || exit 1
+	# Ask the WM for the exact candidate set the overview would present for
+	# this action (same content filtering + swap focus-type override), so the
+	# script stays fully in sync with the actual overview code.
+	local data
+	data=$(swaymsg -t get_overview_targets \
+		"{\"scope\":\"all\",\"action\":\"$action\"}") || exit 1
 
 	local ids=() names=() cats=() focused=()
 
@@ -85,18 +91,13 @@ main() {
 		names+=("$display")
 		cats+=("$cat")
 		focused+=("$is_focused")
-	done < <(echo "$tree" | jq -r '
-		.nodes[] | select(.type == "output")
-		| .nodes[] | select(.type == "workspace")
-		| .name as $ws
-		| recurse(.nodes[], .floating_nodes[])
-		| select(.type == "con" and .nodes == [])
-		| [.id, (.name // "untitled"), (.app_id // .window_properties.class // ""), .focused, $ws]
+	done < <(echo "$data" | jq -r '
+		.[] | [ (.id|tostring), (.name // "untitled"),
+		        (.app_id // ""), (.focused|tostring), (.workspace // "") ]
 		| @tsv
 	')
 
 	local line_to_id=() focus_line=-1 line=0
-
 	local tmpf
 	tmpf=$(mktemp /tmp/cm-swirl-XXXXXX)
 	trap '[[ -n "${tmpf-}" ]] && rm -f "$tmpf"' EXIT
