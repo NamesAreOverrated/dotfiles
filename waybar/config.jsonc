@@ -11,7 +11,7 @@
   "modules-center": ["privacy"],
   "modules-right": [ "tray", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "custom/indicators": {
-    "exec": "cm-indicators",
+    "exec": "cm-swirl status",
     "interval": 1,
     "format": "{}",
     "return-type": "json",

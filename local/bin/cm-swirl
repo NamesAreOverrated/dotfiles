@@ -61,11 +61,21 @@ get_icon() {
 }
 
 main() {
+	if [[ "${1:-}" == "status" ]]; then
+		df=$(swaymsg -t get_workspaces | jq -r '.[] | select(.focused == true) | .default_float' | head -n1)
+		if [[ "$df" == "true" ]]; then
+			printf '{"text":"󰖲"}\n'
+		else
+			printf '{}\n'
+		fi
+		exit 0
+	fi
+
 	local action="pull"
 	for arg in "$@"; do
 		case "$arg" in
 			pull|swap|focus) action="$arg" ;;
-			*) echo "Usage: cm-swirl [pull|swap|focus]" >&2; exit 1 ;;
+			*) echo "Usage: cm-swirl [pull|swap|focus|status]" >&2; exit 1 ;;
 		esac
 	done
 
