@@ -47,7 +47,7 @@ EOF
 
         if has swayidle && has powerctl; then
             echo "exec swayidle -w \\"
-            echo "    timeout 300 'powerctl lock' \\"
+            echo "    timeout 300 'powerctl lock &' \\"
             echo "    timeout 600 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"' \\"
             echo "    before-sleep 'powerctl lock'"
         fi

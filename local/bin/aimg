@@ -1,0 +1,157 @@
+#!/bin/sh
+set -eu
+
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+APP_DIR="$DATA_HOME/applications"
+ICON_DIR=/usr/share/icons/hicolor
+MANIFEST="$DATA_HOME/aimg.manifest"
+
+run_as_root() {
+	if [ "$(id -u)" -eq 0 ]; then
+		"$@"
+	elif command -v sudo >/dev/null 2>&1; then
+		sudo "$@"
+	else
+		return 1
+	fi
+}
+
+_aimg_tmp=""
+cleanup() {
+	[ -n "$_aimg_tmp" ] && rm -rf "$_aimg_tmp"
+}
+trap cleanup EXIT
+
+usage() {
+	cat <<'EOF'
+usage: aimg install <appimage> [--extract-run]
+       aimg remove <id>
+EOF
+}
+
+find_bundle_desktop() {
+	find "$1" -name '*.desktop' 2>/dev/null | head -n1
+}
+
+install_icon() {
+	local icon="$1" root="$2" id="$3"
+	local ico size ext found=false sys_ok=true
+
+	while IFS= read -r ico; do
+		[ -n "$ico" ] || continue
+		size=$(basename "$(dirname "$(dirname "$ico")")")
+		ext="${ico##*.}"
+		if ! run_as_root sh -c 'mkdir -p "$1/apps" && cp -f "$2" "$1/apps/"' sh \
+			"$ICON_DIR/$size" "$ico" 2>/dev/null; then
+			sys_ok=false
+		fi
+		found=true
+	done <<EOF
+$(find "$root" -path "*/icons/hicolor/*/apps/$icon.*" \( -name '*.png' -o -name '*.svg' \) 2>/dev/null)
+EOF
+	$found || return 1
+
+	if ! $sys_ok; then
+		echo "warning: could not install system icon (sudo/root needed)" >&2
+	fi
+
+	printf '%s\t%s\n' "$id" "$icon" >> "$MANIFEST"
+}
+
+cmd_install() {
+	local appimage="$1" extract_run=false
+	[ "${2:-}" = "--extract-run" ] && extract_run=true
+
+	[ -f "$appimage" ] || { echo "error: not found: $appimage" >&2; exit 1; }
+	[ -x "$appimage" ] || { echo "error: not executable: $appimage" >&2; exit 1; }
+
+	local tmp root desk name icon categories comment id exec_cmd
+	_aimg_tmp="$(mktemp -d)"
+	tmp="$_aimg_tmp"
+
+	( cd "$tmp" && "$appimage" --appimage-extract >/dev/null )
+	root="$tmp/squashfs-root"
+	[ -d "$root" ] || { echo "error: extraction failed for $appimage" >&2; exit 1; }
+
+	desk="$(find_bundle_desktop "$root")"
+	if [ -n "$desk" ]; then
+		name=$(sed -n 's/^Name=//p' "$desk" | head -n1)
+		icon=$(sed -n 's/^Icon=//p' "$desk" | head -n1)
+		categories=$(sed -n 's/^Categories=//p' "$desk" | head -n1)
+		comment=$(sed -n 's/^Comment=//p' "$desk" | head -n1)
+		id=$(basename "$desk" .desktop)
+	else
+		id=$(basename "$appimage")
+		name=$id
+		icon=""
+		categories=""
+		comment=""
+	fi
+
+	[ -n "$name" ] || name=$(basename "$appimage")
+	id=$(printf '%s' "$id" | tr '[:upper:] ' '[:lower:]-' | sed 's/[^a-z0-9.+-]/-/g')
+
+	if $extract_run; then
+		exec_cmd="$appimage --appimage-extract-and-run"
+	else
+		exec_cmd="$appimage"
+	fi
+
+	if [ -n "$icon" ] && ! install_icon "$icon" "$root" "$id"; then
+		echo "warning: icon '$icon' not found inside appimage" >&2
+	fi
+
+	mkdir -p "$APP_DIR"
+	{
+		echo "[Desktop Entry]"
+		echo "Type=Application"
+		echo "Name=$name"
+		[ -n "$comment" ] && echo "Comment=$comment"
+		echo "Exec=$exec_cmd"
+		[ -n "$icon" ] && echo "Icon=$icon"
+		[ -n "$categories" ] && echo "Categories=$categories"
+		echo "Terminal=false"
+	} > "$APP_DIR/$id.desktop"
+
+	if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+		run_as_root gtk-update-icon-cache -f "$ICON_DIR" >/dev/null 2>&1 || true
+	fi
+
+	echo "integrated '$name' -> $APP_DIR/$id.desktop"
+}
+
+cmd_remove() {
+	local id="$1"
+	[ -n "$id" ] || { usage; exit 1; }
+
+	rm -f "$APP_DIR/$id.desktop"
+
+	if [ -f "$MANIFEST" ]; then
+		local icon
+		icon=$(awk -F'\t' -v id="$id" '$1==id{print $2; exit}' "$MANIFEST")
+		if [ -n "$icon" ]; then
+			run_as_root find "$ICON_DIR" -path "*/apps/*" -name "$icon.*" -delete 2>/dev/null || true
+			sed -i "/^$id\t/d" "$MANIFEST"
+		fi
+	fi
+
+	if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+		run_as_root gtk-update-icon-cache -f "$ICON_DIR" >/dev/null 2>&1 || true
+	fi
+
+	echo "removed '$id'"
+}
+
+case "${1:-}" in
+install)
+	[ -n "${2:-}" ] || { usage; exit 1; }
+	cmd_install "$2" "${3:-}"
+	;;
+remove)
+	[ -n "${2:-}" ] || { usage; exit 1; }
+	cmd_remove "$2"
+	;;
+*)
+	usage
+	;;
+esac

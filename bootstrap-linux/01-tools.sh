@@ -18,3 +18,6 @@ if has mako; then
 else
     echo "  Skipping (mako not found)"
 fi
+
+echo "Linking AppImage installing helper..."
+link "$DOTFILES/local/bin/aimg" "$HOME/.local/bin/aimg"
