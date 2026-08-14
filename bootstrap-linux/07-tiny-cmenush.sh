@@ -82,7 +82,7 @@ link "$DOTFILES/local/bin/cm-alias" "$HOME/.local/bin/cm-alias"
 link "$DOTFILES/local/bin/config-env" "$HOME/.local/bin/config-env"
 
 echo "Linking xdg-desktop-portal-wlr selector config..."
-link "$DOTFILES/xdg-desktop-portal-wlr" "$HOME/.config/"
+link "$DOTFILES/xdg-desktop-portal-wlr" "$HOME/.config/xdg-desktop-portal-wlr"
 
 # ── Proxy config ──
 

@@ -87,10 +87,16 @@ if [ "$MODE" = "fish" ]; then
   echo "set -gx TERMINAL \"$TERMINAL\""
   echo "set -gx EDITOR \"$EDITOR\""
   echo "set -gx SUDO_EDITOR \"$SUDO_EDITOR\""
+
+  echo "set -gx QT_QPA_PLATFORMTHEME qt5ct"
+  echo "set -gx QT_STYLE_OVERRIDE Fusion"
 else
   echo "export TERMINAL=\"$TERMINAL\""
   echo "export EDITOR=\"$EDITOR\""
   echo "export SUDO_EDITOR=\"$SUDO_EDITOR\""
+
+  echo "export QT_QPA_PLATFORMTHEME=qt5ct"
+  echo "export QT_STYLE_OVERRIDE=Fusion"
 fi
 path_line
 proxy_lines
