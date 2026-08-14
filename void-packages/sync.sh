@@ -28,8 +28,8 @@ done
 
 echo "==> ensure common/shlibs has the wlroots-vfx soname"
 grep -q '^libwlroots-0.21-vfx.so ' "$VP/common/shlibs" 2>/dev/null || {
-    echo "    adding: libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_1"
-    echo 'libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_1' >> "$VP/common/shlibs"
+    echo "    adding: libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_2"
+    echo 'libwlroots-0.21-vfx.so wlroots-vfx-0.21.0_2' >> "$VP/common/shlibs"
 }
 
 echo "==> building (order matters)"
