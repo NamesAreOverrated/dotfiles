@@ -19,3 +19,15 @@ if [ -d "$CURSOR_SRC" ]; then
     cp -r "$CURSOR_SRC" "$HOME/.local/share/icons/"
     echo "  Cursor theme installed"
 fi
+
+echo "Installing GTK themes..."
+THEMES_SRC="$DOTFILES/local/share/themes"
+if [ -d "$THEMES_SRC" ]; then
+    mkdir -p "$HOME/.local/share/themes"
+    for theme in "$THEMES_SRC"/*; do
+        [ -d "$theme" ] || continue
+        link "$theme" "$HOME/.local/share/themes/$(basename "$theme")"
+    done
+else
+    echo "  Skipping (themes dir not found)"
+fi
