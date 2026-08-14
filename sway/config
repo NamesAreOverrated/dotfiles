@@ -52,6 +52,10 @@ bindsym --whole-window $mod+BTN_MIDDLE minimize hide
 bindsym --whole-window $mod+Shift+BTN_MIDDLE minimize overview
 
 
+# Maximize (toggle) the focused window
+bindsym $mod+Shift+f maximize
+
+
 
 #default_border none
 #default_floating_border none
