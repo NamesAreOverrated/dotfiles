@@ -64,9 +64,9 @@ main() {
 	if [[ "${1:-}" == "status" ]]; then
 		df=$(swaymsg -t get_workspaces | jq -r '.[] | select(.focused == true) | .default_float' | head -n1)
 		if [[ "$df" == "true" ]]; then
-			printf '{"text":"󰖲"}\n'
+			printf '{"text":"󰖲","tooltip":"floating"}\n'
 		else
-			printf '{}\n'
+			printf '{"text":"󰾍","tooltip":"grid"}\n'
 		fi
 		exit 0
 	fi

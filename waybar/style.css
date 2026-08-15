@@ -19,6 +19,7 @@ window#waybar {
   padding: 0px 8px;
 }
 
+#idle_inhibitor,
 #windows,
 #tray,
 #resources,
@@ -69,7 +70,7 @@ window#waybar {
 
 
 #workspaces button {
-  padding: 0 2px;
+  /* padding: 0 2px; */
   /* margin: 0; */
   /* color: #585b70; */
   color: #cdd6f4;
@@ -138,22 +139,24 @@ window#waybar {
   background: #f38ba8;
 }
 
-#custom-lyric            { color: #cdd6f4; }
-#custom-indicators       { color: #94e2d5; }
-#bluetooth               { color: #89b4fa; }
-#bluetooth.off           { color: #585b70; }
-#bluetooth.disabled      { color: #585b70; }
-#network                 { color: #cba6f7; }
-#network.disconnected    { color: #585b70; }
-#disk                    { color: #f5c2e7; }
-#pulseaudio.output       { color: #94e2d5; }
-#pulseaudio.input        { color: #89dceb; }
-#cpu                     { color: #a6e3a1; }
-#memory                  { color: #f9e2af; }
-#clock                   { color: #b4befe; }
-#privacy-item.audio-out  { color: #a6e3a1; }
-#privacy-item.audio-in   { color: #fab387; }
-#privacy-item.screenshare{ color: #f38ba8; }
+#idle_inhibitor.activated   { color: #f38ba8; }
+#idle_inhibitor.deactivated { color: #f2cdcd; }
+#custom-lyric               { color: #cdd6f4; }
+#custom-indicators          { color: #94e2d5; }
+#bluetooth                  { color: #89b4fa; }
+#bluetooth.off              { color: #585b70; }
+#bluetooth.disabled         { color: #585b70; }
+#network                    { color: #cba6f7; }
+#network.disconnected       { color: #585b70; }
+#disk                       { color: #f5c2e7; }
+#pulseaudio.output          { color: #94e2d5; }
+#pulseaudio.input           { color: #89dceb; }
+#cpu                        { color: #a6e3a1; }
+#memory                     { color: #f9e2af; }
+#clock                      { color: #b4befe; }
+#privacy-item.audio-out     { color: #a6e3a1; }
+#privacy-item.audio-in      { color: #fab387; }
+#privacy-item.screenshare   { color: #f38ba8; }
 
 #custom-containers { color: #fab387; }
 
@@ -193,6 +196,10 @@ tooltip {
   border: 1px solid #f5c2e7;
   border-radius: 6px;
 }
+tooltip box.horizontal {
+  margin: 0px 2px;
+}
+
 tooltip label {
   color: #cdd6f4;
   padding: 4px 6px;

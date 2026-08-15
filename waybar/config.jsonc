@@ -9,21 +9,29 @@
   "modules-left": ["group/windows", "mpris", "custom/lyric"],
 
   "modules-center": ["privacy"],
-  "modules-right": [ "tray", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
+  "modules-right": [ "tray","idle_inhibitor", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "custom/indicators": {
     "exec": "cm-swirl status",
     "interval": 1,
     "format": "{}",
     "return-type": "json",
     "on-click": "swaymsg default_float toggle",
-    "tooltip": false
+    "tooltip": true
   },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+        "activated": "󰅶",
+        "deactivated": "󰾪"
+    }
+},
   "mpris": {
     "format": "󰎈  {dynamic}",
     "format-paused": "󰏤  {dynamic}",
     "tooltip-format": "󰎈  {title}\n󰻋  {artist}\n󰉊  {album}\n⏱  {position}/{length}\n  {player}",
     "dynamic-order": ["title", "artist", "position", "length"],
-    "interval": 1
+    "interval": 1,
+    "max-length": 50,
   },
   "custom/lyric": {
     "interval":2,
