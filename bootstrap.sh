@@ -83,4 +83,9 @@ cat << EOF
 
    (Or run them before sway via your init/session manager.)
 
+5. For gtk-theme-settings run:
+     gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Pink-Dark'
+     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+     gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'
+
 EOF
