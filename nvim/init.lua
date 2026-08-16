@@ -232,9 +232,12 @@ do
 			for _, item in ipairs(list) do
 				table.insert(items, { label = "Skip: " .. item.name, bufnr = item.bufnr })
 			end
-			vim.ui.select(items, { prompt = "Modified buffers:", format_item = function(i)
-				return i.label
-			end }, function(choice)
+			vim.ui.select(items, {
+				prompt = "Modified buffers:",
+				format_item = function(i)
+					return i.label
+				end,
+			}, function(choice)
 				if choice == nil then
 					return
 				end
@@ -393,19 +396,23 @@ do
 								vim.api.nvim_win_close(win, true)
 							end
 							if open_mode == "prompt" then
-								vim.ui.select({ "Open", "Open (vsplit)", "Open (hsplit)", "Copy path" }, { prompt = "Open file:" }, function(choice)
-									if choice == nil then
-										return
-									elseif choice == "Open (vsplit)" then
-										vim.cmd("vsplit")
-									elseif choice == "Open (hsplit)" then
-										vim.cmd("split")
-									elseif choice == "Copy path" then
-										vim.fn.setreg("+", path)
-										return
+								vim.ui.select(
+									{ "Open", "Open (vsplit)", "Open (hsplit)", "Copy path" },
+									{ prompt = "Open file:" },
+									function(choice)
+										if choice == nil then
+											return
+										elseif choice == "Open (vsplit)" then
+											vim.cmd("vsplit")
+										elseif choice == "Open (hsplit)" then
+											vim.cmd("split")
+										elseif choice == "Copy path" then
+											vim.fn.setreg("+", path)
+											return
+										end
+										open_picked(path)
 									end
-									open_picked(path)
-								end)
+								)
 							else
 								open_picked(path)
 							end
@@ -459,13 +466,17 @@ do
 	end
 
 	local function index_add(project)
-		local projects = vim.tbl_filter(function(p) return p ~= project end, index_load())
+		local projects = vim.tbl_filter(function(p)
+			return p ~= project
+		end, index_load())
 		table.insert(projects, 1, project)
 		index_save(projects)
 	end
 
 	local function index_remove(project)
-		index_save(vim.tbl_filter(function(p) return p ~= project end, index_load()))
+		index_save(vim.tbl_filter(function(p)
+			return p ~= project
+		end, index_load()))
 	end
 
 	-- The project dir that owns a session dir like `<project>/.nvim`.
@@ -554,7 +565,9 @@ do
 			end
 		end
 		local args = vim.fn.argv()
-		local non_term = vim.tbl_filter(function(a) return a:sub(1, 7) ~= "term://" end, args)
+		local non_term = vim.tbl_filter(function(a)
+			return a:sub(1, 7) ~= "term://"
+		end, args)
 		if #non_term ~= #args then
 			vim.cmd("%argdel")
 			for _, a in ipairs(non_term) do
@@ -582,27 +595,27 @@ do
 				active_session_dir = session_dir()
 			end
 
-		local sf = active_session_dir .. "/session.vim"
-		local startup_buf = vim.api.nvim_get_current_buf()
-		if dir_arg and vim.fn.filereadable(sf) == 1 then
-			session_active = true
-			index_add(project_of(active_session_dir))
-			vim.schedule(function()
-				vim.cmd("source " .. vim.fn.fnameescape(sf))
-				cleanup_after_session_load(startup_buf, dir_arg)
-			end)
-		elseif dir_arg then
-			vim.schedule(function()
-				open_termfilebrowser("plain", false, dir_arg, { root = dir_arg })
-			end)
-		elseif vim.fn.filereadable(sf) == 1 and vim.fn.argc() == 0 then
-			session_active = true
-			index_add(project_of(active_session_dir))
-			vim.schedule(function()
-				vim.cmd("source " .. vim.fn.fnameescape(sf))
-				cleanup_after_session_load(startup_buf, nil)
-			end)
-		end
+			local sf = active_session_dir .. "/session.vim"
+			local startup_buf = vim.api.nvim_get_current_buf()
+			if dir_arg and vim.fn.filereadable(sf) == 1 then
+				session_active = true
+				index_add(project_of(active_session_dir))
+				vim.schedule(function()
+					vim.cmd("source " .. vim.fn.fnameescape(sf))
+					cleanup_after_session_load(startup_buf, dir_arg)
+				end)
+			elseif dir_arg then
+				vim.schedule(function()
+					open_termfilebrowser("plain", false, dir_arg, { root = dir_arg })
+				end)
+			elseif vim.fn.filereadable(sf) == 1 and vim.fn.argc() == 0 then
+				session_active = true
+				index_add(project_of(active_session_dir))
+				vim.schedule(function()
+					vim.cmd("source " .. vim.fn.fnameescape(sf))
+					cleanup_after_session_load(startup_buf, nil)
+				end)
+			end
 		end,
 	})
 
@@ -803,10 +816,7 @@ do
 		end
 
 		vim.api.nvim_create_autocmd("VimResized", { callback = rescale_windows })
-		vim.api.nvim_create_autocmd(
-			{ "WinNew", "WinClosed", "WinResized", "SafeState" },
-			{ callback = snapshot }
-		)
+		vim.api.nvim_create_autocmd({ "WinNew", "WinClosed", "WinResized", "SafeState" }, { callback = snapshot })
 		snapshot()
 	end
 
@@ -1603,6 +1613,11 @@ local handler = function(virtText, lnum, endLnum, width, truncate)
 	return newVirtText
 end
 do
+	vim.opt.expandtab = true
+	vim.opt.smartindent = true
+	vim.opt.shiftwidth = 4
+	vim.opt.tabstop = 4
+
 	vim.pack.add({ gh("kevinhwang91/nvim-ufo") })
 	vim.pack.add({ gh("kevinhwang91/promise-async") })
 

@@ -1,0 +1,45 @@
+# C#-inspired ClangFormat style (Allman + readable spacing)
+
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Braces: C#-like (Allman style)
+BreakBeforeBraces: Allman
+
+# Function / control spacing
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+
+# Pointer/reference alignment (more C#-neutral feel)
+PointerAlignment: Right
+
+# Keep statements readable and separated
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+
+# Class formatting
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 4
+
+# Namespace formatting (common in modern C++ style)
+NamespaceIndentation: All
+
+# Column limits (C# style tends to be flexible, not cramped)
+ColumnLimit: 100
+
+# Spacing tweaks
+SpaceBeforeCpp11BracedList: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeCtorInitializerColon: true
+
+# Preprocessor (clean separation)
+IndentPPDirectives: None
+
+# Include sorting (nice and tidy like C# using statements)
+SortIncludes: true
