@@ -60,22 +60,47 @@ get_icon() {
 	esac
 }
 
-main() {
-	if [[ "${1:-}" == "status" ]]; then
-		df=$(swaymsg -t get_workspaces | jq -r '.[] | select(.focused == true) | .default_float' | head -n1)
-		if [[ "$df" == "true" ]]; then
-			printf '{"text":"󰖲","tooltip":"floating"}\n'
-		else
-			printf '{"text":"󰾍","tooltip":"grid"}\n'
-		fi
-		exit 0
+current_status() {
+	local out="${WAYBAR_OUTPUT_NAME:-}"
+	local df ws ws_out
+	if [[ -n "$out" ]]; then
+		read -r df ws ws_out < <(swaymsg -t get_workspaces | jq -r --arg out "$out" '
+			[ .[] | select(.visible == true and .output == $out) ][0]
+			| [ (.default_float|tostring), .name, .output ] | @tsv')
 	fi
+	if [[ -z "${df-}" ]]; then
+		read -r df ws ws_out < <(swaymsg -t get_workspaces | jq -r '
+			[ .[] | select(.focused == true) ][0]
+			| [ (.default_float|tostring), .name, .output ] | @tsv')
+	fi
+	if [[ "$df" == "true" ]]; then
+		printf '{"text":"󰖲","tooltip":"%s · floating (%s)"}\n' "$ws" "${ws_out:-?}"
+	else
+		printf '{"text":"󰾍","tooltip":"%s · grid (%s)"}\n' "$ws" "${ws_out:-?}"
+	fi
+}
+
+main() {
+	case "${1:-}" in
+		status)
+			current_status
+			exit 0
+			;;
+		watch)
+			trap 'exit 0' TERM INT
+			current_status
+			swaymsg -t SUBSCRIBE -m '["workspace"]' | while IFS= read -r _event; do
+				current_status
+			done
+			exit 0
+			;;
+	esac
 
 	local action="pull"
 	for arg in "$@"; do
 		case "$arg" in
 			pull|swap|focus) action="$arg" ;;
-			*) echo "Usage: cm-swirl [pull|swap|focus|status]" >&2; exit 1 ;;
+			*) echo "Usage: cm-swirl [pull|swap|focus|status|watch]" >&2; exit 1 ;;
 		esac
 	done
 

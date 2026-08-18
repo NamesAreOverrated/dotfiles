@@ -11,10 +11,11 @@
   "modules-center": ["privacy"],
   "modules-right": [ "tray","idle_inhibitor", "group/resources" ,  "group/audio","bluetooth", "network",  "clock", "group/power-actions"],
   "custom/indicators": {
-    "exec": "cm-swirl status",
-    "interval": 1,
+    "exec": "cm-swirl watch",
     "format": "{}",
     "return-type": "json",
+    "exec-on-event": false,
+    "restart-interval": 10,
     "on-click": "swaymsg default_float toggle",
     "tooltip": true
   },
