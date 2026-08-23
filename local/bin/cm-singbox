@@ -27,19 +27,7 @@ sb_pid() {
 api_get() { curl -s --noproxy '*' --max-time 2 -f "$API_BASE$1" 2>/dev/null; }
 
 sb_config_jq() {
-  awk '
-    {
-      s=$0; out=""; inq=0; n=length(s)
-      for (i=1;i<=n;i++) {
-        c=substr(s,i,1)
-        if (c=="\\" && inq) { i++; if (i<=n) out=out substr(s,i,1); continue }
-        if (c=="\"") inq=!inq
-        if (c=="/" && !inq && i<n && substr(s,i+1,1)=="/") break
-        out=out c
-      }
-      print out
-    }
-  ' "$SB_CONFIG" | jq "$@"
+  sing-box format -c "$SB_CONFIG" 2>/dev/null | jq "$@"
 }
 
 current_node() {

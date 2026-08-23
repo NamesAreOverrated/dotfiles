@@ -1450,6 +1450,8 @@ do
 
 	---@type table<string, vim.lsp.Config>
 	local servers = {
+		basedpyright = {},
+		ruff = {},
 		clangd = {},
 		-- gopls = {},
 		-- pyright = {},
@@ -1517,6 +1519,7 @@ do
 
 	-- Remove servers incompatible with musl
 	if is_musl() then
+		servers.rust_analyzer = nil
 		servers.roslyn_ls = nil
 		servers.lua_ls = nil
 	end
