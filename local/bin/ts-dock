@@ -56,23 +56,34 @@ first_cat() {
     done
 }
 
-# resolve_icon only searches apps/; extend to actions/ and friends so UI
-# icons like go-previous / start-here resolve too.
+# resolve_icon only searches apps/; extend to actions/, panel/, etc.
+# Runs its own theme-dir walk: resolve_icon builds its cache in a
+# command-substitution subshell, and cm-launcher's get_theme_dirs has a
+# one-shot _PROCESSED_THEMES guard — so we reset it and walk fresh.
 any_icon() {
     local p
     p=$(resolve_icon "$1" 2>/dev/null || true)
     [[ -n "$p" ]] && { printf '%s' "$p"; return; }
-    local td sub
+
+    local dirs=() td sub ext s
+    local sizes="512 256 128 96 64 48 32 24 22 16"
+    _PROCESSED_THEMES=""
     while IFS= read -r td; do
-        for sub in actions apps categories status; do
+        [[ -n "$td" ]] && dirs+=("$td")
+    done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
+
+    for td in ${dirs[@]+"${dirs[@]}"}; do
+        for sub in apps actions panel categories status devices places emblems legacy/apps; do
             for ext in svg png; do
-                p="$td/$sub/$1.$ext"
+                p="$td/scalable/$sub/$1.$ext"
                 [[ -f "$p" ]] && { printf '%s' "$p"; return; }
+                for s in $sizes; do
+                    p="$td/${s}x${s}/$sub/$1.$ext"
+                    [[ -f "$p" ]] && { printf '%s' "$p"; return; }
+                done
             done
         done
-        p="$td/scalable/actions/$1.svg"
-        [[ -f "$p" ]] && { printf '%s' "$p"; return; }
-    done < <(get_theme_dirs "$(get_icon_theme)")
+    done
 }
 
 # ── Scan apps into category buckets ──

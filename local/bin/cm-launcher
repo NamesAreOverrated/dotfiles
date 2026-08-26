@@ -31,7 +31,7 @@ get_icon_theme() {
     t=$(sed -n 's/^gtk-icon-theme-name=\s*//p' "$f" 2>/dev/null | head -1)
     [[ -n "$t" ]] && { echo "$t"; return; }
   done
-  for theme in Pop Cosmic Adwaita hicolor; do
+  for theme in Papirus-Dark Papirus Pop Cosmic Adwaita hicolor; do
     for base in "$HOME/.icons" /usr/share/icons /usr/local/share/icons; do
       [[ -d "$base/$theme" ]] && { echo "$theme"; return; }
     done

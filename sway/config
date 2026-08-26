@@ -3,7 +3,7 @@
 # env 
 env XDG_CURRENT_DESKTOP sway
 # dbus update
-exec dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=sway
+exec dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=sway GTK_ICON_THEME XCURSOR_THEME XCURSOR_SIZE
 
 exec_always {
     gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Pink-Dark'
@@ -30,6 +30,13 @@ corner_radius 6
 shadow enabled yes
 shadow blur 8
 shadow opacity 0.15
+
+# Auto-hide dock: cursor near bottom edge spawns tiny-strip, leaving hides it
+exec-range no-motion global bottom 30 sh -c 'pgrep -x tiny-strip >/dev/null || setsid ts-dock >/dev/null 2>&1 &'
+exec-range-exit no-motion global bottom 30 pkill -x tiny-strip
+
+# Edge-triggered commands (cursor enters/exits zone near output edges)
+# exec-range no-motion global bottom 30 pkill -USR1 waybar
 shadow color #F5C2E7
 
 opacity 0.95
