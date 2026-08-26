@@ -153,17 +153,21 @@ scan_apps() {
     CAT_PATHS=()
     CAT_COUNT=()
     local sep=$'\x1f'
-    while IFS="$sep" read -r id path name icon_path categories actions; do
+    while IFS="$sep" read -r id path name icon icon_path categories actions; do
         [[ -z "$id" ]] && continue
         local key
         key=$(first_cat "$categories")
         [[ -n "$key" ]] || key="___other___"
+        # fallback: if tiny-query didn't resolve icon_path, try raw Icon=
+        if [[ -z "$icon_path" && -n "$icon" ]]; then
+            icon_path=$(tiny-query icon "$icon" 2>/dev/null || true)
+        fi
         # sidecar icon override: foo.desktop.png next to foo.desktop
         [[ -f "$path.png" ]] && icon_path="$path.png"
         local rec="$path"$'\x1f'"$name"$'\x1f'"$icon_path"$'\x1f'"$id"$'\x1f'"$actions"
         CAT_PATHS[$key]+="$rec"$'\n'
         CAT_COUNT[$key]=$(( ${CAT_COUNT[$key]:-0} + 1 ))
-    done < <(tiny-query scan 'id|path|name|icon_path|categories|actions' --dir "$PINS_DIR" --sep $'\x1f' 2>/dev/null || true)
+    done < <(tiny-query scan 'id|path|name|icon|icon_path|categories|actions' --dir "$PINS_DIR" --sep $'\x1f' 2>/dev/null || true)
 }
 
 json_escape() { sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
