@@ -6,12 +6,16 @@
 # wins; unmatched apps land in an auto "Other" group), renders the root
 # dock as [launcher][category folders...][Other] with item counts in the
 # tooltips, and swaps to a per-category subdock (return cell on top) when
-# a folder is clicked. App picks launch via cm-launcher semantics.
+# a folder is clicked. App picks launch via tiny-query + exec_to_argv.
 set -uo pipefail
 
-source "${HOME}/.local/bin/cm-launcher"
-
+command -v tiny-query >/dev/null 2>&1 || { echo "ts-dock: tiny-query not found in PATH" >&2; exit 1; }
+command -v tiny-strip >/dev/null 2>&1 || STRIP="tiny-strip"
 STRIP="${TINY_STRIP_BIN:-tiny-strip}"
+command -v "$STRIP" >/dev/null 2>&1 || { echo "ts-dock: $STRIP not found in PATH" >&2; exit 1; }
+
+eval "$(~/.local/bin/config-env 2>/dev/null || true)"
+
 LAUNCHER_ICON="start-here"
 OTHER_ICON="applications-other"
 BACK_ICON="go-previous"
@@ -56,34 +60,89 @@ first_cat() {
     done
 }
 
-# resolve_icon only searches apps/; extend to actions/, panel/, etc.
-# Runs its own theme-dir walk: resolve_icon builds its cache in a
-# command-substitution subshell, and cm-launcher's get_theme_dirs has a
-# one-shot _PROCESSED_THEMES guard — so we reset it and walk fresh.
-any_icon() {
-    local p
-    p=$(resolve_icon "$1" 2>/dev/null || true)
-    [[ -n "$p" ]] && { printf '%s' "$p"; return; }
+# ── Exec tokenization (from cm-launcher) ──
+exec_to_argv() {
+  local exec="$1" icon_name="$2" app_name="$3" desktop_path="$4"
+  local args=() arg="" mode="plain" i ch n
+  for ((i=0; i<${#exec}; i++)); do
+    ch="${exec:$i:1}"
+    if [[ "$ch" == '%' && $((i+1)) -lt ${#exec} ]]; then
+      n="${exec:$((i+1)):1}"
+      case "$n" in
+        %) arg+="%"; i=$((i+1)) ;;
+        i)
+          if [[ -n "$icon_name" ]]; then
+            [[ -n "$arg" ]] && { args+=("$arg"); arg=""; }
+            args+=("--icon")
+            arg="$icon_name"
+          fi
+          i=$((i+1)) ;;
+        c) arg+="$app_name"; i=$((i+1)) ;;
+        k) arg+="$desktop_path"; i=$((i+1)) ;;
+        [fFuUdDnNvVm]) i=$((i+1)) ;;
+        *) arg+="$ch$n"; i=$((i+1)) ;;
+      esac
+      continue
+    fi
+    case "$mode" in
+      squote)
+        if [[ "$ch" == "'" ]]; then mode="plain"
+        else arg+="$ch"; fi
+        ;;
+      dquote)
+        if [[ "$ch" == '"' ]]; then
+          mode="plain"
+        elif [[ "$ch" == '\' && $((i+1)) -lt ${#exec} ]]; then
+          n="${exec:$((i+1)):1}"
+          case "$n" in
+            '"'|'\') arg+="$n"; i=$((i+1)) ;;
+            *) arg+="$ch" ;;
+          esac
+        else
+          arg+="$ch"
+        fi
+        ;;
+      plain)
+        if [[ "$ch" == '\' && $((i+1)) -lt ${#exec} ]]; then
+          n="${exec:$((i+1)):1}"
+          case "$n" in
+            s|' ') arg+=" "; i=$((i+1)) ;;
+            n) arg+=$'\n'; i=$((i+1)) ;;
+            t) arg+=$'\t'; i=$((i+1)) ;;
+            '\') arg+='\'; i=$((i+1)) ;;
+            '"') arg+='"'; i=$((i+1)) ;;
+            *) arg+="$ch$n"; i=$((i+1)) ;;
+          esac
+        elif [[ "$ch" == '"' ]]; then
+          mode="dquote"
+        elif [[ "$ch" == "'" ]]; then
+          if [[ -z "$arg" ]]; then mode="squote"
+          else arg+="$ch"; fi
+        elif [[ "$ch" == ' ' ]]; then
+          [[ -n "$arg" ]] && args+=("$arg")
+          arg=""
+        else
+          arg+="$ch"
+        fi
+        ;;
+    esac
+  done
+  [[ -n "$arg" ]] && args+=("$arg")
+  [[ ${#args[@]} -gt 0 ]] && printf '%s\0' "${args[@]}"
+}
 
-    local dirs=() td sub ext s
-    local sizes="512 256 128 96 64 48 32 24 22 16"
-    _PROCESSED_THEMES=""
-    while IFS= read -r td; do
-        [[ -n "$td" ]] && dirs+=("$td")
-    done < <(get_theme_dirs "$(get_icon_theme)" | sort -u)
+launch_terminal() {
+  local term
+  term="${TERMINAL:-}"
+  [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
+  if [[ -z "$term" ]]; then
+    return 1
+  fi
+  "$term" "$@"
+}
 
-    for td in ${dirs[@]+"${dirs[@]}"}; do
-        for sub in apps actions panel categories status devices places emblems legacy/apps; do
-            for ext in svg png; do
-                p="$td/scalable/$sub/$1.$ext"
-                [[ -f "$p" ]] && { printf '%s' "$p"; return; }
-                for s in $sizes; do
-                    p="$td/${s}x${s}/$sub/$1.$ext"
-                    [[ -f "$p" ]] && { printf '%s' "$p"; return; }
-                done
-            done
-        done
-    done
+tq_icon() {
+    tiny-query icon "$1" 2>/dev/null || true
 }
 
 # ── Scan apps into category buckets ──
@@ -93,43 +152,21 @@ declare -A CAT_COUNT   # key -> number of records
 scan_apps() {
     CAT_PATHS=()
     CAT_COUNT=()
-    shopt -s nullglob
-    for file in "$PINS_DIR"/*.desktop; do
-        local parsed path tail name exec_ icon categories key rec appid ipath
-        parsed=$(parse_desktop "$file") || continue
-        path="${parsed%%|*}"; tail="${parsed#*|}"
-        name="${tail%%|*}"; tail="${tail#*|}"
-        _="${tail%%|*}"; tail="${tail#*|}"          # exec (unused)
-        icon="${tail%%|*}"
-
-        categories=$(sed -n '/^Categories=/{s/^Categories=//p;q}' "$file")
+    local sep=$'\x1f'
+    while IFS="$sep" read -r id path name icon_path categories; do
+        [[ -z "$id" ]] && continue
+        local key
         key=$(first_cat "$categories")
         [[ -n "$key" ]] || key="@other@"
-
         # sidecar icon override: foo.desktop.png next to foo.desktop
-        ipath=""
-        [[ -f "$file.png" ]] && ipath="$file.png"
-        if [[ -z "$ipath" && -n "$icon" ]]; then
-            ipath=$(resolve_icon "$icon" 2>/dev/null || true)
-        fi
-
-        appid=$(basename "$file" .desktop)
-        rec="$path"$'\x1f'"$name"$'\x1f'"$ipath"$'\x1f'"$appid"
+        [[ -f "$path.png" ]] && icon_path="$path.png"
+        local rec="$path"$'\x1f'"$name"$'\x1f'"$icon_path"$'\x1f'"$id"
         CAT_PATHS[$key]+="$rec"$'\n'
         CAT_COUNT[$key]=$(( ${CAT_COUNT[$key]:-0} + 1 ))
-    done
+    done < <(tiny-query scan 'id|path|name|icon_path|categories' --dir "$PINS_DIR" --sep $'\x1f' 2>/dev/null || true)
 }
 
 json_escape() { sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
-
-emit_app_line() {  # $1=name $2=resolved-icon-path $3=appid
-    if [[ -n "$2" ]]; then
-        printf '%s\x1f%s\x1e%s\n' "$(printf '%s' "$1" | json_escape)" \
-            "$(printf '%s' "$2" | json_escape)" "$(printf '%s' "$3" | json_escape)"
-    else
-        printf '%s\x1e%s\n' "$(printf '%s' "$1" | json_escape)" "$(printf '%s' "$3" | json_escape)"
-    fi
-}
 
 build_view() {
     kinds=(); paths=()
@@ -137,7 +174,7 @@ build_view() {
     local i key n icon_path count
 
     if [[ "$state" == root ]]; then
-        icon_path=$(any_icon "$LAUNCHER_ICON")
+        icon_path=$(tq_icon "$LAUNCHER_ICON")
         if [[ -n "$icon_path" ]]; then
             printf 'Apps\x1f%s\n' "$icon_path" >> "$pin_file"
         else
@@ -149,7 +186,7 @@ build_view() {
             key="${dict_cate[i]}"
             [[ -n "${CAT_PATHS[$key]:-}" ]] || continue
             count=${CAT_COUNT[$key]}
-            icon_path=$(any_icon "${dict_icon[i]}")
+            icon_path=$(tq_icon "${dict_icon[i]}")
             if [[ -n "$icon_path" ]]; then
                 printf '%s (%d)\x1f%s\n' "${dict_label[i]}" "$count" "$icon_path" >> "$pin_file"
             else
@@ -160,7 +197,7 @@ build_view() {
 
         if [[ -n "${CAT_PATHS[@other@]:-}" ]]; then
             count=${CAT_COUNT[@other@]}
-            icon_path=$(any_icon "$OTHER_ICON")
+            icon_path=$(tq_icon "$OTHER_ICON")
             if [[ -n "$icon_path" ]]; then
                 printf '%s (%d)\x1f%s\n' "$OTHER_LABEL" "$count" "$icon_path" >> "$pin_file"
             else
@@ -170,7 +207,7 @@ build_view() {
         fi
     else
         key="${state#cat:}"
-        icon_path=$(any_icon "$BACK_ICON")
+        icon_path=$(tq_icon "$BACK_ICON")
         if [[ -n "$icon_path" ]]; then
             printf 'Back\x1f%s\n' "$icon_path" >> "$pin_file"
         else
@@ -209,28 +246,17 @@ handle_sel() {
 
 launch() {
     local target="$1"
-    local desktop="$target"
-    if [[ "$target" != */* ]]; then
-        desktop=""
-        while IFS='' read -r dir; do
-            if [[ -f "$dir/$target.desktop" ]]; then desktop="$dir/$target.desktop"; break; fi
-        done < <(get_local_app_dirs; get_system_app_dirs)
-    fi
-    [[ -n "$desktop" ]] || {
+    local out
+    out=$(tiny-query desktop "$target" 'name|exec|icon|terminal|path' --sep $'\x1f' 2>/dev/null) || {
         notify-send "ts-dock" "No .desktop file for $target" 2>/dev/null
         return 1
     }
+    local name exec icon terminal path
+    IFS=$'\x1f' read -r name exec icon terminal path <<< "$out"
 
-    local parsed path tail name exec_ icon_name terminal args=()
-    parsed=$(parse_desktop "$desktop") || return 1
-    path="${parsed%%|*}"; tail="${parsed#*|}"
-    name="${tail%%|*}"; tail="${tail#*|}"
-    exec_="${tail%%|*}"; tail="${tail#*|}"
-    icon_name="${tail%%|*}"; tail="${tail#*|}"
-    terminal="${tail%%|*}"
-
+    local args=()
     while IFS='' read -r -d '' arg; do args+=("$arg"); done \
-        < <(exec_to_argv "$exec_" "$icon_name" "$name" "$path")
+        < <(exec_to_argv "$exec" "$icon" "$name" "$path")
     [[ ${#args[@]} -gt 0 ]] || return 1
 
     if [[ "${terminal,,}" == "true" ]]; then
@@ -241,12 +267,7 @@ launch() {
 }
 
 # ── main state machine ──
-command -v "$STRIP" >/dev/null 2>&1 || {
-    echo "ts-dock: $STRIP not found in PATH" >&2
-    exit 1
-}
-
-PINS_DIR="$(get_local_app_dirs | head -1)"
+PINS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 [[ -d "$PINS_DIR" ]] || exit 0
 
 work=$(mktemp -d)

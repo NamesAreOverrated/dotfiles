@@ -1,121 +1,23 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+command -v tiny-query >/dev/null 2>&1 || { echo "cm-launcher: tiny-query not found in PATH" >&2; exit 1; }
+
 WMENUSH="tiny-cmenush"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-LAUNCHER_CACHE="$HOME/.cache/cm-launcher.txt"
-THEME_DIRS_CACHED=()
 
-eval "$(~/.local/bin/config-env)"
+eval "$(~/.local/bin/config-env 2>/dev/null || true)"
 
-# ── App dirs ──
-get_local_app_dirs() {
-  echo "$XDG_DATA_HOME/applications"
-}
-
-get_system_app_dirs() {
-  local xdg_data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
-  IFS=':' read -ra parts <<< "$xdg_data_dirs"
-  for part in "${parts[@]}"; do
-    echo "$part/applications"
-  done
-}
-
-# ── Icon theme ──
-get_icon_theme() {
-  [[ -n "${GTK_ICON_THEME:-}" ]] && { echo "$GTK_ICON_THEME"; return; }
-  for f in "$CONFIG_DIR/gtk-3.0/settings.ini" "$CONFIG_DIR/gtk-4.0/settings.ini"; do
-    [[ -f "$f" ]] || continue
-    local t
-    t=$(sed -n 's/^gtk-icon-theme-name=\s*//p' "$f" 2>/dev/null | head -1)
-    [[ -n "$t" ]] && { echo "$t"; return; }
-  done
-  for theme in Papirus-Dark Papirus Pop Cosmic Adwaita hicolor; do
-    for base in "$HOME/.icons" /usr/share/icons /usr/local/share/icons; do
-      [[ -d "$base/$theme" ]] && { echo "$theme"; return; }
-    done
-  done
-  echo "hicolor"
-}
-
-# ── Icon theme search chain ──
-_PROCESSED_THEMES=""
-get_theme_dirs() {
-  local theme="$1" depth="${2:-0}"
-  (( depth > 8 )) && return
-  [[ "$_PROCESSED_THEMES" == *"|$theme|"* ]] && return
-  _PROCESSED_THEMES+="|$theme|"
-  local base first_match="" matched=0
-  for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
-    local dir="$base/$theme"
-    if [[ -d "$dir" ]]; then
-      echo "$dir"
-      matched=1
-      [[ -z "$first_match" ]] && first_match="$dir"
-    fi
-  done
-  if (( matched )); then
-    local inherit=""
-    while IFS='=' read -r key val; do
-      [[ "$key" == "Inherits" ]] && { inherit="${val#"${val%%[! ]*}"}"; break; }
-    done < "$first_match/index.theme" 2>/dev/null
-    if [[ -n "$inherit" ]]; then
-      local IFS=','
-      for t in $inherit; do
-        t="${t#"${t%%[! ]*}"}"; t="${t%"${t##*[! ]}"}"
-        get_theme_dirs "$t" $((depth + 1))
-      done
-    fi
-  else
-    [[ "$theme" != "hicolor" ]] && get_theme_dirs "hicolor" $((depth + 1))
+# ── Launch with terminal ──
+launch_terminal() {
+  local term
+  term="${TERMINAL:-}"
+  [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
+  if [[ -z "$term" ]]; then
+    return 1
   fi
-}
-
-# ── Resolve icon path ──
-# Caches theme dirs globally; searches largest PNG first, then SVG, then pixmaps
-resolve_icon() {
-  local name="$1"
-  [[ "$name" == /* && -f "$name" ]] && { echo "$name"; return; }
-  case "$name" in
-    *.png|*.PNG|*.svg|*.SVG|*.xpm|*.XPM|*.ico|*.ICO|*.jpg|*.jpeg|*.JPG|*.JPEG|*.gif|*.GIF|*.bmp|*.BMP) name="${name%.*}" ;;
-  esac
-  [[ ${#THEME_DIRS_CACHED[@]} -eq 0 ]] && { _PROCESSED_THEMES=""; while IFS='' read -r dir; do THEME_DIRS_CACHED+=("$dir"); done < <(get_theme_dirs "$(get_icon_theme)" | sort -u); }
-  for td in "${THEME_DIRS_CACHED[@]}"; do
-    local size p
-    for size in 512 256 128 96 64 48 32 24 16; do
-      p="$td/${size}x${size}/apps/${name}.png"
-      [[ -f "$p" ]] && { echo "$p"; return; }
-    done
-    p="$td/scalable/apps/${name}.svg"
-    [[ -f "$p" ]] && { echo "$p"; return; }
-  done
-  for base in "$HOME/.icons" "${XDG_DATA_HOME:-$HOME/.local/share}/icons" /usr/share/icons /usr/local/share/icons; do
-    [[ -d "$base" ]] || continue
-    p="$base/${name}.png"; [[ -f "$p" ]] && { echo "$p"; return; }
-    p="$base/${name}.svg"; [[ -f "$p" ]] && { echo "$p"; return; }
-  done
-  p="/usr/share/pixmaps/${name}.png";  [[ -f "$p" ]] && { echo "$p"; return; }
-  p="/usr/share/pixmaps/${name}.svg";  [[ -f "$p" ]] && { echo "$p"; return; }
-  p="/usr/share/pixmaps/${name}.xpm";  [[ -f "$p" ]] && { echo "$p"; return; }
-}
-# ── Parse a .desktop file ──
-# Returns: path|name|exec|icon|terminal|action_ids
-parse_desktop() {
-  local file="$1" name exec icon terminal nodisplay hidden actions
-  name=$(sed -n '/^Name=/{s/^Name=//p;q}' "$file" 2>/dev/null)
-  exec=$(sed -n '/^Exec=/{s/^Exec=//p;q}' "$file" 2>/dev/null)
-  icon=$(sed -n '/^Icon=/{s/^Icon=//p;q}' "$file" 2>/dev/null)
-  terminal=$(sed -n '/^Terminal=/{s/^Terminal=//p;q}' "$file" 2>/dev/null)
-  nodisplay=$(sed -n '/^NoDisplay=/{s/^NoDisplay=//p;q}' "$file" 2>/dev/null)
-  hidden=$(sed -n '/^Hidden=/{s/^Hidden=//p;q}' "$file" 2>/dev/null)
-  actions=$(sed -n '/^Actions=/{s/^Actions=//p;q}' "$file" 2>/dev/null)
-  actions="${actions%;}"
-  terminal="${terminal,,}"
-  nodisplay="${nodisplay,,}"
-  hidden="${hidden,,}"
-  [[ -z "$name" || "$nodisplay" == "true" || "$hidden" == "true" || -z "$exec" ]] && return 1
-  echo "$file|$name|$exec|$icon|$terminal|$actions"
+  "$term" "$@"
 }
 
 # ── Tokenize Exec into argv ──
@@ -190,115 +92,37 @@ exec_to_argv() {
   [[ ${#args[@]} -gt 0 ]] && printf '%s\0' "${args[@]}"
 }
 
-# ── Build cache ──
-build_cache() {
-  local tmpf dirs=()
-  tmpf=$(mktemp)
-  printf '#cm-launcher v2 theme=%s\n' "$(get_icon_theme)" >> "$tmpf"
-  mapfile -t dirs < <(get_local_app_dirs)
-  for dir in "${dirs[@]}"; do
-    [[ -d "$dir" ]] || continue
-    for file in "$dir"/*.desktop; do
-      [[ -f "$file" ]] || continue
-      local parsed
-      parsed=$(parse_desktop "$file") || continue
-      local mtime
-      mtime=$(stat -c '%Y' "$file" 2>/dev/null) || continue
-      # Pre-resolve icon path at build time
-      local _icon _rest resolved=""
-      _icon="${parsed}"; for _ in 1 2 3; do _icon="${_icon#*|}"; done
-      _rest="${_icon#*|}"; _icon="${_icon%%|*}"
-      [[ -n "$_icon" ]] && resolved=$(resolve_icon "$_icon" 2>/dev/null)
-      # Insert resolved icon after the icon field
-      local head="${parsed%%|*}"  # path
-      local t="${parsed#*|}"; head="$head|${t%%|*}"  # name
-      t="${t#*|}"; head="$head|${t%%|*}"  # exec
-      t="${t#*|}"; head="$head|${t%%|*}"  # icon
-      echo "$mtime|$head|$resolved|$_rest" >> "$tmpf"
-    done
-  done
-  mv "$tmpf" "$LAUNCHER_CACHE"
-  sed -e '1{/^#/d;}' -e 's/^[^|]*|//' "$LAUNCHER_CACHE"
-}
-
-# ── Read cache ──
-read_cache() {
-  [[ -f "$LAUNCHER_CACHE" ]] || return 1
-  local first=1
-  while IFS='' read -r line; do
-    if (( first )); then
-      first=0
-      if [[ "$line" == \#cm-launcher* ]]; then
-        [[ "${line#*theme=}" != "$(get_icon_theme)" ]] && return 1
-        continue
-      fi
-    fi
-    [[ -z "$line" ]] && continue
-    local mtime file rest
-    mtime="${line%%|*}"; rest="${line#*|}"
-    file="${rest%%|*}"; rest="${rest#*|}"
-    [[ "$(stat -c '%Y' "$file" 2>/dev/null)" != "$mtime" ]] && return 1
-    echo "$file|$rest"
-  done < "$LAUNCHER_CACHE"
-}
-
-# ── Launch with terminal ──
-launch_terminal() {
-  local term
-  term="${TERMINAL:-}"
-  [[ -z "$term" ]] && term=$(command -v foot 2>/dev/null || command -v alacritty 2>/dev/null || command -v kitty 2>/dev/null || command -v wezterm 2>/dev/null || command -v gnome-terminal 2>/dev/null || true)
-  if [[ -z "$term" ]]; then
-    return 1
-  fi
-  "$term" "$@"
-}
-
 # ── Add mode: symlink system apps ──
 do_add() {
-  local local_dir items=() paths=() dirs=()
-  local_dir=$(get_local_app_dirs | head -1)
+  local local_dir="${XDG_DATA_HOME}/applications"
   mkdir -p "$local_dir"
 
-  mapfile -t dirs < <(get_system_app_dirs)
-  for dir in "${dirs[@]}"; do
-    [[ -d "$dir" ]] || continue
-    local files=()
-    for f in "$dir"/*.desktop; do [[ -f "$f" ]] && files+=("$f"); done
-    [[ ${#files[@]} -eq 0 ]] && continue
+  local xdg_data_dirs="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+  IFS=':' read -ra parts <<< "$xdg_data_dirs"
+  local items=() paths=()
 
-    local awk_out
-    awk_out=$(awk -F= '
-      FNR == 1 {
-        if (fname != "" && name != "" && tolower(nodisp) != "true" && tolower(hidden) != "true") print name "|" icon "|" fname
-        name=""; icon=""; nodisp=""; hidden=""; fname=FILENAME
-      }
-      /^Name=/ && name == ""  { name=substr($0,6) }
-      /^Icon=/ && icon == ""  { icon=substr($0,6) }
-      /^NoDisplay=/            { nodisp=substr($0,11) }
-      /^Hidden=/               { hidden=substr($0,8) }
-      END {
-        if (name != "" && tolower(nodisp) != "true" && tolower(hidden) != "true") print name "|" icon "|" fname
-      }
-    ' "${files[@]}" 2>/dev/null) || true
-    [[ -z "$awk_out" ]] && continue
-
-    while IFS='' read -r line; do
-      local name icon file bn thumb ico_path
-      name="${line%%|*}"; line="${line#*|}"
-      icon="${line%%|*}"; file="${line#*|}"
-      bn=$(basename "$file")
+  for part in "${parts[@]}"; do
+    [[ -d "$part/applications" ]] || continue
+    while IFS=$'\x1f' read -r id path name icon icon_path categories; do
+      [[ -z "$id" ]] && continue
+      local bn
+      bn=$(basename "$path")
       [[ -f "$local_dir/$bn" ]] && continue
       local seen=0
       for p in "${paths[@]}"; do [[ "$(basename "$p")" == "$bn" ]] && seen=1 && break; done
       (( seen )) && continue
-      thumb=""
-      if [[ -n "$icon" ]]; then
-        ico_path=$(resolve_icon "$icon")
+      local thumb=""
+      if [[ -n "$icon_path" ]]; then
+        thumb="$name"$'\x1f'"$icon_path"
+      elif [[ -n "$icon" ]]; then
+        local ico_path
+        ico_path=$(tiny-query icon "$icon" 2>/dev/null || true)
         [[ -n "$ico_path" ]] && thumb="$name"$'\x1f'"$ico_path"
       fi
-      items+=("${thumb:-$name}")
-      paths+=("$file")
-    done <<< "$awk_out"
+      [[ -z "$thumb" ]] && thumb="$name"
+      items+=("$thumb")
+      paths+=("$path")
+    done < <(tiny-query scan 'id|path|name|icon|icon_path|categories' --dir "$part/applications" --sep $'\x1f' 2>/dev/null || true)
   done
 
   [[ ${#items[@]} -eq 0 ]] && return
@@ -307,34 +131,28 @@ do_add() {
   [[ -z "$selected" ]] && return
   [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
   ln -s "${paths[$selected]}" "$local_dir/"
-  build_cache > /dev/null 2>&1 || true
 }
 
 # ── Remove mode: unlink symlinked apps ──
 do_remove() {
-  local local_dir items=() paths=()
-  local_dir=$(get_local_app_dirs | head -1)
+  local local_dir="${XDG_DATA_HOME}/applications"
     [[ -d "$local_dir" ]] || { return; }
 
-  for file in "$local_dir"/*.desktop; do
-    [[ -f "$file" ]] || continue
-    [[ -L "$file" ]] || continue
-    local parsed name exec icon _path rest ico_path
-    parsed=$(parse_desktop "$file") || continue
-    _path="${parsed%%|*}"; rest="${parsed#*|}"
-    name="${rest%%|*}"; rest="${rest#*|}"
-    exec="${rest%%|*}"; rest="${rest#*|}"
-    icon="${rest%%|*}"; rest="${rest#*|}"
-
-    local indicator=""
-    local label="$name$indicator"
-    if [[ -n "$icon" ]]; then
-      ico_path=$(resolve_icon "$icon")
+  local items=() paths=()
+  while IFS=$'\x1f' read -r path name icon icon_path; do
+    [[ -z "$path" ]] && continue
+    [[ -L "$path" ]] || continue
+    local label="$name"
+    if [[ -n "$icon_path" ]]; then
+      label="$label"$'\x1f'"$icon_path"
+    elif [[ -n "$icon" ]]; then
+      local ico_path
+      ico_path=$(tiny-query icon "$icon" 2>/dev/null || true)
       [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
     fi
     items+=("$label")
-    paths+=("$file")
-  done
+    paths+=("$path")
+  done < <(tiny-query scan 'path|name|icon|icon_path' --dir "$local_dir" --all --sep $'\x1f' 2>/dev/null || true)
 
   if [[ ${#items[@]} -eq 0 ]]; then
     return
@@ -346,7 +164,6 @@ do_remove() {
   [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
 
   rm "${paths[$selected]}"
-  build_cache > /dev/null 2>&1 || true
 }
 
 # ── Show actions submenu (cm-image-style submenu) ──
@@ -355,7 +172,7 @@ show_actions_submenu() {
   local desktop_path="$1" parent_name="$2" parent_icon="$3" parent_exec="$4" parent_terminal="$5"
   local actions action_ids=()
 
-  actions=$(sed -n '/^Actions=/{s/^Actions=//p;q}' "$desktop_path" 2>/dev/null)
+  actions=$(tiny-query desktop "$desktop_path" 'actions' 2>/dev/null || true)
   actions="${actions%;}"
   [[ -z "$actions" ]] && return 1
   IFS=';' read -ra action_ids <<< "$actions"
@@ -365,7 +182,7 @@ show_actions_submenu() {
   local launch_thumb=""
   if [[ -n "$parent_icon" ]]; then
     local launch_ico
-    launch_ico=$(resolve_icon "$parent_icon")
+    launch_ico=$(tiny-query icon "$parent_icon" 2>/dev/null || true)
     [[ -n "$launch_ico" ]] && launch_thumb="Launch $parent_name"$'\x1f'"$launch_ico"
   fi
   items+=("${launch_thumb:-Launch $parent_name}")
@@ -376,6 +193,8 @@ show_actions_submenu() {
 
   for action_id in "${action_ids[@]}"; do
     [[ -z "$action_id" ]] && continue
+    # Parse the [Desktop Action xxx] group via tiny-query scan of the single file is overkill;
+    # keep the lightweight sed for action sub-groups (tiny-query only parses [Desktop Entry]).
     local a_name a_exec a_icon a_terminal ico_path thumb
     a_name=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Name=/{s/^Name=//p;q}}" "$desktop_path" 2>/dev/null)
     a_exec=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Exec=/{s/^Exec=//p;q}}" "$desktop_path" 2>/dev/null)
@@ -390,7 +209,7 @@ show_actions_submenu() {
 
     thumb=""
     if [[ -n "$a_icon" ]]; then
-      ico_path=$(resolve_icon "$a_icon")
+      ico_path=$(tiny-query icon "$a_icon" 2>/dev/null || true)
       [[ -n "$ico_path" ]] && thumb="$a_name"$'\x1f'"$ico_path"
     fi
     items+=("${thumb:-$a_name}")
@@ -423,45 +242,31 @@ show_actions_submenu() {
 
 # ── Main ──
 main() {
-  # One-time migration: invalidate old headerless cache format
-  if [[ -f "$LAUNCHER_CACHE" ]] && ! head -1 "$LAUNCHER_CACHE" | grep -q '^#cm-launcher'; then
-    rm -f "$LAUNCHER_CACHE"
-  fi
-
   local select_idx=""
 
   while true; do
-    local entries
-    entries=$(read_cache) || entries=$(build_cache)
-    local execs=() icons=() resolved_icons=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
-    while IFS='' read -r line; do
-      [[ -z "$line" ]] && continue
-      local path name exec icon resolved_icon terminal actions tail ico_path thumb
-      path="${line%%|*}"; tail="${line#*|}"
-      name="${tail%%|*}"; tail="${tail#*|}"
-      exec="${tail%%|*}"; tail="${tail#*|}"
-      icon="${tail%%|*}"; tail="${tail#*|}"
-      resolved_icon="${tail%%|*}"; tail="${tail#*|}"
-      terminal="${tail%%|*}"; tail="${tail#*|}"
-      actions="${tail%%|*}"
+    local execs=() icons=() icon_paths=() terminals=() paths=() names_list=() thumbs=() action_ids_list=()
+    while IFS=$'\x1f' read -r path name exec icon icon_path terminal actions; do
+      [[ -z "$path" ]] && continue
       paths+=("$path")
       names_list+=("$name")
       execs+=("$exec")
       icons+=("$icon")
-      resolved_icons+=("$resolved_icon")
+      icon_paths+=("$icon_path")
       terminals+=("$terminal")
       action_ids_list+=("$actions")
       local indicator=""
       [[ -n "$actions" ]] && indicator=" 󰅂"
       local label="$name$indicator"
-      if [[ -n "$resolved_icon" ]]; then
-        label="$label"$'\x1f'"$resolved_icon"
+      if [[ -n "$icon_path" ]]; then
+        label="$label"$'\x1f'"$icon_path"
       elif [[ -n "$icon" ]]; then
-        ico_path=$(resolve_icon "$icon")
+        local ico_path
+        ico_path=$(tiny-query icon "$icon" 2>/dev/null || true)
         [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
       fi
       thumbs+=("$label")
-    done <<< "$entries"
+    done < <(tiny-query scan 'path|name|exec|icon|icon_path|terminal|actions' --sep $'\x1f' 2>/dev/null || true)
 
     local add_svg="$HOME/.local/share/cm-launcher/icons/add.svg"
     local remove_svg="$HOME/.local/share/cm-launcher/icons/remove.svg"
