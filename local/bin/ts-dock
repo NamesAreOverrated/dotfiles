@@ -180,7 +180,7 @@ build_view() {
         else
             printf 'Apps\n' >> "$pin_file"
         fi
-        kinds+=("launcher")
+        kinds+=("launcher"); paths+=("")
 
         for ((i = 0; i < ${#dict_cate[@]}; i++)); do
             key="${dict_cate[i]}"
@@ -192,7 +192,7 @@ build_view() {
             else
                 printf '%s (%d)\n' "${dict_label[i]}" "$count" >> "$pin_file"
             fi
-            kinds+=("cat:$key")
+            kinds+=("cat:$key"); paths+=("")
         done
 
         if [[ -n "${CAT_PATHS[@other@]:-}" ]]; then
@@ -203,7 +203,7 @@ build_view() {
             else
                 printf '%s (%d)\n' "$OTHER_LABEL" "$count" >> "$pin_file"
             fi
-            kinds+=("cat:@other@")
+            kinds+=("cat:@other@"); paths+=("")
         fi
     else
         key="${state#cat:}"
@@ -213,7 +213,7 @@ build_view() {
         else
             printf 'Back\n' >> "$pin_file"
         fi
-        kinds+=("back")
+        kinds+=("back"); paths+=("")
 
         while IFS= read -r rec; do
             [[ -z "$rec" ]] && continue
@@ -286,7 +286,11 @@ while :; do
     rm -f "$work/cmd"
     fifo="$work/sel"
     mkfifo "$fifo"
-    "$STRIP" --dock --format i < "$pin_file" > "$fifo" &
+    if [[ "$state" == root ]]; then
+        "$STRIP" --dock --format i < "$pin_file" > "$fifo" &
+    else
+        "$STRIP" --format i < "$pin_file" > "$fifo" &
+    fi
     spid=$!
 
     TRANSITION=0
