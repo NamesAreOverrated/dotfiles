@@ -153,17 +153,17 @@ scan_apps() {
     CAT_PATHS=()
     CAT_COUNT=()
     local sep=$'\x1f'
-    while IFS="$sep" read -r id path name icon_path categories; do
+    while IFS="$sep" read -r id path name icon_path categories actions; do
         [[ -z "$id" ]] && continue
         local key
         key=$(first_cat "$categories")
-        [[ -n "$key" ]] || key="@other@"
+        [[ -n "$key" ]] || key="___other___"
         # sidecar icon override: foo.desktop.png next to foo.desktop
         [[ -f "$path.png" ]] && icon_path="$path.png"
-        local rec="$path"$'\x1f'"$name"$'\x1f'"$icon_path"$'\x1f'"$id"
+        local rec="$path"$'\x1f'"$name"$'\x1f'"$icon_path"$'\x1f'"$id"$'\x1f'"$actions"
         CAT_PATHS[$key]+="$rec"$'\n'
         CAT_COUNT[$key]=$(( ${CAT_COUNT[$key]:-0} + 1 ))
-    done < <(tiny-query scan 'id|path|name|icon_path|categories' --dir "$PINS_DIR" --sep $'\x1f' 2>/dev/null || true)
+    done < <(tiny-query scan 'id|path|name|icon_path|categories|actions' --dir "$PINS_DIR" --sep $'\x1f' 2>/dev/null || true)
 }
 
 json_escape() { sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
@@ -195,17 +195,17 @@ build_view() {
             kinds+=("cat:$key"); paths+=("")
         done
 
-        if [[ -n "${CAT_PATHS[@other@]:-}" ]]; then
-            count=${CAT_COUNT[@other@]}
+        if [[ -n "${CAT_PATHS[___other___]:-}" ]]; then
+            count=${CAT_COUNT[___other___]}
             icon_path=$(tq_icon "$OTHER_ICON")
             if [[ -n "$icon_path" ]]; then
                 printf '%s (%d)\x1f%s\n' "$OTHER_LABEL" "$count" "$icon_path" >> "$pin_file"
             else
                 printf '%s (%d)\n' "$OTHER_LABEL" "$count" >> "$pin_file"
             fi
-            kinds+=("cat:@other@"); paths+=("")
+            kinds+=("cat:___other___"); paths+=("")
         fi
-    else
+    elif [[ "$state" == cat:* ]]; then
         key="${state#cat:}"
         icon_path=$(tq_icon "$BACK_ICON")
         if [[ -n "$icon_path" ]]; then
@@ -213,22 +213,72 @@ build_view() {
         else
             printf 'Back\n' >> "$pin_file"
         fi
-        kinds+=("back"); paths+=("")
+        kinds+=("back"); paths+=(""); APP_ACTIONS+=("")
 
         while IFS= read -r rec; do
             [[ -z "$rec" ]] && continue
             path="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
             name="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
-            ricon="${rec%%$'\x1f'*}"; rapppid="${rec#*$'\x1f'}"
+            ricon="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
+            rapppid="${rec%%$'\x1f'*}"; actions="${rec#*$'\x1f'}"
 
             if [[ -n "$ricon" ]]; then
                 printf '%s\x1f%s\x1e%s\n' "$name" "$ricon" "$rapppid" >> "$pin_file"
             else
                 printf '%s\x1e%s\n' "$name" "$rapppid" >> "$pin_file"
             fi
+            APP_ACTIONS+=("$actions")
             kinds+=("app")
             paths+=("$path")
         done <<< "${CAT_PATHS[$key]}"
+    elif [[ "$state" == act:* ]]; then
+        local parent_path="${state#act:}"
+        icon_path=$(tq_icon "$BACK_ICON")
+        if [[ -n "$icon_path" ]]; then
+            printf 'Back\x1f%s\n' "$icon_path" >> "$pin_file"
+        else
+            printf 'Back\n' >> "$pin_file"
+        fi
+        kinds+=("back"); paths+=(""); APP_ACTIONS+=("")
+        local p_info p_name p_icon
+        p_info=$(tiny-query desktop "$parent_path" 'name|icon' --sep $'\x1f' 2>/dev/null || echo -e "|\x1f")
+        IFS=$'\x1f' read -r p_name p_icon <<< "$p_info"
+        [[ -z "$p_name" ]] && p_name=$(basename "$parent_path" .desktop)
+        local p_icon_path=""
+        [[ -n "$p_icon" ]] && p_icon_path=$(tq_icon "$p_icon")
+        if [[ -n "$p_icon_path" ]]; then
+            printf 'Launch %s\x1f%s\n' "$p_name" "$p_icon_path" >> "$pin_file"
+        else
+            printf 'Launch %s\n' "$p_name" >> "$pin_file"
+        fi
+        kinds+=("launch-act"); paths+=("$parent_path"); APP_ACTIONS+=("")
+        local actions
+        actions=$(tiny-query desktop "$parent_path" 'actions' 2>/dev/null || true)
+        actions="${actions%;}"
+        if [[ -n "$actions" ]]; then
+            IFS=';' read -ra action_ids <<< "$actions"
+            for action_id in "${action_ids[@]}"; do
+                [[ -z "$action_id" ]] && continue
+                local a_out
+                a_out=$(tiny-query action "$parent_path" "$action_id" 'name|exec|icon|terminal|icon_path' --sep $'\x1f' 2>/dev/null || true)
+                [[ -z "$a_out" ]] && continue
+                IFS=$'\x1f' read -r a_name a_exec a_icon a_terminal a_icon_path <<< "$a_out"
+                [[ -z "$a_exec" ]] && continue
+                [[ -z "$a_name" ]] && a_name="$action_id"
+                local thumb=""
+                if [[ -n "$a_icon_path" ]]; then
+                    thumb="$a_name"$'\x1f'"$a_icon_path"
+                elif [[ -n "$a_icon" ]]; then
+                    local ico2
+                    ico2=$(tq_icon "$a_icon")
+                    [[ -n "$ico2" ]] && thumb="$a_name"$'\x1f'"$ico2"
+                fi
+                printf '%s\n' "${thumb:-$a_name}" >> "$pin_file"
+                kinds+=("action:$action_id")
+                paths+=("$parent_path")
+                APP_ACTIONS+=("")
+            done
+        fi
     fi
 }
 
@@ -237,11 +287,51 @@ handle_sel() {
     local idx=$1 kind
     kind="${kinds[$idx]:-}"
     case "$kind" in
-        back)      state="root";      TRANSITION=1 ;;
-        cat:*)     state="$kind";     TRANSITION=1 ;;
+        back)
+            if [[ "$state" == act:* ]]; then
+                state="$PREV_STATE"
+            else
+                state="root"
+            fi
+            TRANSITION=1
+            ;;
+        cat:*)     PREV_STATE="$state"; state="$kind"; TRANSITION=1 ;;
         launcher)  setsid cm-launcher >/dev/null 2>&1 & ;;
-        app)       launch "${paths[$idx]}" ;;
+        app)
+            local actions="${APP_ACTIONS[$idx]:-}"
+            if [[ -n "$actions" ]]; then
+                PREV_STATE="$state"
+                state="act:${paths[$idx]}"
+                TRANSITION=1
+            else
+                launch "${paths[$idx]}"
+            fi
+            ;;
+        launch-act)
+            launch "${paths[$idx]}"
+            ;;
+        action:*)
+            local action_id="${kind#action:}"
+            launch_action "${paths[$idx]}" "$action_id"
+            ;;
     esac
+}
+
+launch_action() {
+    local desktop_path="$1" action_id="$2"
+    local out
+    out=$(tiny-query action "$desktop_path" "$action_id" 'name|exec|icon|terminal|path' --sep $'\x1f' 2>/dev/null) || return 1
+    local name exec icon terminal path
+    IFS=$'\x1f' read -r name exec icon terminal path <<< "$out"
+    [[ -z "$exec" ]] && return 1
+    local args=()
+    while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$exec" "$icon" "$name" "$desktop_path")
+    [[ ${#args[@]} -gt 0 ]] || return 1
+    if [[ "$terminal" == "1" || "${terminal,,}" == "true" ]]; then
+        launch_terminal "${args[@]}" &
+    else
+        "${args[@]}" &
+    fi
 }
 
 launch() {
