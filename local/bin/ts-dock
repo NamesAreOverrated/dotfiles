@@ -259,7 +259,7 @@ launch() {
         < <(exec_to_argv "$exec" "$icon" "$name" "$path")
     [[ ${#args[@]} -gt 0 ]] || return 1
 
-    if [[ "${terminal,,}" == "true" ]]; then
+    if [[ "$terminal" == "1" || "${terminal,,}" == "true" ]]; then
         launch_terminal "${args[@]}" &
     else
         "${args[@]}" &

@@ -232,7 +232,7 @@ show_actions_submenu() {
   while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "${execs[$idx]}" "${icons[$idx]}" "${names[$idx]}" "$desktop_path")
   [[ ${#args[@]} -eq 0 ]] && return 1
 
-  if [[ "${terminals[$idx],,}" == "true" ]]; then
+  if [[ "${terminals[$idx]}" == "1" || "${terminals[$idx],,}" == "true" ]]; then
     launch_terminal "${args[@]}" &
   else
     "${args[@]}" &
@@ -266,7 +266,7 @@ main() {
         [[ -n "$ico_path" ]] && label="$label"$'\x1f'"$ico_path"
       fi
       thumbs+=("$label")
-    done < <(tiny-query scan 'path|name|exec|icon|icon_path|terminal|actions' --sep $'\x1f' 2>/dev/null || true)
+    done < <(tiny-query scan 'path|name|exec|icon|icon_path|terminal|actions' --dir "${XDG_DATA_HOME:-$HOME/.local/share}/applications" --sep $'\x1f' 2>/dev/null || true)
 
     local add_svg="$HOME/.local/share/cm-launcher/icons/add.svg"
     local remove_svg="$HOME/.local/share/cm-launcher/icons/remove.svg"
@@ -345,7 +345,7 @@ main() {
     while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$exec" "$icon_name" "$name" "$path")
     [[ ${#args[@]} -eq 0 ]] && exit 1
 
-    if [[ "${terminal,,}" == "true" ]]; then
+    if [[ "$terminal" == "1" || "${terminal,,}" == "true" ]]; then
       launch_terminal "${args[@]}" &
     else
       "${args[@]}" &
