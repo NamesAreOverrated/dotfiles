@@ -127,7 +127,7 @@ do_add() {
 
   [[ ${#items[@]} -eq 0 ]] && return
   local selected
-  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+  selected=$(printf '%s\n' "${items[@]}" | exec -a cm-launcher $WMENUSH -p "Add app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return
   [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
   ln -s "${paths[$selected]}" "$local_dir/"
@@ -159,7 +159,7 @@ do_remove() {
   fi
 
   local selected
-  selected=$(printf '%s\n' "${items[@]}" | $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
+  selected=$(printf '%s\n' "${items[@]}" | exec -a cm-launcher $WMENUSH -p "Remove app" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return
   [[ "$selected" -ge 0 && "$selected" -lt ${#paths[@]} ]] || return
 
@@ -217,7 +217,7 @@ show_actions_submenu() {
 
   local selected
   selected=$(printf '%s\n' "${items[@]}" \
-    | $WMENUSH -p "$parent_name" --format i \
+    | exec -a cm-launcher $WMENUSH -p "$parent_name" --format i \
         -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
   [[ -z "$selected" ]] && return 1
 
@@ -275,7 +275,7 @@ main() {
       printf '%s\n' "${add_thumb:-Add App}" "${remove_thumb:-Remove App}"
       printf '\x00%s\n' '──── Apps ────'
       printf '%s\n' "${thumbs[@]}"
-    } | $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme" --input-fallback ${select_idx:+--select $select_idx}) || true
+    } | exec -a cm-launcher $WMENUSH -p "Launch" --format i -c "$CONFIG_DIR/tiny-cmenush/launcher.theme" --input-fallback ${select_idx:+--select $select_idx}) || true
     [[ -z "$selected" ]] && exit 0
 
     # input-fallback → math evaluation loop
@@ -291,11 +291,11 @@ main() {
         local choice
         if [ -n "$calc_result" ]; then
           choice=$(printf ' %s = %s\n' "$calc_input" "$calc_result" \
-            | $WMENUSH -p "Result" --format i --lines 1 --input-fallback \
+            | exec -a cm-launcher $WMENUSH -p "Result" --format i --lines 1 --input-fallback \
                 -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
         else
           choice=$(printf '\x00Type expression...\n' \
-            | $WMENUSH -p "Calc" --format i --lines 1 --input-fallback \
+            | exec -a cm-launcher $WMENUSH -p "Calc" --format i --lines 1 --input-fallback \
                 -c "$CONFIG_DIR/tiny-cmenush/launcher.theme") || true
         fi
 

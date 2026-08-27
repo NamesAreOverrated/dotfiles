@@ -4,9 +4,10 @@
 # Sources apps from ~/.local/share/applications, groups them by their
 # Categories= key according to DICT below (first match in an app's list
 # wins; unmatched apps land in an auto "Other" group), renders the root
-# dock as [launcher][category folders...][Other] with item counts in the
+# dock as [custom pins][category folders...][Other] with item counts in the
 # tooltips, and swaps to a per-category subdock (return cell on top) when
 # a folder is clicked. App picks launch via tiny-query + exec_to_argv.
+# Custom pins are defined in CUSTOM below as cmd|name|icon|toggle.
 set -uo pipefail
 
 command -v tiny-query >/dev/null 2>&1 || { echo "ts-dock: tiny-query not found in PATH" >&2; exit 1; }
@@ -16,7 +17,6 @@ command -v "$STRIP" >/dev/null 2>&1 || { echo "ts-dock: $STRIP not found in PATH
 
 eval "$(~/.local/bin/config-env 2>/dev/null || true)"
 
-LAUNCHER_ICON="start-here"
 OTHER_ICON="applications-other"
 BACK_ICON="go-previous"
 OTHER_LABEL="Other"
@@ -47,6 +47,19 @@ while IFS= read -r line; do
 done <<< "$DICT"
 
 trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+
+# ── Custom pins — cmd|name|theme-icon|toggle (toggle 1 = pkill behaviour) ──
+CUSTOM='cm-launcher|Apps|start-here|1
+cm-media|Media|music|1'
+custom_cmd=(); custom_name=(); custom_icon=(); custom_toggle=()
+while IFS= read -r line; do
+    line="${line%$'\r'}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    IFS='|' read -r c_cmd c_name c_icon c_toggle <<< "$line"
+    c_cmd=$(trim "$c_cmd"); c_name=$(trim "$c_name"); c_icon=$(trim "$c_icon"); c_toggle=$(trim "$c_toggle")
+    [[ -z "$c_cmd" || -z "$c_name" ]] && continue
+    custom_cmd+=("$c_cmd"); custom_name+=("$c_name"); custom_icon+=("$c_icon"); custom_toggle+=("${c_toggle:-0}")
+done <<< "$CUSTOM"
 
 # First recognized category key for a "a;b;c" list ("" when none).
 first_cat() {
@@ -173,18 +186,20 @@ scan_apps() {
 json_escape() { sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 build_view() {
-    kinds=(); paths=()
+    kinds=(); paths=(); APP_ACTIONS=()
     : > "$pin_file"
     local i key n icon_path count
 
     if [[ "$state" == root ]]; then
-        icon_path=$(tq_icon "$LAUNCHER_ICON")
-        if [[ -n "$icon_path" ]]; then
-            printf 'Apps\x1f%s\n' "$icon_path" >> "$pin_file"
-        else
-            printf 'Apps\n' >> "$pin_file"
-        fi
-        kinds+=("launcher"); paths+=("")
+        for ((i = 0; i < ${#custom_cmd[@]}; i++)); do
+            icon_path=$(tq_icon "${custom_icon[i]}")
+            if [[ -n "$icon_path" ]]; then
+                printf '%s\x1f%s\n' "${custom_name[i]}" "$icon_path" >> "$pin_file"
+            else
+                printf '%s\n' "${custom_name[i]}" >> "$pin_file"
+            fi
+            kinds+=("custom:$i"); paths+=("${custom_cmd[i]}"); APP_ACTIONS+=("")
+        done
 
         for ((i = 0; i < ${#dict_cate[@]}; i++)); do
             key="${dict_cate[i]}"
@@ -196,7 +211,7 @@ build_view() {
             else
                 printf '%s (%d)\n' "${dict_label[i]}" "$count" >> "$pin_file"
             fi
-            kinds+=("cat:$key"); paths+=("")
+            kinds+=("cat:$key"); paths+=(""); APP_ACTIONS+=("")
         done
 
         if [[ -n "${CAT_PATHS[___other___]:-}" ]]; then
@@ -207,7 +222,7 @@ build_view() {
             else
                 printf '%s (%d)\n' "$OTHER_LABEL" "$count" >> "$pin_file"
             fi
-            kinds+=("cat:___other___"); paths+=("")
+            kinds+=("cat:___other___"); paths+=(""); APP_ACTIONS+=("")
         fi
     elif [[ "$state" == cat:* ]]; then
         key="${state#cat:}"
@@ -290,7 +305,21 @@ handle_sel() {
             TRANSITION=1
             ;;
         cat:*)     PREV_STATE="$state"; state="$kind"; TRANSITION=1 ;;
-        launcher)  setsid cm-launcher >/dev/null 2>&1 & ;;
+        custom:*)
+            local c_idx="${kind#custom:}"
+            local c_cmd="${custom_cmd[$c_idx]:-}"
+            if [[ -z "$c_cmd" ]]; then
+                :
+            elif [[ "${custom_toggle[$c_idx]:-0}" == "1" ]]; then
+                if pgrep -f -- "$c_cmd" >/dev/null 2>&1; then
+                    pkill -f -- "$c_cmd" 2>/dev/null || true
+                else
+                    setsid bash -c "exec $c_cmd" >/dev/null 2>&1 &
+                fi
+            else
+                setsid bash -c "exec $c_cmd" >/dev/null 2>&1 &
+            fi
+            ;;
         app)
             local actions="${APP_ACTIONS[$idx]:-}"
             if [[ -n "$actions" ]]; then
