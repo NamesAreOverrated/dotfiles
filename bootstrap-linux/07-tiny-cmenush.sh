@@ -1,33 +1,8 @@
 #!/usr/bin/env bash
 
 # ── tiny-cmenush binary ──
-
-if has tiny-cmenush; then
-    echo "  tiny-cmenush already installed"
-else
-    printf "  Install tiny-cmenush? [y/N] "
-    read -r ans
-    if [[ "$ans" =~ ^[yY] ]]; then
-        need curl || return
-        mkdir -p "$HOME/.local/bin"
-        if [ "$IS_MUSL" = 1 ]; then
-            ASSET="tiny-cmenush-musl"
-        else
-            ASSET="tiny-cmenush-glibc"
-        fi
-        URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/tiny-cmenush-latest/$ASSET"
-        echo "  Downloading $ASSET ..."
-        if curl -fsSL "$URL" -o "$HOME/.local/bin/tiny-cmenush"; then
-            chmod +x "$HOME/.local/bin/tiny-cmenush"
-            echo "  Downloaded to ~/.local/bin/tiny-cmenush"
-        else
-            echo "  Download failed — release not yet available"
-            echo "  Build from source:"
-            echo "    cd ~/Projects/tiny-cmenush && ./build"
-            echo "    cp tiny-cmenush ~/.local/bin/"
-        fi
-    fi
-fi
+repo_install tiny-cmenush tiny-query
+need tiny-cmenush || return
 
 # ── Theme configs ──
 

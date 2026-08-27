@@ -1,4 +1,13 @@
 if has sway; then
+
+    if ! has ts-dock && ask "Install custom dock"; then
+        repo_install_raw tiny-strip tiny-query
+        if has tiny-strip && has tiny-query ; then
+            link "$DOTFILES/local/bin/ts-dock" "$HOME/.local/bin/ts-dock"
+        fi
+    fi
+
+
     echo "Linking sway config..."
     link "$DOTFILES/sway/config" "$HOME/.config/sway/config"
 

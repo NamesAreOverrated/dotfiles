@@ -1,38 +1,7 @@
 #!/usr/bin/env bash
 
 # ── ncm-daemon binary ──
-
-
-if has ncm-daemon; then
-    echo "  ncm-daemon already installed"
-else
-    printf "  Install ncm-daemon? [y/N] "
-    read -r ans
-    if [[ "$ans" =~ ^[yY] ]]; then
-        need curl || return
-        need socat || return
-        need jq || return
-        need pipewire || return
-        mkdir -p "$HOME/.local/bin"
-        if [ "$IS_MUSL" = 1 ]; then
-            ASSET="ncm-daemon-musl"
-        else
-            ASSET="ncm-daemon-glibc"
-        fi
-        URL="https://github.com/NamesAreOverrated/dotfiles/releases/download/ncm-daemon-latest/$ASSET"
-        echo "  Downloading $ASSET ..."
-        if curl -fsSL "$URL" -o "$HOME/.local/bin/ncm-daemon"; then
-            chmod +x "$HOME/.local/bin/ncm-daemon"
-            echo "  Downloaded to ~/.local/bin/ncm-daemon"
-        else
-            echo "  Download failed — release not yet available"
-            echo "  Build from source:"
-            echo "    git clone git@github.com:NamesAreOverrated/ncm-daemon.git ~/Projects/ncm-daemon"
-            echo "    cd ~/Projects/ncm-daemon && ./build"
-            echo "    cp ncm-daemon ~/.local/bin/"
-        fi
-    fi
-fi
+repo_install ncm-daemon socat jq pipewire
 
 # ── Systemd user service ──
 

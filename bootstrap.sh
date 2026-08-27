@@ -32,6 +32,75 @@ need() {
     fi
 }
 
+ask() {
+    local prompt="$1"
+    local ans=""
+    printf "  %s? [y/N] " "$prompt"
+    read -r ans
+    [[ "$ans" =~ ^[yY] ]]
+}
+
+repo_install_raw () {
+    local pkg="$1"
+    local base_url="https://github.com/NamesAreOverrated/dotfiles/releases/download"
+    local asset=""
+    local url=""
+
+    [ -z "$pkg" ] && { echo "Error: package name required"; return 1; }
+
+    if has "$pkg"; then
+        return 0
+    fi
+
+    need curl || return 1
+
+    for dep in "${@:2}"; do
+        need "$dep" || return 1
+    done
+
+    mkdir -p "$HOME/.local/bin"
+
+    if [ "$IS_MUSL" = 1 ]; then
+        asset="${pkg}-musl"
+    else
+        asset="${pkg}-glibc"
+    fi
+
+    url="${base_url}/${pkg}-latest/${asset}"
+    echo "  Downloading ${asset} ..."
+
+    if curl -fsSL "$url" -o "$HOME/.local/bin/${pkg}"; then
+        chmod +x "$HOME/.local/bin/${pkg}"
+        echo "  Downloaded to ~/.local/bin/${pkg}"
+        return 0
+    else
+        echo "  Download failed — release not yet available"
+        echo "  Manually build from source"
+        return 1
+    fi
+
+    return 1
+}
+
+repo_install() {
+    local pkg="$1"
+    local asset=""
+    local url=""
+
+    [ -z "$pkg" ] && { echo "Error: package name required"; return 1; }
+
+    if has "$pkg"; then
+        echo "  $pkg already installed"
+        return 0
+    fi
+
+    if ask "Install $pkg"; then
+       repo_install_raw "$@"
+    else
+        return 1
+    fi
+}
+
 link() {
     local src="$1" dst="$2"
     [[ ! -e "$src" ]] && { echo "  Skipping (src missing): $src"; return; }

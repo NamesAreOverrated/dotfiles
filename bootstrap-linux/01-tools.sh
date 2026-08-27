@@ -25,3 +25,5 @@ link "$DOTFILES/local/bin/aimg" "$HOME/.local/bin/aimg"
 echo "Linking gtk themes..."
 link "$DOTFILES/gtk-3.0" "$HOME/.config/gtk-3.0"
 link "$DOTFILES/gtk-4.0" "$HOME/.config/gtk-4.0"
+
+repo_install tiny-query

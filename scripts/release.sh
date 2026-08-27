@@ -30,6 +30,8 @@ add_target "tiny-cmenush"        ~/.local/bin/tiny-cmenush
 add_target "termfilebrowser"     ~/.local/bin/termfilebrowser
 add_target "ncm-daemon"          ~/.local/bin/ncm-daemon
 add_target "trsh"                ~/.local/bin/trsh
+add_target "tiny-query"          ~/.local/bin/tiny-query
+add_target "tiny-strip"          ~/.local/bin/tiny-strip
 
 if [ ${#names[@]} -eq 0 ]; then
     echo "No binaries found."
