@@ -103,7 +103,7 @@ function M.setup()
 					num_thread = 8,
 					num_ctx = 16384,
 				},
-				think = false,
+				think = true,
 				stream = false,
 			})
 			vim.fn.jobstart({ "curl", "-s", "-X", "POST", OLLAMA_HOST .. "/api/chat", "-d", payload }, {
@@ -129,7 +129,6 @@ function M.setup()
 	end, { desc = "AI: Ask/Analyze Code (Floating Editor -> Vertical Split)" })
 
 	-- =================================================================
-
 end
 
 return M

@@ -123,7 +123,7 @@ function M.setup()
 					num_thread = 8,
 					num_ctx = 16384,
 				},
-				think = false,
+				think = true,
 				stream = false,
 			})
 
@@ -181,7 +181,6 @@ function M.setup()
 		ai_generate_and_insert(true)
 	end, { desc = "AI: Generate Code from Context & Insert Below Selection" })
 	-- =================================================================
-
 end
 
 return M
