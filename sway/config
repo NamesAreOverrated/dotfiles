@@ -32,8 +32,8 @@ shadow blur 8
 shadow opacity 0.15
 
 # Auto-hide dock: cursor near bottom edge spawns tiny-strip, leaving hides it
-exec-range no-motion global bottom 30 sh -c 'pgrep -x tiny-strip >/dev/null || setsid ts-dock >/dev/null 2>&1 &'
-exec-range-exit no-motion global bottom 30 pkill -x tiny-strip
+exec-range no-motion global bottom 10  sh -c 'pkill -f ts-dock; ts-dock'
+exec-range-exit no-motion global bottom 55 pkill -f ts-dock
 
 # Edge-triggered commands (cursor enters/exits zone near output edges)
 # exec-range no-motion global bottom 30 pkill -USR1 waybar

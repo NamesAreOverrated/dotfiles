@@ -401,9 +401,9 @@ while :; do
     fifo="$work/sel"
     mkfifo "$fifo"
     if [[ "$state" == root ]]; then
-        "$STRIP" --dock --format i < "$pin_file" > "$fifo" &
+        exec -a ts-dock "$STRIP" --dock --format i < "$pin_file" > "$fifo" &
     else
-        "$STRIP" --format i < "$pin_file" > "$fifo" &
+        exec -a ts-dock "$STRIP" --format i < "$pin_file" > "$fifo" &
     fi
     spid=$!
 
