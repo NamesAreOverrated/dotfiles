@@ -31,9 +31,10 @@ shadow enabled yes
 shadow blur 8
 shadow opacity 0.15
 
-# Auto-hide dock: cursor near bottom edge spawns tiny-strip, leaving hides it
-exec-range no-motion global bottom 10  sh -c 'pkill -f ts-dock; ts-dock'
-exec-range-exit no-motion global bottom 55 pkill -f ts-dock
+# Auto-hide dock: cursor near bottom edge spawns ts-dock, leaving hides it
+# ts-dock self-enforces single instance via $XDG_RUNTIME_DIR/ts-dock.pid
+exec-range no-motion global bottom 10 exec ts-dock --keep-alive
+exec-range-exit no-motion global bottom 55 exec ts-dock --kill
 
 # Edge-triggered commands (cursor enters/exits zone near output edges)
 # exec-range no-motion global bottom 30 pkill -USR1 waybar

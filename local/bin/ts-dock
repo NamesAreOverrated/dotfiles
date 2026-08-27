@@ -15,6 +15,52 @@ command -v tiny-strip >/dev/null 2>&1 || STRIP="tiny-strip"
 STRIP="${TINY_STRIP_BIN:-tiny-strip}"
 command -v "$STRIP" >/dev/null 2>&1 || { echo "ts-dock: $STRIP not found in PATH" >&2; exit 1; }
 
+PIDFILE="${XDG_RUNTIME_DIR:-/tmp}/ts-dock.pid"
+case "${1:-}" in
+  --kill)
+    if [[ -f "$PIDFILE" ]]; then
+      oldpid=$(cat "$PIDFILE" 2>/dev/null || true)
+      if [[ -n "$oldpid" ]] && kill -0 "$oldpid" 2>/dev/null; then
+        oldpgid=$(ps -o pgid= -p "$oldpid" 2>/dev/null | tr -d ' ' || true)
+        if [[ -n "$oldpgid" ]]; then
+          kill -- "-$oldpgid" 2>/dev/null || true
+        else
+          pkill -P "$oldpid" 2>/dev/null || true
+          kill "$oldpid" 2>/dev/null || true
+        fi
+        for _ in {1..20}; do kill -0 "$oldpid" 2>/dev/null || break; sleep 0.05; done
+      fi
+      rm -f "$PIDFILE"
+    else
+      pkill -f "[t]s-dock --dock" 2>/dev/null || true
+    fi
+    exit 0
+    ;;
+  --keep-alive)
+    if [[ -f "$PIDFILE" ]] && kill -0 "$(cat "$PIDFILE" 2>/dev/null || true)" 2>/dev/null; then
+      exit 0
+    fi
+    ;;
+esac
+
+MYPID=$$
+if [[ -f "$PIDFILE" ]]; then
+  oldpid=$(cat "$PIDFILE" 2>/dev/null || true)
+  if [[ -n "$oldpid" && "$oldpid" != "$MYPID" ]] && kill -0 "$oldpid" 2>/dev/null; then
+    # kill process group of old instance (covers main bash + its tiny-strip child)
+    oldpgid=$(ps -o pgid= -p "$oldpid" 2>/dev/null | tr -d ' ' || true)
+    if [[ -n "$oldpgid" ]]; then
+      kill -- "-$oldpgid" 2>/dev/null || true
+    else
+      pkill -P "$oldpid" 2>/dev/null || true
+      kill "$oldpid" 2>/dev/null || true
+    fi
+    for _ in {1..20}; do kill -0 "$oldpid" 2>/dev/null || break; sleep 0.05; done
+  fi
+  [[ "$(cat "$PIDFILE" 2>/dev/null || true)" == "$oldpid" ]] && rm -f "$PIDFILE"
+fi
+echo "$MYPID" > "$PIDFILE"
+
 eval "$(~/.local/bin/config-env 2>/dev/null || true)"
 
 OTHER_ICON="applications-other"
@@ -151,7 +197,16 @@ launch_terminal() {
   if [[ -z "$term" ]]; then
     return 1
   fi
-  "$term" "$@"
+  # re-eval env for sway-launched dock (WAYLAND_DISPLAY etc.)
+  eval "$(~/.local/bin/config-env 2>/dev/null || true)" || true
+  local base
+  base=$(basename "$term")
+  case "$base" in
+    alacritty) setsid "$term" -e "$@" >/dev/null 2>&1 & ;;
+    gnome-terminal) setsid "$term" -- "$@" >/dev/null 2>&1 & ;;
+    *) setsid "$term" "$@" >/dev/null 2>&1 & ;;
+  esac
+  disown 2>/dev/null || true
 }
 
 tq_icon() {
@@ -351,11 +406,17 @@ launch_action() {
     local args=()
     while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$exec" "$icon" "$name" "$desktop_path")
     [[ ${#args[@]} -gt 0 ]] || return 1
+    eval "$(~/.local/bin/config-env 2>/dev/null || true)" || true
     if [[ "$terminal" == "1" || "${terminal,,}" == "true" ]]; then
-        launch_terminal "${args[@]}" &
+        launch_terminal "${args[@]}"
     else
-        "${args[@]}" &
+        setsid "${args[@]}" >/dev/null 2>&1 & disown 2>/dev/null || true
     fi
+    # always exit dock after launching (like cm-launcher)
+    kill "$spid" 2>/dev/null || true
+    wait "$spid" 2>/dev/null || true
+    rm -rf "$work" 2>/dev/null || true
+    exit 0
 }
 
 launch() {
@@ -373,11 +434,16 @@ launch() {
         < <(exec_to_argv "$exec" "$icon" "$name" "$path")
     [[ ${#args[@]} -gt 0 ]] || return 1
 
+    eval "$(~/.local/bin/config-env 2>/dev/null || true)" || true
     if [[ "$terminal" == "1" || "${terminal,,}" == "true" ]]; then
-        launch_terminal "${args[@]}" &
+        launch_terminal "${args[@]}"
     else
-        "${args[@]}" &
+        setsid "${args[@]}" >/dev/null 2>&1 & disown 2>/dev/null || true
     fi
+    kill "$spid" 2>/dev/null || true
+    wait "$spid" 2>/dev/null || true
+    rm -rf "$work" 2>/dev/null || true
+    exit 0
 }
 
 # ── main state machine ──
@@ -385,7 +451,7 @@ PINS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 [[ -d "$PINS_DIR" ]] || exit 0
 
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+trap '[[ -f "$PIDFILE" && "$(cat "$PIDFILE" 2>/dev/null || true)" == "$MYPID" ]] && rm -f "$PIDFILE"; rm -rf "$work"' EXIT
 
 state="root"
 TRANSITION=0
@@ -401,9 +467,9 @@ while :; do
     fifo="$work/sel"
     mkfifo "$fifo"
     if [[ "$state" == root ]]; then
-        exec -a ts-dock "$STRIP" --dock --format i < "$pin_file" > "$fifo" &
+        exec -a ts-dock "$STRIP" --dock --oneshot --format i < "$pin_file" > "$fifo" &
     else
-        exec -a ts-dock "$STRIP" --format i < "$pin_file" > "$fifo" &
+        exec -a ts-dock "$STRIP" --oneshot --format i < "$pin_file" > "$fifo" &
     fi
     spid=$!
 
