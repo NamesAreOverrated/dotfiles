@@ -1,5 +1,6 @@
 {
   "layer": "top",
+  "exclusive":true,
   "position": "top",
   "height": 20,
   "spacing": 6,

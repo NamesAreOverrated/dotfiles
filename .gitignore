@@ -13,3 +13,5 @@ nvim/nvim-pack-lock.json
 # Python bytecode (parity test)
 __pycache__/
 *.pyc
+
+gtk-3.0/bookmarks
