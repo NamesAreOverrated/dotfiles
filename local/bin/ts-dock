@@ -221,11 +221,7 @@ build_view() {
 
         while IFS= read -r rec; do
             [[ -z "$rec" ]] && continue
-            path="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
-            name="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
-            ricon="${rec%%$'\x1f'*}"; rec="${rec#*$'\x1f'}"
-            rapppid="${rec%%$'\x1f'*}"; actions="${rec#*$'\x1f'}"
-
+            IFS=$'\x1f' read -r path name ricon rapppid actions <<< "$rec"
             if [[ -n "$ricon" ]]; then
                 printf '%s\x1f%s\x1e%s\n' "$name" "$ricon" "$rapppid" >> "$pin_file"
             else
@@ -256,34 +252,28 @@ build_view() {
             printf 'Launch %s\n' "$p_name" >> "$pin_file"
         fi
         kinds+=("launch-act"); paths+=("$parent_path"); APP_ACTIONS+=("")
-        local actions
-        actions=$(tiny-query desktop "$parent_path" 'actions' 2>/dev/null || true)
-        actions="${actions%;}"
-        if [[ -n "$actions" ]]; then
-            IFS=';' read -ra action_ids <<< "$actions"
-            for action_id in "${action_ids[@]}"; do
-                [[ -z "$action_id" ]] && continue
-                local a_out
-                a_out=$(tiny-query action "$parent_path" "$action_id" 'name|exec|icon|terminal|icon_path' --sep $'\x1f' 2>/dev/null || true)
-                [[ -z "$a_out" ]] && continue
-                IFS=$'\x1f' read -r a_name a_exec a_icon a_terminal a_icon_path <<< "$a_out"
-                [[ -z "$a_exec" ]] && continue
-                [[ -z "$a_name" ]] && a_name="$action_id"
-                local thumb=""
-                if [[ -n "$a_icon_path" ]]; then
-                    thumb="$a_name"$'\x1f'"$a_icon_path"
-                elif [[ -n "$a_icon" ]]; then
-                    local ico2
-                    ico2=$(tq_icon "$a_icon")
-                    [[ -n "$ico2" ]] && thumb="$a_name"$'\x1f'"$ico2"
-                fi
-                printf '%s\n' "${thumb:-$a_name}" >> "$pin_file"
-                kinds+=("action:$action_id")
-                paths+=("$parent_path")
-                APP_ACTIONS+=("")
-            done
-        fi
-    fi
+        
+        while IFS=$'\x1f' read -r a_id a_name a_exec a_icon a_terminal a_icon_path; do
+            [[ -z "$a_exec" ]] && continue
+            [[ -z "$a_name" ]] && a_name="$a_id"
+            [[ -z "$a_icon" ]] && a_icon="$p_icon"
+            if [[ -z "$a_icon_path" && -n "$a_icon" ]]; then
+                a_icon_path=$(tq_icon "$a_icon")
+            fi
+            local thumb=""
+            if [[ -n "$a_icon_path" ]]; then
+                thumb="$a_name"$'\x1f'"$a_icon_path"
+            elif [[ -n "$a_icon" ]]; then
+                local ico2
+                ico2=$(tq_icon "$a_icon")
+                [[ -n "$ico2" ]] && thumb="$a_name"$'\x1f'"$ico2"
+            fi
+            printf '%s\n' "${thumb:-$a_name}" >> "$pin_file"
+            kinds+=("action:$a_id")
+            paths+=("$parent_path")
+            APP_ACTIONS+=("")
+        done < <(tiny-query action "$parent_path" --all 'id|name|exec|icon|terminal|icon_path' --sep $'\x1f' 2>/dev/null || true)
+    fi  
 }
 
 handle_sel() {
@@ -328,6 +318,7 @@ launch_action() {
     local name exec icon terminal path
     IFS=$'\x1f' read -r name exec icon terminal path <<< "$out"
     [[ -z "$exec" ]] && return 1
+    [[ -z "$name" ]] && name="$action_id"
     local args=()
     while IFS='' read -r -d '' arg; do args+=("$arg"); done < <(exec_to_argv "$exec" "$icon" "$name" "$desktop_path")
     [[ ${#args[@]} -gt 0 ]] || return 1

@@ -191,24 +191,20 @@ show_actions_submenu() {
   icons+=("$parent_icon")
   terminals+=("$parent_terminal")
 
-  for action_id in "${action_ids[@]}"; do
-    [[ -z "$action_id" ]] && continue
-    # Parse the [Desktop Action xxx] group via tiny-query scan of the single file is overkill;
-    # keep the lightweight sed for action sub-groups (tiny-query only parses [Desktop Entry]).
-    local a_name a_exec a_icon a_terminal ico_path thumb
-    a_name=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Name=/{s/^Name=//p;q}}" "$desktop_path" 2>/dev/null)
-    a_exec=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Exec=/{s/^Exec=//p;q}}" "$desktop_path" 2>/dev/null)
-    a_icon=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Icon=/{s/^Icon=//p;q}}" "$desktop_path" 2>/dev/null)
-    a_terminal=$(sed -n "/^\\[Desktop Action $action_id\\]/,/^\\[/{/^Terminal=/{s/^Terminal=//p;q}}" "$desktop_path" 2>/dev/null)
-    a_terminal="${a_terminal,,}"
-
-    [[ -z "$a_name" ]] && a_name="$action_id"
-    [[ -z "$a_icon" ]] && a_icon="$parent_icon"
-    [[ -z "$a_terminal" ]] && a_terminal="$parent_terminal"
+  while IFS=$'\x1f' read -r a_id a_name a_exec a_icon a_terminal a_icon_path; do
     [[ -z "$a_exec" ]] && continue
-
-    thumb=""
-    if [[ -n "$a_icon" ]]; then
+    [[ -z "$a_name" ]] && a_name="$a_id"
+    # icon_path already resolved via tiny-query; fallback to parent icon if needed
+    if [[ -z "$a_icon" ]]; then
+      a_icon="$parent_icon"
+      [[ -z "$a_icon_path" && -n "$a_icon" ]] && a_icon_path=$(tiny-query icon "$a_icon" 2>/dev/null || true)
+    fi
+    [[ -z "$a_terminal" || "$a_terminal" == "0" ]] && a_terminal="$parent_terminal"
+    local thumb=""
+    if [[ -n "$a_icon_path" ]]; then
+      thumb="$a_name"$'\x1f'"$a_icon_path"
+    elif [[ -n "$a_icon" ]]; then
+      local ico_path
       ico_path=$(tiny-query icon "$a_icon" 2>/dev/null || true)
       [[ -n "$ico_path" ]] && thumb="$a_name"$'\x1f'"$ico_path"
     fi
@@ -217,7 +213,7 @@ show_actions_submenu() {
     execs+=("$a_exec")
     icons+=("$a_icon")
     terminals+=("$a_terminal")
-  done
+  done < <(tiny-query action "$desktop_path" --all 'id|name|exec|icon|terminal|icon_path' --sep $'\x1f' 2>/dev/null || true)
 
   local selected
   selected=$(printf '%s\n' "${items[@]}" \
