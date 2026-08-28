@@ -211,7 +211,8 @@
   "format": "  {}",
   "interval": 10,
   "exec": "sh -c 'containers=$( (podman ps --format {{.Names}} 2>/dev/null; docker ps --format {{.Names}} 2>/dev/null) | sed \"/^$/d\" ); count=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | wc -l | tr -d \" \"); names=$(printf \"%s\\n\" \"$containers\" | sed \"/^$/d\" | paste -sd \", \" -); printf \"%s\\n%s\" \"$count\" \"$names\"'",
-  "tooltip": true
+  "tooltip": true,
+	"on-click": "~/.local/bin/cm-container",
   },
   
 "group/power-actions": {

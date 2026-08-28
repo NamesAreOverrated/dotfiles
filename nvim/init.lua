@@ -1438,6 +1438,12 @@ do
 	-- Enable the following language servers
 	--  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
 	--  See `:help lsp-config` for information about keys and how to configure
+
+	vim.filetype.add({
+		extension = {
+			h = "c",
+		},
+	})
 	local function is_musl()
 		local f = io.popen("ldd --version 2>&1")
 		if f then
@@ -1458,6 +1464,7 @@ do
 		rust_analyzer = {},
 		roslyn_ls = {},
 		typos_lsp = {},
+		bashls = {},
 		--
 		-- Some languages (like typescript) have entire language plugins that can be useful:
 		--    https://github.com/pmizio/typescript-tools.nvim
@@ -1519,6 +1526,7 @@ do
 
 	-- Remove servers incompatible with musl
 	if is_musl() then
+		servers.bashls = nil
 		servers.rust_analyzer = nil
 		servers.roslyn_ls = nil
 		servers.lua_ls = nil

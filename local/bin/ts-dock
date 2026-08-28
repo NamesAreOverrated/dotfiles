@@ -114,7 +114,8 @@ trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]
 # ── Custom pins — cmd|name|theme-icon|toggle (toggle 1 = pkill behaviour) ──
 CUSTOM="cm-launcher|Apps|void-wizard|1
 $TERMINAL|Terminal|$TERMINAL|0
-cm-media|Media|musicbrainz|1"
+cm-media|Media|musicbrainz|1
+cm-container|Container|kdepim-dropbox|1"
 custom_cmd=(); custom_name=(); custom_icon=(); custom_toggle=()
 while IFS= read -r line; do
     line="${line%$'\r'}"

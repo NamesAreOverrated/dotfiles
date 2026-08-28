@@ -1,0 +1,253 @@
+#!/bin/bash
+
+eval "$(~/.local/bin/config-env 2>/dev/null || true)"
+
+podman_image_update_check() {
+    local image="$1"
+    local remote_digest
+    local os
+    local arch
+    local digst
+
+    read -r os arch digst <<<"$(podman image inspect "$image" --format '{{.Os}} {{.Architecture}} {{.Digest}}')"
+
+    remote_digest=$(
+        podman manifest inspect "$image" |
+            jq -r --arg os "$os" --arg arch "$arch" '
+        (
+          .manifests[]? 
+          | select(
+              (tostring | contains($os)) and 
+              (tostring | contains($arch))
+            ) 
+          | .digest
+        ) 
+        // .config.digest 
+        // empty
+    '
+    )
+    if [[ "$remote_digest" != "$digst" ]]; then
+        echo "Pull $image"
+    fi
+}
+podman_parse() {
+    local flag=""
+    [[ "$1" == "all" ]] && flag="-a"
+
+    local raw_js
+    raw_js=$(podman ps $flag --format json)
+
+    local local_images_map
+    local_images_map=$(podman images --format json | jq '
+        map({ key: (.Names[0] // .Id), value: .Id }) | from_entries
+    ')
+
+    echo "$raw_js" | jq --argjson img_map "$local_images_map" '.[] | {
+        name: .Names[0], 
+        status: .State, 
+        ports: .Ports,
+        image: .Image,
+        imageID: .ImageID,
+        engine: (if (tostring | test("distrobox"; "i")) then "distrobox" else "podman" end),
+        update: (
+            if ($img_map[.Image] != null) then
+                ($img_map[.Image] != .ImageID)
+            else
+                false
+            end
+        )
+    
+    }'
+}
+
+CONTAINERS_JSON="
+$(podman_parse all)
+"
+CONTAINERS_JSON=$(jq -s '
+    sort_by([
+        (if .status == "running" then 0 else 1 end),
+        .name
+    ])
+' <<<"$CONTAINERS_JSON")
+
+mapfile -t ALL_IMAGES < <(
+    jq -r '[ .[] | select(.engine == "podman" or .engine == "distrobox") | .image ] | unique | .[]' <<<"$CONTAINERS_JSON"
+)
+
+render_entries() {
+    local filter_status="$1"
+    local default_color="$2"
+
+    jq -r --arg status "$filter_status" --arg def_color "$default_color" '
+        [ .[] | select(
+            if $status == "running" then .status == "running" else .status != "running" end
+        ) ] 
+        | .[] 
+        | [
+            "[\(.engine)]", 
+
+            .name, 
+
+            "(\(.status))",
+
+            (
+                (((.ports // []) | map("\(.host_port):\(.container_port)") | join(",")) // "")
+                | if length > 0 then "[\(.)]" else " " end
+            ),
+
+            (if .update then "󰚰" else " " end),
+
+            (if .engine == "distrobox" then "" else " " end),
+
+            (if .update then "\u001c#f9e2af" else "\u001c\($def_color)" end)
+          ] 
+        | @tsv
+    ' <<<"$CONTAINERS_JSON" |
+        column -t -s $'\t' |
+        sed $'s/\t\x1c/\x1c/'
+}
+parse_container() {
+    jq -r '[
+        .name,
+        .status,
+        (((.ports // []) | map("\(.host_port):\(.container_port)") | join(",")) // ""),
+        (.ports[0].host_ip // ""),
+        .image,
+        .engine,
+        .update
+    ] | join("|")' <<<"$1"
+}
+
+main_menu() {
+    local running stopped
+    running=$(render_entries "running" "#a6e3a1")
+    stopped=$(render_entries "stopped" "#f2cdcd")
+
+    printf "󰚰 Check for Update\x1c#94e2d5\n"
+
+    if [[ -n "$running" ]]; then
+        printf '\x00---  RUNNING ---\x1c#b4befe\n'
+        printf '%s\n' "$running"
+    fi
+
+    if [[ -n "$stopped" ]]; then
+        printf '\x00---  STOPPED ---\x1c#585b70\n'
+        printf '%s\n' "$stopped"
+    fi
+}
+
+container_menu() {
+    local container_json="$1"
+    local name state port ip image engine update
+
+    IFS='|' read -r name state port ip image engine update <<<"$(parse_container "$container_json")"
+
+    if [[ "$state" == "running" ]]; then
+        printf '\x00---  %s (%s)%s ---\x1c#a6e3a1\n' \
+            "$name" \
+            "$state" \
+            "${port:+ [$port]}"
+
+    else
+        printf '\x00---  %s (%s)%s ---\x1c#f38ba8\n' "$name" "$state" "${port:+ [$port]}"
+    fi
+    if [[ -n "$ip" ]]; then
+        printf '\x00--- 󰙜 HostIP: %s ---\x1d\x1c#cba6f7\n' "$ip"
+    fi
+
+    if [[ "$state" == "running" ]]; then
+        printf 'Stop\n'
+    else
+        printf 'Start\n'
+    fi
+    if [[ "$update" == "false" ]]; then
+        printf '\x00--- 󰚰 %s ---\x1c#94e2d5\n' "$image"
+    else
+        printf '\x00--- 󰚰 %s (New Update) ---\x1c#f9e2af\n' "$image"
+    fi
+
+    printf 'Pull Newest Image\n'
+
+    printf '\x00--- 󰪶 Misc ---\x1c#74c7ec\n'
+    if [[ "$state" == "running" && "$engine" == "distrobox" ]]; then
+        printf 'Enter Distrobox\n'
+    fi
+}
+container_menu_action() {
+    local container_json="$1"
+    local action="$2"
+    local name state port ip image engine update
+
+    IFS='|' read -r name state port ip image engine update <<<"$(parse_container "$container_json")"
+    case "$action" in
+    0) # Start / Stop
+        if [[ "$engine" == "distrobox" ]]; then
+            if [[ "$state" == "running" ]]; then
+                "$TERMINAL" -e dbs "$name"
+            else
+                setsid -f "$TERMINAL" -e dbe "$name" >/dev/null 2>&1
+                return 3
+            fi
+        else
+            if [[ "$state" == "running" ]]; then
+                "$engine" stop "$name"
+            else
+                "$engine" start "$name"
+            fi
+        fi
+
+        return 0
+        ;;
+    1) # Pull Image
+        $engine pull "$image"
+        return 0
+        ;;
+    2) # Distrobox Enter
+        setsid -f "$TERMINAL" -e dbe "$name" >/dev/null 2>&1
+        return 3
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+
+}
+
+while true; do
+    SELECTED=$(main_menu | tiny-cmenush --format I -p "cm-container")
+
+    [ -z "$SELECTED" ] && exit 0
+
+    if [[ "$SELECTED" == 0 ]]; then
+        SELECTED_IMG="$(
+            for img in "${ALL_IMAGES[@]}"; do
+                update_msg=$(podman_image_update_check "$img")
+                if [[ -n "$update_msg" ]]; then
+                    printf '󰚰 %s (Update)\x1c#f9e2af\n' "$img"
+                else
+                    printf '\x00󰚰 %s (Latest)\x1c#6c7086\n' "$img"
+                fi
+            done | tiny-cmenush --format I -p "cm-container"
+        )"
+        [ -z "$SELECTED_IMG" ] && continue
+        podman pull "${ALL_IMAGES[$SELECTED_IMG]}"
+        exit 0
+    fi
+    SELECTED=$((SELECTED - 1))
+
+    CONTAINER_NAME=$(jq -r ".[$SELECTED].name // empty" <<<"$CONTAINERS_JSON")
+    if [[ -z "$CONTAINER_NAME" ]]; then
+        continue
+    fi
+    SELECT_JSON="$(jq ".[$SELECTED]" <<<"$CONTAINERS_JSON")"
+    SELECT_ACTION=$(container_menu "$SELECT_JSON" | tiny-cmenush --format I)
+    container_menu_action "$SELECT_JSON" "$SELECT_ACTION"
+    case "$?" in
+    0)
+        exec "$0" "$@"
+        ;;
+
+    3) exit 0 ;;
+    esac
+
+done

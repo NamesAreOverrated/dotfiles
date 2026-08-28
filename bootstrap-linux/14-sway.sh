@@ -109,6 +109,10 @@ EOF
         if has cm-network; then
             echo 'bindsym $mod+n exec cm-network'
         fi
+        if has cm-container; then
+            echo 'bindsym $mod+c exec cm-container'
+        fi
+
 
         if has cm-bluetooth; then
             echo 'bindsym $mod+b exec cm-bluetooth'

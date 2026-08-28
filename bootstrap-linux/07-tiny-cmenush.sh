@@ -46,6 +46,15 @@ else
     echo "  Skipping cm-singbox (sing-box or jq not found)"
 fi
 
+if has podman; then
+    link "$DOTFILES/local/bin/cm-container" "$HOME/.local/bin/cm-container"
+    echo ""
+    echo "  ── cm-container ──"
+    echo "  Managing containers and distroboxes"
+else
+    echo "  Skipping cm-container (podman not found)"
+fi
+
 if has swaybg; then
     link "$DOTFILES/local/libexec/set-wallpaper" "$HOME/.local/libexec/set-wallpaper"
 else
