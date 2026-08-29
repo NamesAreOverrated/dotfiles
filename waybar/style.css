@@ -94,18 +94,9 @@ window#waybar {
 #workspaces button.urgent {
   color: #fab387;
 }
-
-#workspaces button:hover {
-  /* padding: 0 4px; */
-  /* border-radius: 12px; */
-  color: #94e2d5;
-  /* background: rgba(30, 30, 46,1); */
-  /* border: 0px solid #f5c2e7; */
-  /* background: transparent; */
-  /* box-shadow: none; */
-  /* border: 0px solid #f5c2e7; */
-  /* text-shadow: none; */
-}
+/* #workspaces button:hover { */
+/*   color: #94e2d5; */
+/* } */
 
 #taskbar button {
   padding: 0 2px;
@@ -120,15 +111,13 @@ window#waybar {
   opacity: 0.45;
 }
 
-#taskbar button.minimized:hover {
-  opacity: 1;
-}
-
-#taskbar button:hover {
-  /* border-radius: 12px; */
-  color: #cdd6f4;
-  /* background: rgba(30, 30, 46, 1); */
-}
+/* #taskbar button.minimized:hover { */
+/*   opacity: 1; */
+/* } */
+/**/
+/* #taskbar button:hover { */
+/*   color: #cdd6f4; */
+/* } */
 
 #tray {
   color: #cdd6f4;
