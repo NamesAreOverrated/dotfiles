@@ -91,7 +91,8 @@
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
-    "on-click-right": "minimize"
+    "on-click-right": "minimize",
+    "active-only":false
   },
 
   "tray": {

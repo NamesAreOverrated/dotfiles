@@ -19,18 +19,27 @@ resolve_focused_output() {
   swaymsg -t get_outputs 2>/dev/null | jq -r '.[] | select(.focused==true) | .name' 2>/dev/null | head -1
 }
 
+# Waybar wlr/taskbar parity: all-outputs vs per-output via output_enter only.
+# No workspace filter — Sway's output_leave for unfocused workspaces gives "focused workspace per output" implicitly.
 OUTPUT=""
+ALL_OUTPUTS=""
 if [[ "${1:-}" == "--output" && -n "${2:-}" ]]; then
   OUTPUT="$2"
   shift 2
+elif [[ "${1:-}" == "--all-outputs" ]]; then
+  ALL_OUTPUTS=1
+  shift
 fi
-if [[ -z "$OUTPUT" && "${1:-}" != "--kill" ]]; then
+if [[ -z "$OUTPUT" && -z "$ALL_OUTPUTS" && "${1:-}" != "--kill" ]]; then
   OUTPUT=$(resolve_focused_output 2>/dev/null || true)
 fi
 STRIP_OUTPUT_ARGS=()
-if [[ -n "$OUTPUT" ]]; then
+if [[ -n "$ALL_OUTPUTS" ]]; then
+  STRIP_OUTPUT_ARGS=(--all-outputs)
+elif [[ -n "$OUTPUT" ]]; then
   STRIP_OUTPUT_ARGS=(--output "$OUTPUT")
 fi
+STRIP_ACTIVE_ARGS=(--active-only=false)
 
 PIDFILE="${XDG_RUNTIME_DIR:-/tmp}/ts-dock.pid"
 case "${1:-}" in
@@ -486,7 +495,7 @@ while :; do
     fifo="$work/sel"
     mkfifo "$fifo"
     if [[ "$state" == root ]]; then
-        exec -a ts-dock "$STRIP" --dock "${STRIP_OUTPUT_ARGS[@]}" --oneshot --format i < "$pin_file" > "$fifo" &
+        exec -a ts-dock "$STRIP" --dock "${STRIP_OUTPUT_ARGS[@]}" "${STRIP_ACTIVE_ARGS[@]}" --oneshot --format i < "$pin_file" > "$fifo" &
     else
         exec -a ts-dock "$STRIP" --oneshot --format i < "$pin_file" > "$fifo" &
     fi
