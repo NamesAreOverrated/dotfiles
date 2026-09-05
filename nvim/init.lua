@@ -1837,6 +1837,348 @@ do
 	-- init.lua. If you want these files, they are in the repository, so you can just download them and
 	-- place them in the correct locations.
 	--
+	-- Test
+	-- 优雅的下半屏浮窗/终端写法：
+	local function run_in_bottom_term(cmd)
+		-- 下方切一个高度为 10 的终端窗口并跑命令
+		vim.cmd("botright 10split | terminal " .. cmd)
+		-- 自动切到插入模式，方便随时看输出
+		vim.cmd("startinsert")
+	end
+	-- =========================================================
+	-- 1. <leader>rtc : 用 TCC 原地秒跑当前 C 文件的单元测试
+	-- =========================================================
+	vim.keymap.set("n", "<leader>rtc", function()
+		-- 1. 自动保存当前文件
+		vim.cmd("write")
+
+		-- 获取当前文件的文件名（比如 src/serial.c）
+		local current_file = vim.fn.expand("%")
+
+		-- 拼接命令：加上 -DTEST 和头文件目录 -Iinclude
+		local cmd = string.format("tcc -DTEST -Iinclude -run %s", vim.fn.fnameescape(current_file))
+
+		-- 在当前终端直接执行（也可以换成开下半屏终端，见下方说明）
+		run_in_bottom_term(cmd)
+	end, { desc = "C: Run in-file test with TCC" })
+	-- #ifdef TEST
+	-- #pragma once
+	-- #include <assert.h>
+	-- #include <stddef.h>
+	-- #include <stdio.h>
+	-- #include <stdlib.h>
+	-- #include <string.h>
+	-- #include <time.h>
+	--
+	-- static char test_buffer[8192];
+	-- static size_t test_idx = 0;
+	--
+	-- static inline void test_buffer_write(char c)
+	-- {
+	--     if (test_idx < sizeof(test_buffer) - 1)
+	--     {
+	--         test_buffer[test_idx++] = c;
+	--         test_buffer[test_idx] = '\0';
+	--     }
+	-- }
+	-- static inline size_t get_time_ns(void)
+	-- {
+	--     struct timespec ts;
+	--     clock_gettime(CLOCK_MONOTONIC, &ts);
+	--     return (size_t)ts.tv_sec * 1000000000ULL + (size_t)ts.tv_nsec;
+	-- }
+	--
+	-- static inline void print_duration(size_t ns)
+	-- {
+	--     if (ns < 1000)
+	--     {
+	--         printf("\033[90m(%lu ns)\033[0m\n", ns);
+	--     }
+	--     else if (ns < 1000000)
+	--     {
+	--         printf("\033[90m(%.2f µs)\033[0m\n", ns / 1000.0);
+	--     }
+	--     else
+	--     {
+	--         printf("\033[90m(%.2f ms)\033[0m\n", ns / 1000000.0);
+	--     }
+	-- }
+	--
+	-- #define TEST_CALL(expected, ...)                                                                   \
+	--     do                                                                                             \
+	--     {                                                                                              \
+	--         memset(test_buffer, 0, sizeof(test_buffer));                                               \
+	--         test_idx = 0;                                                                              \
+	--         size_t _start_time = get_time_ns();                                                        \
+	--         __VA_ARGS__;                                                                               \
+	--         size_t _elapsed_ns = get_time_ns() - _start_time;                                          \
+	--         if (strcmp(test_buffer, (expected)) != 0)                                                  \
+	--         {                                                                                          \
+	--             printf("\n\033[1;31m[FAILED]\033[0m %s:%d ", __FILE__, __LINE__);                      \
+	--             print_duration(_elapsed_ns);                                                           \
+	--             printf("  Call    : \033[1;33m%s\033[0m\n", #__VA_ARGS__);                             \
+	--             printf("  Expected: \033[1;32m\"%s\"\033[0m\n", (expected));                           \
+	--             printf("  Actual  : \033[1;31m\"%s\"\033[0m\n\n", test_buffer);                        \
+	--             exit(1);                                                                               \
+	--         }                                                                                          \
+	--         printf(" -> \033[1;32m[PASS]\033[0m %-32s ", #__VA_ARGS__);                                \
+	--         print_duration(_elapsed_ns);                                                               \
+	--     } while (0)
+	--
+	-- #endif
+
+	-- =========================================================
+	--  辅助函数: 1. 深度 AST 分析：提取完整的全命名空间类名 (Fully Qualified Name)
+	-- =========================================================
+	local function get_fully_qualified_class()
+		local node = vim.treesitter.get_node()
+		local classes = {}
+		local namespace_name = nil
+
+		-- 沿着语法树一路往上爬
+		while node do
+			local node_type = node:type()
+
+			-- 遇到 class 或 struct
+			if node_type == "class_declaration" or node_type == "struct_declaration" then
+				for child in node:iter_children() do
+					if child:type() == "identifier" then
+						local name = vim.treesitter.get_node_text(child, 0)
+
+						-- 🌟 核心修复：如果是 "Tests" 测试容器类，坚决不要！
+						-- 继续往上爬，抓它外层的真实业务类（比如 DamageCalculator）！
+						if name ~= "Tests" then
+							table.insert(classes, 1, name) -- 逆向压栈，保证外层类在前
+						end
+						break
+					end
+				end
+			end
+
+			-- 抓命名空间
+			if node_type == "namespace_declaration" or node_type == "file_scoped_namespace_declaration" then
+				for child in node:iter_children() do
+					local t = child:type()
+					if t == "identifier" or t == "qualified_name" then
+						namespace_name = vim.treesitter.get_node_text(child, 0)
+						break
+					end
+				end
+			end
+
+			node = node:parent()
+		end
+
+		-- 拼装类名（支持嵌套类）
+		local class_fqn = table.concat(classes, ".")
+
+		-- 拼装最终的全名
+		if namespace_name and #classes > 0 then
+			return namespace_name .. "." .. class_fqn
+		elseif #classes > 0 then
+			return class_fqn
+		else
+			return vim.fn.expand("%:t:r")
+		end
+	end
+	-- =========================================================
+	-- 辅助函数: 2. 找到当前文件所属的具体 .csproj 工程名（即 DLL 名）
+	-- =========================================================
+	local function get_current_project_name()
+		local current_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(0))
+		local matches = vim.fs.find(function(name)
+			return name:match("%.csproj$") and not name:match("Test")
+		end, { upward = true, path = current_dir })
+
+		if #matches > 0 then
+			-- 比如拿到了 "MyGame.Combat.csproj"，把后缀去掉拿到 "MyGame.Combat"
+			return vim.fs.basename(matches[1]):gsub("%.csproj$", "")
+		end
+		return nil
+	end
+
+	-- =========================================================
+	-- 2. .Net绑定：同时传递【所属DLL】和【完整类名】
+	-- =========================================================
+	vim.keymap.set("n", "<leader>rts", function()
+		vim.cmd("write")
+
+		local fq_class = get_fully_qualified_class()
+		local proj_name = get_current_project_name() or ""
+
+		local test_projects = vim.fn.glob("**/*Test*.csproj", false, true)
+		if #test_projects > 0 then
+			local target_proj = test_projects[1]
+			local cmd = string.format(
+				"dotnet run --project %s -- %s %s",
+				vim.fn.fnameescape(target_proj),
+				vim.fn.fnameescape(proj_name),
+				vim.fn.fnameescape(fq_class)
+			)
+			run_in_bottom_term(cmd)
+		else
+			vim.notify("未找到测试工程！", vim.log.levels.WARN)
+		end
+	end, { desc = "Run test with FQN precision" })
+	-- =========================================================
+	-- <leader>rtS : 全量运行所有工程的所有单元测试 (不传任何参数)
+	-- =========================================================
+	vim.keymap.set("n", "<leader>rtS", function()
+		vim.cmd("write")
+
+		-- 自动寻找测试工程
+		local test_projects = vim.fn.glob("**/*Test*.csproj", false, true)
+		if #test_projects > 0 then
+			local target_proj = test_projects[1]
+
+			local cmd = string.format("dotnet run --project %s", vim.fn.fnameescape(target_proj))
+
+			vim.notify("正在全量运行所有单元测试...", vim.log.levels.INFO)
+			run_in_bottom_term(cmd)
+		else
+			vim.notify("未找到测试工程！", vim.log.levels.WARN)
+		end
+	end, { desc = "Run ALL tests in solution" })
+	-- using System;
+	-- using System.IO;
+	-- using System.Linq;
+	-- using System.Reflection;
+	-- using System.Diagnostics;
+	-- using System.Runtime.Loader;
+	--
+	-- // =========================================================================
+	-- // 🎨 ANSI 终端色彩配置
+	-- // =========================================================================
+	-- const string Reset  = "\u001b[0m";
+	-- const string Bold   = "\u001b[1m";
+	-- const string Red    = "\u001b[1;31m";
+	-- const string Green  = "\u001b[1;32m";
+	-- const string Yellow = "\u001b[1;33m";
+	-- const string Cyan   = "\u001b[1;36m";
+	-- const string Gray   = "\u001b[90m";
+	--
+	-- string binDir = AppContext.BaseDirectory;
+	--
+	-- // 🛡️ 全局依赖自动救援钩子
+	-- AssemblyLoadContext.Default.Resolving += (context, assemblyName) =>
+	-- {
+	--     string expectedPath = Path.Combine(binDir, $"{assemblyName.Name}.dll");
+	--     return File.Exists(expectedPath) ? context.LoadFromAssemblyPath(expectedPath) : null;
+	-- };
+	--
+	-- // 提取命令行参数
+	-- string? targetDll = args.Length > 0 && !string.IsNullOrEmpty(args[0]) ? args[0] : null;
+	-- string? targetFQN = args.Length > 1 && !string.IsNullOrEmpty(args[1]) ? args[1] : null;
+	--
+	-- // =========================================================================
+	-- // 🚀 开头横幅 (Banner)
+	-- // =========================================================================
+	-- Console.WriteLine($"{Cyan}=============================================================={Reset}");
+	-- if (targetFQN != null) {
+	--     Console.WriteLine($"  {Bold}🎯 TARGETED TEST{Reset} : {Yellow}{targetFQN}{Reset} ({Gray}{targetDll}.dll{Reset})");
+	-- } else {
+	--     Console.WriteLine($"  {Bold}🚀 RUNNING ALL TESTS{Reset} : Scanning all project assemblies...");
+	-- }
+	-- Console.WriteLine($"{Cyan}=============================================================={Reset}\n");
+	--
+	-- var dllFiles = Directory.GetFiles(binDir, "*.dll")
+	--     .Where(path => {
+	--         string name = Path.GetFileNameWithoutExtension(path);
+	--         if (name.Contains("Test") || name.StartsWith("System.") || name.StartsWith("Microsoft.") || name.StartsWith("Godot")) return false;
+	--         return targetDll == null || name.Equals(targetDll, StringComparison.OrdinalIgnoreCase);
+	--     }).ToList();
+	--
+	-- int passCount = 0;
+	-- int failCount = 0;
+	-- var totalStopwatch = Stopwatch.StartNew();
+	--
+	-- // =========================================================================
+	-- // 🔍 遍历所有 DLL 并在内存中执行反射
+	-- // =========================================================================
+	-- foreach (var dllPath in dllFiles)
+	-- {
+	--     Assembly asm;
+	--     try {
+	--         asm = Assembly.LoadFrom(dllPath);
+	--     } catch {
+	--         continue;
+	--     }
+	--
+	--     // 单数复数通吃：Test 或 Tests
+	--     var testClasses = asm.GetTypes()
+	--         .Where(t => (t.Name == "Tests" || t.Name == "Test") &&
+	--                    (targetFQN == null || t.DeclaringType?.FullName == targetFQN));
+	--
+	--     foreach (var testClass in testClasses)
+	--     {
+	--         string hostClassName = testClass.DeclaringType?.FullName ?? testClass.Name;
+	--         Console.Write($"  {Bold}{hostClassName}{Reset} ... ");
+	--
+	--         var method = testClass.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+	--         if (method == null)
+	--         {
+	--             Console.WriteLine($"{Yellow}[SKIPPED] Missing 'public static void Run()'{Reset}");
+	--             continue;
+	--         }
+	--
+	--         var sw = Stopwatch.StartNew();
+	--         try
+	--         {
+	--             method.Invoke(null, null);
+	--             sw.Stop();
+	--             passCount++;
+	--             Console.WriteLine($"{Green}✔ PASS{Reset} {Gray}({sw.ElapsedMilliseconds}ms){Reset}");
+	--         }
+	--         catch (Exception ex)
+	--         {
+	--             sw.Stop();
+	--             failCount++;
+	--             var actualEx = ex.InnerException ?? ex;
+	--
+	--             // 🌟 核心黑魔法：通过 StackTrace 逆向抓取报错的具体文件名和行号！
+	--             var st = new StackTrace(actualEx, true);
+	--             var frame = st.GetFrames()?.FirstOrDefault(f => !string.IsNullOrEmpty(f.GetFileName()));
+	--
+	--             string location = frame != null
+	--                 ? $"{Path.GetFileName(frame.GetFileName())}:{frame.GetFileLineNumber()}"
+	--                 : "Unknown Location";
+	--
+	--             Console.WriteLine($"{Red}✖ FAIL{Reset} {Gray}({sw.ElapsedMilliseconds}ms){Reset}");
+	--             Console.WriteLine($"    {Red}┌─ 报错原因: {actualEx.Message}{Reset}");
+	--             Console.WriteLine($"    {Red}└─ 源码位置: {Yellow}{location}{Reset} in {Gray}{actualEx.TargetSite?.Name}(){Reset}\n");
+	--         }
+	--     }
+	-- }
+	--
+	-- totalStopwatch.Stop();
+	--
+	-- // =========================================================================
+	-- // 📊 结尾记分板 (Summary Box)
+	-- // =========================================================================
+	-- Console.WriteLine($"\n{Cyan}--------------------------------------------------------------{Reset}");
+	-- if (failCount > 0)
+	-- {
+	--     Console.WriteLine($"  {Red}{Bold}TEST RESULT : FAILED{Reset}");
+	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: {Red}{failCount}{Reset} | Total Time: {Gray}{totalStopwatch.ElapsedMilliseconds}ms{Reset}");
+	-- }
+	-- else if (passCount == 0)
+	-- {
+	--     Console.WriteLine($"  {Yellow}{Bold}TEST RESULT : NO TESTS EXECUTED{Reset}");
+	-- }
+	-- else
+	-- {
+	--     Console.WriteLine($"  {Green}{Bold}TEST RESULT : ALL PASSED! 🎉{Reset}");
+	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: 0 | Total Time: {Gray}{totalStopwatch.ElapsedMilliseconds}ms{Reset}");
+	-- }
+	-- Console.WriteLine($"{Cyan}--------------------------------------------------------------{Reset}\n");
+	--
+	-- // 规范：有测试挂了就给系统退出码 1，全对就返回 0
+	-- Environment.Exit(failCount > 0 ? 1 : 0);	--
+	--
+	--
+	--
+	--
+	--
 	-- AI suite extracted to lua/custom/ai/ (see require below)
 	require("custom.ai").setup()
 
