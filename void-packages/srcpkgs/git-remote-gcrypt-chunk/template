@@ -1,0 +1,21 @@
+# Template file for 'git-remote-gcrypt-chunk'
+pkgname=git-remote-gcrypt-chunk
+version=1.3
+revision=2
+hostmakedepends="python3-docutils"
+depends="git bash gnupg>=2"
+conflicts="git-remote-gcrypt"
+short_desc="PGP-encrypted git remotes"
+maintainer="Orphaned <orphan@voidlinux.org>"
+license="GPL-3.0-only"
+homepage="https://github.com/NamesAreOverrated/git-remote-gcrypt/"
+distfiles="https://github.com/NamesAreOverrated/git-remote-gcrypt/archive/6ba6bbb309fbeab73f2939396d792c15d578ecc8.tar.gz"
+checksum=31736ef77dcfcb41a8f34087aac16caf1cf54a4360e7e36459624e60739788b6
+
+do_install() {
+	DESTDIR=$DESTDIR prefix="/usr" ./install.sh
+}
+
+post_install() {
+	vdoc README.rst
+}

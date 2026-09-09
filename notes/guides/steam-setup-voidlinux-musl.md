@@ -179,7 +179,7 @@ for_window [class="Steam"] floating enable
 There is one ownership gotcha. The host's `/tmp` is a tmpfs, and the box's `/tmp` is just a bind mount of it, so both see the same X sockets. Gamescope needs `/tmp/.X11-unix` to be owned by your user:
 
 ```bash
-chown $USER /tmp/.X11-unix/X0
+chown $USER:$USER /tmp/.X11-unix
 ```
 
 After that a dry-run of gamescope produces no errors.

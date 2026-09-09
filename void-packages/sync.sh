@@ -35,7 +35,8 @@ grep -q '^libwlroots-0.21-vfx.so ' "$VP/common/shlibs" 2>/dev/null || {
 echo "==> building (order matters)"
 "$VP/xbps-src" pkg -E wlroots-vfx
 "$VP/xbps-src" pkg -E swirl
+"$VP/xbps-src" pkg -E git-remote-gcrypt-chunk
 
 echo "==> install (as root, from local repo)"
-echo "    sudo xbps-install -R \"$VP/hostdir/binpkgs\" wlroots-vfx swirl"
+echo "    sudo xbps-install -R \"$VP/hostdir/binpkgs\" wlroots-vfx swirl git-remote-gcrypt-chunk"
 

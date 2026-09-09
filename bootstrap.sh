@@ -157,4 +157,27 @@ cat << EOF
      gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
      gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'
 
+── Encryption ──
+
+export GPG_TTY=$(tty)
+gpg-list(){
+    gpg --list-secret-keys --keyid-format LONG
+}
+
+gpg --import <input|file>
+echo -e "5\ny\n" | gpg --command-fd 0 --expert --edit-key "KeyID" trust
+gpg-list() <- check if ultimate
+
+── Snapshots ──
+
+snap() {
+    sudo btrfs subvolume snapshot / "/.snapshots/$(date +%Y%m%d_%H%M%S)_$1"
+}
+
+alias snap-ls="ls -la /.snapshots"
+
+snap-rm() {
+    sudo btrfs subvolume delete "/.snapshots/$1"
+}
+
 EOF
