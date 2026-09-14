@@ -2039,6 +2039,7 @@ do
 			vim.notify("未找到测试工程！", vim.log.levels.WARN)
 		end
 	end, { desc = "Run ALL tests in solution" })
+	--
 	-- using System;
 	-- using System.IO;
 	-- using System.Linq;
@@ -2046,43 +2047,73 @@ do
 	-- using System.Diagnostics;
 	-- using System.Runtime.Loader;
 	--
+	-- static bool MatchTarget(Type? declaringType, string? targetFQN)
+	-- {
+	--     if (string.IsNullOrEmpty(targetFQN)) return true;
+	--     if (declaringType?.FullName == null) return false;
+	--
+	--     string actualFQN = declaringType.FullName.Replace('+', '.');
+	--     string target = targetFQN.Replace('+', '.');
+	--
+	--     if (actualFQN.Equals(target, StringComparison.OrdinalIgnoreCase))
+	--         return true;
+	--
+	--     if (actualFQN.StartsWith(target + ".", StringComparison.OrdinalIgnoreCase))
+	--         return true;
+	--
+	--     if (actualFQN.EndsWith("." + target, StringComparison.OrdinalIgnoreCase))
+	--         return true;
+	--
+	--     return false;
+	-- }
+	--
 	-- // =========================================================================
-	-- // 🎨 ANSI 终端色彩配置
+	-- // 🎨 ANSI 色彩
 	-- // =========================================================================
-	-- const string Reset  = "\u001b[0m";
-	-- const string Bold   = "\u001b[1m";
-	-- const string Red    = "\u001b[1;31m";
-	-- const string Green  = "\u001b[1;32m";
+	-- const string Reset = "\u001b[0m";
+	-- const string Bold = "\u001b[1m";
+	-- const string Red = "\u001b[1;31m";
+	-- const string Green = "\u001b[1;32m";
 	-- const string Yellow = "\u001b[1;33m";
-	-- const string Cyan   = "\u001b[1;36m";
-	-- const string Gray   = "\u001b[90m";
+	-- const string Cyan = "\u001b[1;36m";
+	-- const string Gray = "\u001b[90m";
 	--
 	-- string binDir = AppContext.BaseDirectory;
 	--
-	-- // 🛡️ 全局依赖自动救援钩子
 	-- AssemblyLoadContext.Default.Resolving += (context, assemblyName) =>
 	-- {
 	--     string expectedPath = Path.Combine(binDir, $"{assemblyName.Name}.dll");
 	--     return File.Exists(expectedPath) ? context.LoadFromAssemblyPath(expectedPath) : null;
 	-- };
 	--
-	-- // 提取命令行参数
 	-- string? targetDll = args.Length > 0 && !string.IsNullOrEmpty(args[0]) ? args[0] : null;
 	-- string? targetFQN = args.Length > 1 && !string.IsNullOrEmpty(args[1]) ? args[1] : null;
 	--
-	-- // =========================================================================
-	-- // 🚀 开头横幅 (Banner)
-	-- // =========================================================================
+	-- static string FormatDuration(Stopwatch sw)
+	-- {
+	--     double ms = sw.Elapsed.TotalMilliseconds;
+	--     if (ms < 1.0)
+	--     {
+	--         long us = (long)(sw.Elapsed.TotalMilliseconds * 1000);
+	--         return $"{Gray}({us}µs){Reset}";
+	--     }
+	--     return $"{Gray}({ms:F2}ms){Reset}";
+	-- }
+	--
 	-- Console.WriteLine($"{Cyan}=============================================================={Reset}");
-	-- if (targetFQN != null) {
+	-- if (targetFQN != null)
+	-- {
 	--     Console.WriteLine($"  {Bold}🎯 TARGETED TEST{Reset} : {Yellow}{targetFQN}{Reset} ({Gray}{targetDll}.dll{Reset})");
-	-- } else {
-	--     Console.WriteLine($"  {Bold}🚀 RUNNING ALL TESTS{Reset} : Scanning all project assemblies...");
+	-- }
+	-- else
+	-- {
+	--     Console.WriteLine($"  {Bold}🚀 RUNNING ALL TESTS{Reset} : Scanning all assemblies...");
 	-- }
 	-- Console.WriteLine($"{Cyan}=============================================================={Reset}\n");
 	--
 	-- var dllFiles = Directory.GetFiles(binDir, "*.dll")
-	--     .Where(path => {
+	--     .Where(path =>
+	--     {
 	--         string name = Path.GetFileNameWithoutExtension(path);
 	--         if (name.Contains("Test") || name.StartsWith("System.") || name.StartsWith("Microsoft.") || name.StartsWith("Godot")) return false;
 	--         return targetDll == null || name.Equals(targetDll, StringComparison.OrdinalIgnoreCase);
@@ -2092,60 +2123,70 @@ do
 	-- int failCount = 0;
 	-- var totalStopwatch = Stopwatch.StartNew();
 	--
-	-- // =========================================================================
-	-- // 🔍 遍历所有 DLL 并在内存中执行反射
-	-- // =========================================================================
 	-- foreach (var dllPath in dllFiles)
 	-- {
+	--
 	--     Assembly asm;
-	--     try {
+	--     try
+	--     {
 	--         asm = Assembly.LoadFrom(dllPath);
-	--     } catch {
+	--     }
+	--     catch
+	--     {
 	--         continue;
 	--     }
 	--
-	--     // 单数复数通吃：Test 或 Tests
 	--     var testClasses = asm.GetTypes()
-	--         .Where(t => (t.Name == "Tests" || t.Name == "Test") &&
-	--                    (targetFQN == null || t.DeclaringType?.FullName == targetFQN));
+	--           .Where(t => t.Name == "Tests" && MatchTarget(t.DeclaringType, targetFQN));
+	--
 	--
 	--     foreach (var testClass in testClasses)
 	--     {
-	--         string hostClassName = testClass.DeclaringType?.FullName ?? testClass.Name;
-	--         Console.Write($"  {Bold}{hostClassName}{Reset} ... ");
+	--         Console.WriteLine(testClass.Name);
+	--         string hostClassName = (testClass.DeclaringType?.FullName ?? testClass.Name).Replace('+', '.');
+	--         Console.WriteLine($"\n{Bold}📦 [{asm.GetName().Name}] {hostClassName}{Reset}");
 	--
-	--         var method = testClass.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
-	--         if (method == null)
+	--         var testMethods = testClass.GetMethods(BindingFlags.Public | BindingFlags.Static)
+	--             .Where(m => m.GetParameters().Length == 0 && m.ReturnType == typeof(void))
+	--             .OrderBy(m => m.Name);
+	--
+	--         bool anyMethods = false;
+	--
+	--         foreach (var method in testMethods)
 	--         {
-	--             Console.WriteLine($"{Yellow}[SKIPPED] Missing 'public static void Run()'{Reset}");
-	--             continue;
+	--             anyMethods = true;
+	--             Console.Write($"   ├── {method.Name} ... ");
+	--
+	--             var sw = Stopwatch.StartNew();
+	--             try
+	--             {
+	--                 method.Invoke(null, null);
+	--                 sw.Stop();
+	--                 passCount++;
+	--                 Console.WriteLine($"{Green}✔ PASS{Reset} {FormatDuration(sw)}");
+	--             }
+	--             catch (Exception ex)
+	--             {
+	--                 sw.Stop();
+	--                 failCount++;
+	--                 var actualEx = ex.InnerException ?? ex;
+	--
+	--                 var st = new StackTrace(actualEx, true);
+	--                 var frame = st.GetFrames()?.FirstOrDefault(f => !string.IsNullOrEmpty(f.GetFileName()));
+	--
+	--                 string location = frame != null
+	--                     ? $"{Path.GetFileName(frame.GetFileName())}:{frame.GetFileLineNumber()}"
+	--                     : "Unknown Location";
+	--
+	--                 Console.WriteLine($"{Red}✖ FAIL{Reset} {FormatDuration(sw)}");
+	--                 Console.WriteLine($"   │    {Red}┌─ 报错: {actualEx.Message}{Reset}");
+	--                 Console.WriteLine($"   │    {Red}└─ 位置: {Yellow}{location}{Reset} in {Gray}{actualEx.TargetSite?.Name}(){Reset}");
+	--             }
 	--         }
 	--
-	--         var sw = Stopwatch.StartNew();
-	--         try
+	--         if (!anyMethods)
 	--         {
-	--             method.Invoke(null, null);
-	--             sw.Stop();
-	--             passCount++;
-	--             Console.WriteLine($"{Green}✔ PASS{Reset} {Gray}({sw.ElapsedMilliseconds}ms){Reset}");
-	--         }
-	--         catch (Exception ex)
-	--         {
-	--             sw.Stop();
-	--             failCount++;
-	--             var actualEx = ex.InnerException ?? ex;
-	--
-	--             // 🌟 核心黑魔法：通过 StackTrace 逆向抓取报错的具体文件名和行号！
-	--             var st = new StackTrace(actualEx, true);
-	--             var frame = st.GetFrames()?.FirstOrDefault(f => !string.IsNullOrEmpty(f.GetFileName()));
-	--
-	--             string location = frame != null
-	--                 ? $"{Path.GetFileName(frame.GetFileName())}:{frame.GetFileLineNumber()}"
-	--                 : "Unknown Location";
-	--
-	--             Console.WriteLine($"{Red}✖ FAIL{Reset} {Gray}({sw.ElapsedMilliseconds}ms){Reset}");
-	--             Console.WriteLine($"    {Red}┌─ 报错原因: {actualEx.Message}{Reset}");
-	--             Console.WriteLine($"    {Red}└─ 源码位置: {Yellow}{location}{Reset} in {Gray}{actualEx.TargetSite?.Name}(){Reset}\n");
+	--             Console.WriteLine($"   └── {Yellow}[SKIPPED] No 'public static void' test methods found.{Reset}");
 	--         }
 	--     }
 	-- }
@@ -2153,13 +2194,13 @@ do
 	-- totalStopwatch.Stop();
 	--
 	-- // =========================================================================
-	-- // 📊 结尾记分板 (Summary Box)
+	-- // 📊 结尾记分板
 	-- // =========================================================================
 	-- Console.WriteLine($"\n{Cyan}--------------------------------------------------------------{Reset}");
 	-- if (failCount > 0)
 	-- {
 	--     Console.WriteLine($"  {Red}{Bold}TEST RESULT : FAILED{Reset}");
-	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: {Red}{failCount}{Reset} | Total Time: {Gray}{totalStopwatch.ElapsedMilliseconds}ms{Reset}");
+	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: {Red}{failCount}{Reset} | Total: {Gray}{totalStopwatch.Elapsed.TotalMilliseconds:F2}ms{Reset}");
 	-- }
 	-- else if (passCount == 0)
 	-- {
@@ -2168,15 +2209,11 @@ do
 	-- else
 	-- {
 	--     Console.WriteLine($"  {Green}{Bold}TEST RESULT : ALL PASSED! 🎉{Reset}");
-	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: 0 | Total Time: {Gray}{totalStopwatch.ElapsedMilliseconds}ms{Reset}");
+	--     Console.WriteLine($"  Passed: {Green}{passCount}{Reset} | Failed: 0 | Total: {Gray}{totalStopwatch.Elapsed.TotalMilliseconds:F2}ms{Reset}");
 	-- }
 	-- Console.WriteLine($"{Cyan}--------------------------------------------------------------{Reset}\n");
 	--
-	-- // 规范：有测试挂了就给系统退出码 1，全对就返回 0
 	-- Environment.Exit(failCount > 0 ? 1 : 0);	--
-	--
-	--
-	--
 	--
 	--
 	-- AI suite extracted to lua/custom/ai/ (see require below)
